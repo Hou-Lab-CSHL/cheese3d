@@ -13,4 +13,9 @@ Repository of Cheese3D source code and paper replication code.
 
 ## Run the demonstration notebook
 
+First, download the demo dataset from LINK HERE.
+Unpack the dataset:
+```
+tar -xvzf demo-data.tar.gz
+```
 Open the `demo.ipynb` notebook and run start to finish.
