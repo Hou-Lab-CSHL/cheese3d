@@ -6,7 +6,7 @@ Cheese3D is a pipeline for tracking mouse facial movements built on top of exist
 
 INSERT GIF OF FACIAL MOVEMENT w/ TRACKING
 
-If you utilize Cheese3D, please cite our preprint:
+If you use Cheese3D, please cite our preprint:
 ```
 @article {Daruwalla2024.05.07.593051,
     author = {Daruwalla, Kyle and Martin, Irene Nozal and Frankel, Andrew and Nagli{\v c}, Diana and Ahmad, Zainab and Hou, Xun Helen},
