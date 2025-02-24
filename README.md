@@ -1,10 +1,12 @@
 # Cheese3D
 
-Repository of Cheese3D source code and paper replication code.
+Cheese3D is a pipeline for tracking mouse facial movements built on top of existing tools like [DeepLabCut](https://github.com/DeepLabCut/DeepLabCut) and [Anipose](https://github.com/lambdaloop/anipose). By tracking anatomically-informed keypoints using multiple cameras registered in 3D, our pipeline produces sensitive, high-precision facial movement data that can be related internal state (e.g., electrophysiology).
 
-Cheese3D is a pipeline for tracking mouse facial movements built on top of existing tools like [DeepLabCut](https://github.com/DeepLabCut/DeepLabCut) and [Anipose](https://github.com/lambdaloop/anipose). By tracking anatomically-informed keypoints using multiple cameras registered in 3D, our pipeline produces sensitive, high-precision movement data that can be related internal state (e.g., electrophysiology).
+![](Cheese3D.gif)
 
-INSERT GIF OF FACIAL MOVEMENT w/ TRACKING
+Using a combination of hardware synchronization signals and a multi-stage pipeline, we are able to precisely synchronize video and electrophysiology data. This allows us to relate spikes recorded in the brainstem to various facial movements (here, we highlight two example units correlated with ipsilateral ear movements).
+
+![](Cheese3DSync.png)
 
 If you use Cheese3D, please cite our preprint:
 ```
