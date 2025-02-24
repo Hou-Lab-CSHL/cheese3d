@@ -23,6 +23,12 @@ If you use Cheese3D, please cite our preprint:
 }
 ```
 
+## Quick start
+
+First, follow the [installation instructions](#installation-instructions), then use the flow chart below.
+
+![](Cheese3DFlowchart.png)
+
 ## Installation instructions
 
 1. Install [pixi](https://pixi.sh/latest/#installation)
@@ -41,9 +47,14 @@ tar -xvzf demo-data.tar.gz
 ```
 Open the `demo.ipynb` notebook and run start to finish.
 
-## DeepLabCut configuration
+## How to use DeepLabCut with Cheese3D
 
-To train a DeepLabCut model on your own facial movement videos, please use the following project configuration parameters to match Cheese3D:
+Cheese3D is designed to integrate with the existing DeepLabCut framework.
+To train a DeepLabCut model on your own facial movement videos, follow [the single
+animal user guide](https://deeplabcut.github.io/DeepLabCut/docs/standardDeepLabCut_UserGuide.html#deeplabcut-user-guide-for-single-animal-projects) from DeepLabCut.
+
+When you reach [Step B "Configuring the Project"](https://deeplabcut.github.io/DeepLabCut/docs/standardDeepLabCut_UserGuide.html#b-configure-the-project), adjust your configuration file using the Cheese3D template below. Proceed with the rest of the guide.
+
 ```yaml
 # note that unspecified parameters are free to be set by the user
 numframes2pick: 5
@@ -78,9 +89,12 @@ bodyparts:
 - ref(head-post)
 ```
 
-## Anipose configuration
+## How to use Anipose with Cheese3D
 
-Given a DLC model, to generate 3D keypoints using Anipose, please refer to the following project configuration parameters to match Cheese3D:
+Given a trained DeepLabCut model (as configured [above](#how-to-use-deeplabcut-with-cheese3d)) and video data, Cheese3D is designed to integrate with Anipose to generate 3D keypoints over time. Start by following the [Anipose tutorial](https://anipose.readthedocs.io/en/latest/tutorial.html).
+
+To ensure that Anipose generates precise keypoints, [adjust the configuration parameters](https://anipose.readthedocs.io/en/latest/tutorial.html#understanding-configuration-parameters) using the template below.
+
 ```toml
 [labeling]
 scheme = [ [ "nose(bottom)", "nose(tip)", "nose(top)", "nose(bottom)",], [ "pad(top)(left)", "pad(side)(left)", "pad(center)", "pad(top)(left)",], [ "pad(top)(right)", "pad(side)(right)", "pad(center)", "pad(top)(right)",], [ "lowerlip", "upperlip(left)", "upperlip(right)", "lowerlip",], [ "eye(front)(left)", "eye(top)(left)", "eye(back)(left)", "eye(bottom)(left)", "eye(front)(left)",], [ "eye(front)(right)", "eye(top)(right)", "eye(back)(right)", "eye(bottom)(right)", "eye(front)(right)",], [ "ear(base)(left)", "ear(top)(left)", "ear(tip)(left)", "ear(bottom)(left)", "ear(base)(left)",], [ "ear(base)(right)", "ear(top)(right)", "ear(tip)(right)", "ear(bottom)(right)", "ear(base)(right)",], [ "ref(head-post)",],]
