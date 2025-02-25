@@ -40,7 +40,7 @@ First, follow the [installation instructions](#installation-instructions), then 
 
 ## Run the demonstration notebook
 
-First, download the demo dataset from LINK HERE.
+First, download the demo dataset from [here](https://www.dropbox.com/scl/fi/ppcmnx9ki5jhs5cfsm7bh/demo-data.tar.gz?rlkey=0x5vgnq9tbdbar2w26yptcwlv&e=1&st=drg5dh86&dl=0).
 Unpack the dataset:
 ```
 tar -xvzf demo-data.tar.gz
