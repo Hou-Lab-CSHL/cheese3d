@@ -124,9 +124,9 @@ Spatial synchronization is achieved with a manufactured calibration board with a
 
 To acquire high-resolution facial video while maintaining comfort for natural behavior, mice are acclimated to sitting in a tunnel with the head secured using a lightweight headpost, custom-designed to allow unobstructed viewing of all facial areas.
 
-See below the [headpost](final_headpost_design.stl) and [tunnel](mouse_tunnel_tube_mark21_v2.stl) models (note the parts are not to scale, we recommend referring to the manuscript or the .STL files in this folder for the true measurements).
+See below the [headpost](hardware/final_headpost_design.stl) and [tunnel](hardware/mouse_tunnel_tube_mark21_v2.stl) models (note the parts are not to scale, we recommend referring to the manuscript or the .STL files in this folder for the true measurements).
 
-![](headpost-and-tunnel.png)
+![](hardware/headpost-and-tunnel.png)
 
 ### Recording protocol
 
@@ -138,11 +138,11 @@ The following code was optimized to run on Windows and the following programs sh
 
 #### Organization
 
-- [`run-behavior.ps1`](run-behavior.ps1): The main script used to start recording
-- [`20230928_Bonsai_Behavior_6cam_hd.bonsai`](Bonsai-config/20230928_Bonsai_Behavior_6cam_hd.bonsai): Bonsai program that records from six cameras to Windows pipes and outputs serial port metadata from Arduino to `stdout`. Note you will need to change the serial number associated to the cameras and Arduino nodes.
-- [`ffmpeg_filter.txt`](ffmpeg_filter.txt): An FFMPEG "complex filter graph" specification used by `run-behavior.ps1` to post-process pipe output from Bonsai to video file
-- [`manual_recording.ino`](Arduino/manual_recording/manual_recording.ino): This code should be uploaded to the Arduino that will trigger the start of the recording. Note this board should be connected to the computer.
-- [`simple_LED_blink.ino`](Arduino/simple_LED_blink/simple_LED_blink.ino): This code should be uploaded to the Arduino that will send the pulse to the synchronizing LED. Note this board does not need to be connected to the computer, but to a power source.
+- [`run-behavior.ps1`](hardware/run-behavior.ps1): The main script used to start recording
+- [`20230928_Bonsai_Behavior_6cam_hd.bonsai`](hardware/Bonsai-config/20230928_Bonsai_Behavior_6cam_hd.bonsai): Bonsai program that records from six cameras to Windows pipes and outputs serial port metadata from Arduino to `stdout`. Note you will need to change the serial number associated to the cameras and Arduino nodes.
+- [`ffmpeg_filter.txt`](hardware/ffmpeg_filter.txt): An FFMPEG "complex filter graph" specification used by `run-behavior.ps1` to post-process pipe output from Bonsai to video file
+- [`manual_recording.ino`](hardware/Arduino/manual_recording/manual_recording.ino): This code should be uploaded to the Arduino that will trigger the start of the recording. Note this board should be connected to the computer.
+- [`simple_LED_blink.ino`](hardware/Arduino/simple_LED_blink/simple_LED_blink.ino): This code should be uploaded to the Arduino that will send the pulse to the synchronizing LED. Note this board does not need to be connected to the computer, but to a power source.
 
 #### Preparation
 
@@ -151,7 +151,7 @@ Open a Powershell prompt by going to the "Start Menu > Terminal". Change directo
 First, make sure the Arduino script `manual_recording` is uploaded, reset and running. Perform any actions to trigger recording on the Arduino. The Arduino script should be configured to send a "start" message on across the serial port after some delay or when a button is pressed.
 
 #### Run the behavior script:
-```powershell
+```bash 
 .\run-behavior.ps1 -EXP "chewing" -EXPERIMENTER "you" -SESSION="mice" -MOUSE "1" -COND "baseline"
 ```
 This will run the Bonsai program, which should start recording as soon as the "start" message is delivered over the serial port. It will also start FFMPEG after a 4 second delay (to ensure that the Bonsai program has finised creating the Windows pipes). As recording progresses, FFMPEG will print out the length of the video file written to disk and the speed of writing to disk (which should be around 0.9-1.0x).
