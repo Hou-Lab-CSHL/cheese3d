@@ -27,6 +27,7 @@ If you use Cheese3D, please cite our preprint:
 
 First, follow the [installation instructions](#installation-instructions). Next, either
 - Refer to the [usage guide](USAGE.md)
+- Refer to the [hardware guide](https://github.com/Hou-Lab-CSHL/cheese3d/tree/main/hardware)
 - Look at example of analysis with Cheese3D output from our preprint: [paper figure notebooks](https://github.com/Hou-Lab-CSHL/cheese3d/tree/main/paper/)
 
 ## Installation instructions
