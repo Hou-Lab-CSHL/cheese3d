@@ -1,0 +1,6 @@
+[0:v] transpose=1,transpose=1 [tl];
+[1:v] null [tr];
+[2:v] null [l];
+[3:v] transpose=1,transpose=1 [r];
+[4:v] null [bc];
+[5:v] null [tc];
