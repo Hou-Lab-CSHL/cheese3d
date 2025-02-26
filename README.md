@@ -38,12 +38,12 @@ The following notebooks contain the code required to reproduce the figures in ou
 
 | Example figure panel | Notebook | Description |
 |:--------------------:|:---------|:------------|
-| <img src="paper/Fig1Example.png" width=200> | `paper/Figure1.ipynb` | Framework and validation of capturing face-wide movement as 3D geometric features in mice |
-| <img src="paper/Fig2Example.png" width=200> | `paper/Figure2.ipynb` | Reduction in keypoint tracking jitter due to 3D triangulation of data from six camera views |
-| <img src="paper/Fig3Example.png" width=200> | `paper/Figure3.ipynb` | Distinct facial patterns track time during induction and recovery from ketamine-induced anesthesia |
-| <img src="paper/Fig4Example.png" width=200> | `paper/Figure4.ipynb` | Chewing kinematics in mouth and surrounding facial areas |
-| <img src="paper/Fig5-1Example.png" width=200> | `paper/Figure5-Part1.ipynb` | Stimulation triggered facial movements in anesthetized mice |
-| <img src="paper/Fig5-2Example.png" width=200> | `paper/Figure5-Part2.ipynb` | Synchronized Cheese3D with electrophysiology relates motor control activity to subtle facial movements |
+| <img src="paper/Fig1Example.png" width=200> | [`paper/fig1-cheese3d-accuracy.ipynb`](paper/fig1-cheese3d-accuracy.ipynb) | Framework and validation of capturing face-wide movement as 3D geometric features in mice |
+| <img src="paper/Fig2Example.png" width=200> | [`paper/fig2-cheese3d-jitter-analysis.ipynb`](paper/fig2-cheese3d-jitter-analysis.ipynb) | Reduction in keypoint tracking jitter due to 3D triangulation of data from six camera views |
+| <img src="paper/Fig3Example.png" width=200> | [`paper/fig3-cheese3d-general-anesthesia-eeg.ipynb`](paper/fig3-cheese3d-general-anesthesia-eeg.ipynb) | Distinct facial patterns track time during induction and recovery from ketamine-induced anesthesia |
+| <img src="paper/Fig4Example.png" width=200> | [`paper/fig4-cheese3d-chewing-whole-face-kinematics.ipynb`](paper/fig4-cheese3d-chewing-whole-face-kinematics.ipynb) | Chewing kinematics in mouth and surrounding facial areas |
+| <img src="paper/Fig5-1Example.png" width=200> | [`paper/fig5-part1-cheese3d-stimulation-triggered-movement.ipynb`](paper/fig5-part1-cheese3d-stimulation-triggered-movement.ipynb) | Stimulation triggered facial movements in anesthetized mice |
+| <img src="paper/Fig5-2Example.png" width=200> | [`paper/fig5-part2-cheese3d-synchronized-electrophysiology.ipynb`](paper/fig5-part2-cheese3d-synchronized-electrophysiology.ipynb) | Synchronized Cheese3D with electrophysiology relates motor control activity to subtle facial movements |
 
 ## Software pipeline installation instructions
 
@@ -92,7 +92,7 @@ See below the headpost and tunnel models (note the parts are not to scale, we re
 This guide provides an overview of the Cheese3D workflow including analyzing new data and training new models. We provide example projects and datasets to walk through this tutorial.
 
 > [!IMPORTANT]
-> Before starting, make sure you have installed Cheese3D as described in the [README](README.md).
+> Before starting, make sure you have installed Cheese3D as described in the [instructions](#software-pipeline-installation-instructions).
 
 Download the example projects and datasets HERE. Unpack the downloaded archive using:
 ```bash
@@ -136,9 +136,15 @@ We specify the `anipose=` flag to indicate which configuration file should be us
 
 From here, we can proceed with analysis:
 ```bash
-python run-anipose.py anipose=example-anipose run_data=true
+python run-anipose.py anipose=example-anipose run_all=true
 ```
 If data has already been analyzed, it will be skipped.
+
+Once analysis is complete, each recording will have an associated `pose-2d`, `pose-3d`, and `videos-compare` subfolder which contains the `h5`, `csv`, and video output of the pipeline. Below is an example comparison video for a recording in the example project. It highlights the raw (top row), 2D keypoints from the model (middle row), and 3D keypoints reprojected onto 2D views for visualization (bottom row).
+
+<p align="center">
+   <img src="Cheese3DPipelineOutput.gif" width=100%>
+</p>
 
 ### Stage 2: Training a new model
 
