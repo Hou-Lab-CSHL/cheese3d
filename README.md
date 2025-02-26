@@ -25,9 +25,9 @@ If you use Cheese3D, please cite our preprint:
 
 ## Quick start
 
-First, follow the [installation instructions](#installation-instructions), then use the flow chart below.
-
-![](Cheese3DFlowchart.png)
+First, follow the [installation instructions](#installation-instructions). Next, either
+- Refer to the [usage guide](USAGE.md)
+- Look at example of analysis with Cheese3D output from our preprint: [paper figure notebooks](https://github.com/Hou-Lab-CSHL/cheese3d/tree/main/paper/)
 
 ## Installation instructions
 
@@ -37,91 +37,3 @@ First, follow the [installation instructions](#installation-instructions), then 
 3. Change directories to the repository folder
    (`cd <path to repo>/cheese3d`)
 4. Activate the environment (`pixi shell`)
-
-## Run the demonstration notebook
-
-First, download the demo dataset from [here](https://www.dropbox.com/scl/fi/ppcmnx9ki5jhs5cfsm7bh/demo-data.tar.gz?rlkey=0x5vgnq9tbdbar2w26yptcwlv&e=1&st=drg5dh86&dl=0).
-Unpack the dataset:
-```
-tar -xvzf demo-data.tar.gz
-```
-Open the `demo.ipynb` notebook and run start to finish.
-
-## How to use DeepLabCut with Cheese3D
-
-Cheese3D is designed to integrate with the existing DeepLabCut framework.
-To train a DeepLabCut model on your own facial movement videos, follow [the single
-animal user guide](https://deeplabcut.github.io/DeepLabCut/docs/standardDeepLabCut_UserGuide.html#deeplabcut-user-guide-for-single-animal-projects) from DeepLabCut.
-
-When you reach [Step B "Configuring the Project"](https://deeplabcut.github.io/DeepLabCut/docs/standardDeepLabCut_UserGuide.html#b-configure-the-project), adjust your configuration file using the Cheese3D template below. Proceed with the rest of the guide.
-
-```yaml
-# note that unspecified parameters are free to be set by the user
-numframes2pick: 5
-bodyparts:
-- nose(bottom)
-- nose(tip)
-- nose(top)
-- pad(top)(left)
-- pad(side)(left)
-- pad(center)
-- pad(top)(right)
-- pad(side)(right)
-- lowerlip
-- upperlip(left)
-- upperlip(right)
-- eye(front)(left)
-- eye(top)(left)
-- eye(back)(left)
-- eye(bottom)(left)
-- eye(front)(right)
-- eye(top)(right)
-- eye(back)(right)
-- eye(bottom)(right)
-- ear(base)(left)
-- ear(top)(left)
-- ear(tip)(left)
-- ear(bottom)(left)
-- ear(base)(right)
-- ear(top)(right)
-- ear(tip)(right)
-- ear(bottom)(right)
-- ref(head-post)
-```
-
-## How to use Anipose with Cheese3D
-
-Given a trained DeepLabCut model (as configured [above](#how-to-use-deeplabcut-with-cheese3d)) and video data, Cheese3D is designed to integrate with Anipose to generate 3D keypoints over time. Start by following the [Anipose tutorial](https://anipose.readthedocs.io/en/latest/tutorial.html).
-
-To ensure that Anipose generates precise keypoints, [adjust the configuration parameters](https://anipose.readthedocs.io/en/latest/tutorial.html#understanding-configuration-parameters) using the template below.
-
-```toml
-[labeling]
-scheme = [ [ "nose(bottom)", "nose(tip)", "nose(top)", "nose(bottom)",], [ "pad(top)(left)", "pad(side)(left)", "pad(center)", "pad(top)(left)",], [ "pad(top)(right)", "pad(side)(right)", "pad(center)", "pad(top)(right)",], [ "lowerlip", "upperlip(left)", "upperlip(right)", "lowerlip",], [ "eye(front)(left)", "eye(top)(left)", "eye(back)(left)", "eye(bottom)(left)", "eye(front)(left)",], [ "eye(front)(right)", "eye(top)(right)", "eye(back)(right)", "eye(bottom)(right)", "eye(front)(right)",], [ "ear(base)(left)", "ear(top)(left)", "ear(tip)(left)", "ear(bottom)(left)", "ear(base)(left)",], [ "ear(base)(right)", "ear(top)(right)", "ear(tip)(right)", "ear(bottom)(right)", "ear(base)(right)",], [ "ref(head-post)",],]
-
-[filter]
-enabled = false
-type = "medfilt"
-medfilt = 13
-offset_threshold = 5
-score_threshold = 0.8
-spline = false
-
-[calibration]
-board_type = "charuco"
-board_size = [ 7, 7,]
-board_marker_bits = 4
-board_marker_dict_number = 50
-board_marker_length = 4.5
-board_square_side_length = 6
-
-[triangulation]
-triangulate = true
-cam_regex = "_([LRCTB]{1,2})(?=_|$)"
-manually_verify = false
-axes = [ [ "z", "nose(top)", "nose(bottom)",], [ "x", "eye(front)(left)", "eye(front)(right)",],]
-reference_point = "ref(head-post)"
-optim = true
-score_threshold = 0.9
-scale_smooth = 0.0
-```
