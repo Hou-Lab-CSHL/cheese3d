@@ -1,0 +1,44 @@
+defaults:
+- /labutils/aniposeconfig@_here_
+- _self_
+
+name: example-anipose
+dlc_model: ${paths.dlc.projects}/example-dlc-defaultuser-2023-12-14
+default_config: default-rig
+axes:
+- [z, nose(top), nose(bottom)]
+- [x, eye(front)(left), eye(front)(right)]
+ref_point: ref(head-post)
+bodypart_ignore:
+- ref(head-post)
+filter_type: null
+
+sessions:
+- name: 20231031_B6-B20-B21-B26-B31-B32-B33_chew_rig2
+  mouse: B6
+  condition: bl
+  cal_run: "001"
+- name: 20231031_B6-B20-B21-B26-B31-B32-B33_chew_rig2
+  mouse: B20
+  condition: bl
+  cal_run: "001"
+- name: 20231031_B6-B20-B21-B26-B31-B32-B33_chew_rig2
+  mouse: B21
+  condition: bl
+  cal_run: "001"
+- name: 20231031_B6-B20-B21-B26-B31-B32-B33_chew_rig2
+  mouse: B26
+  condition: bl
+  cal_run: "001"
+- name: 20231031_B6-B20-B21-B26-B31-B32-B33_chew_rig2
+  mouse: B31
+  condition: bl
+  cal_run: "001"
+- name: 20231031_B6-B20-B21-B26-B31-B32-B33_chew_rig2
+  mouse: B32
+  condition: bl
+  cal_run: "001"
+- name: 20231031_B6-B20-B21-B26-B31-B32-B33_chew_rig2
+  mouse: B33
+  condition: bl
+  cal_run: "001"

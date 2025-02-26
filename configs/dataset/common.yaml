@@ -1,0 +1,13 @@
+name: ???
+mouse: ([BRMHCDEF][0-9]+)
+condition: null
+run: null
+cal_run: null
+concat_videos: false
+fps: 100
+stimulus_window:
+  start: 1 # number of seconds before
+  end: 2 # number of seconds after
+mistrials: []
+ephys:
+  type: null

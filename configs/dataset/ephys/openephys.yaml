@@ -1,0 +1,8 @@
+# the find_openephys function is from cheese3d.configutils.find_openephys
+# see the docstring for more info
+
+type: openephys
+path: ${find_openephys:${paths.repo},${dataset.name},${dataset.mouse},${dataset.run}}
+sync_channel: 32
+sync_threshold: 0.5
+sample_rate: 30000

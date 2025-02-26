@@ -1,6 +1,17 @@
 demo-data/
 demo-data.tar.gz
 
+# data sources
+video-data/
+ephys-data/
+
+# dlc and anipose
+dlc-projects/
+anipose-projects/
+
+# output files
+job-output/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

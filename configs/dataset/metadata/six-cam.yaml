@@ -1,0 +1,18 @@
+# the find_csv function is from cheese3d.configutils.find_csv
+# see the docstring for more info
+
+path: ${find_csv:${paths.repo},${dataset.name},${dataset.mouse},${dataset.condition},${dataset.run},${paths.video_data}}
+headers:
+- TLTimestamp
+- TLIndex
+- TRTimestamp
+- TRIndex
+- LTimestamp
+- LIndex
+- RTimestamp
+- RIndex
+- BCTimestamp
+- BCIndex
+- TCTimestamp
+- TCIndex
+- Event

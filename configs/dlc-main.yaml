@@ -1,0 +1,33 @@
+defaults:
+- main
+- _self_
+
+# sessions to analyze for active learning
+# a list like dlc.sessions
+# can only include sessions in dlc.sessions
+# example:
+# - name: 20231031_B8_long-anes_rig2
+# - name: 20240101_B6-B8_long-anes_rig2
+#   mouse: B6
+# the name must be specified for every entry
+# the mouse, condition, and run can be specified optionally
+# if multiple entries in dlc.sessions match an entry
+# then the all matches are used for active learning
+refinement_sessions: ${dlc.sessions}
+
+setupproject: false
+replace_symlinks: false # done already as part of setupproject
+write_dlc_config: true
+mergelabels: false
+extractframes: false
+disable_active_learning: false
+labelframes: false
+checklabels: false
+builddataset: false
+mergedataset: false
+initweights: false
+trainnetwork: false
+evaluatenetwork: false
+analyzedataset: false
+filteroutput: false
+labeledvideos: false

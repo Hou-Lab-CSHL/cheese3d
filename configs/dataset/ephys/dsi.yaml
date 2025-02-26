@@ -1,0 +1,7 @@
+# the find_dsi function is from cheese3d.configutils.find_dsi
+# see the docstring for more info
+
+type: dsi
+path: ${find_dsi:${paths.repo},${dataset.name},${dataset.mouse},${dataset.run}}
+sync_threshold: 0.1
+sample_rate: 1000
