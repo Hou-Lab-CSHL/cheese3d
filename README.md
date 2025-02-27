@@ -91,8 +91,8 @@ Placing the cameras at the recommended locations will result in the following ke
 | nose(top) | Y | Y | Y | Y | Y | Y |
 | pad(top)(left) | Y | | Y | | | Y |
 | pad(side)(left) | Y | | | | | Y |
-| pad(top)(right) | Y | | | Y | | Y |
-| pad(side)(right) | Y | | | | | Y |
+| pad(top)(right) | | Y | | Y | | Y |
+| pad(side)(right) | | Y | | | | Y |
 | pad(center) | Y | Y | | | | Y |
 | lowerlip | Y | Y | |  | | Y |
 | upperlip(left) | Y | | | | | Y |
