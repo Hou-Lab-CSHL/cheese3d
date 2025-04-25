@@ -30,6 +30,7 @@ dependencies = [
     "pims == 0.6.*",
     "seaborn",
     "open-ephys-python-tools",
+    "typer-slim[standard]>=0.15.3,<0.16",
 ]
 
 [tool.pixi.dependencies]
