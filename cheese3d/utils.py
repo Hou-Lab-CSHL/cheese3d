@@ -1,5 +1,3 @@
-import itertools
-
 def unzip(iter):
     return tuple(list(x) for x in zip(*iter))
 

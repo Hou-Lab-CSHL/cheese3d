@@ -1,8 +1,9 @@
-from omegaconf import MISSING
+import os
+import hydra
+from omegaconf import MISSING, OmegaConf
 from dataclasses import dataclass, field
-from typing import Optional, Dict, Tuple, List
+from typing import Optional, Dict, List
 from pathlib import Path
-from collections import defaultdict
 
 from cheese3d.utils import maybe
 
@@ -220,7 +221,27 @@ _DEFAULT_KEYPOINTS = [
 @dataclass
 class ProjectConfig:
     name: str = MISSING
+    root: str = os.getcwd()
+    recording_root: str = "videos"
     videos: MultiViewConfig = field(default_factory=SixCamViewConfig)
-    calibration: MultiViewConfig = MISSING
+    calibration: str = ".*_cal_.*"
     recording_groups: Optional[Dict[str, str]] = None
+    recordings: Dict[str, str] = field(default_factory=lambda: {})
     keypoints: List[KeypointConfig] = field(default_factory=lambda: _DEFAULT_KEYPOINTS)
+
+    @classmethod
+    def load(cls, cfg_file: str | Path,
+             cfg_dir: Optional[str | Path] = None,
+             overrides: Optional[List[str]] = None):
+        overrides = maybe(overrides, [])
+        cfg_file = Path(cfg_file)
+        if cfg_dir is not None:
+            cfg_dir = Path(cfg_dir)
+            overrides.append(f"++hydra.searchpath=[file://{str(cfg_dir.absolute())}]")
+        with hydra.initialize_config_dir(str(cfg_file.parent.absolute()),
+                                         version_base=None):
+            cfg = hydra.compose(cfg_file.name, overrides=overrides)
+        schema = OmegaConf.structured(cls)
+        cfg = OmegaConf.merge(schema, cfg)
+
+        return cfg
