@@ -226,7 +226,7 @@ class ProjectConfig:
     videos: MultiViewConfig = field(default_factory=SixCamViewConfig)
     calibration: str = ".*_cal_.*"
     recording_groups: Optional[Dict[str, str]] = None
-    recordings: Dict[str, str] = field(default_factory=lambda: {})
+    recordings: List[str] = field(default_factory=lambda: [])
     keypoints: List[KeypointConfig] = field(default_factory=lambda: _DEFAULT_KEYPOINTS)
 
     @classmethod
