@@ -103,12 +103,12 @@ class MultiViewConfig(dict[str, VideoConfig]):
 class SixCamViewConfig(MultiViewConfig):
     def __init__(self):
         super().__init__()
-        self.topleft = VideoConfig(".*_TL_.*.avi")
-        self.topright = VideoConfig(".*_TR_.*.avi")
-        self.left = VideoConfig(".*_L_.*.avi")
-        self.right = VideoConfig(".*_R_.*.avi")
-        self.topcenter = VideoConfig(".*_TC_.*.avi")
-        self.bottomcenter = VideoConfig(".*_BC_.*.avi")
+        self.topleft = VideoConfig("TL")
+        self.topright = VideoConfig("TR")
+        self.left = VideoConfig("L")
+        self.right = VideoConfig("R")
+        self.topcenter = VideoConfig("TC")
+        self.bottomcenter = VideoConfig("BC")
 
 @dataclass
 class KeypointConfig:
@@ -223,10 +223,10 @@ class ProjectConfig:
     name: str = MISSING
     root: str = os.getcwd()
     recording_root: str = "videos"
-    videos: MultiViewConfig = field(default_factory=SixCamViewConfig)
-    calibration: str = ".*_cal_.*"
-    recording_groups: Optional[Dict[str, str]] = None
-    recordings: List[str] = field(default_factory=lambda: [])
+    video_regex: str = r".*_(?P<cal>[^_]+)_(?P<view>TL|TR|L|R|TC|BC).*\.avi"
+    views: MultiViewConfig = field(default_factory=SixCamViewConfig)
+    calibration: Dict[str, str] = field(default_factory=lambda: {"cal": "cal"})
+    recordings: List[Dict[str, str]] = field(default_factory=lambda: [])
     keypoints: List[KeypointConfig] = field(default_factory=lambda: _DEFAULT_KEYPOINTS)
 
     @classmethod

@@ -1,3 +1,4 @@
+import os
 import re
 from pathlib import Path
 from dataclasses import dataclass
@@ -8,23 +9,46 @@ from typing import List, Dict
 from cheese3d.config import MultiViewConfig, ProjectConfig, KeypointConfig
 from cheese3d.utils import reglob
 
-def find_videos(dir: Path, recordings: List[str], views: MultiViewConfig):
+def find_videos(dir: Path,
+                recording_regex: str,
+                calibration_keys: Dict[str, str],
+                recordings: List[Dict[str, str]],
+                views: MultiViewConfig):
     videos = {}
+    calibration_videos = {}
     for recording in recordings:
+        if "name" in recording:
+            session = recording["name"]
+        else:
+            raise RuntimeError("Recording entries must contain the 'name' key")
         grouped_videos = {}
+        grouped_cal_videos = {}
+        matches = [re.match(recording_regex, f)
+                   for f in reglob(recording_regex, path=str(dir / session))]
         for view, cfg in views.items():
-            matches = reglob(rf".*({cfg.path}).*\.avi", path=str(dir / recording))
-            unique_matches = [re.sub(rf"(.*)({cfg.path})(.*)\.avi", r"\1_\3.avi", f)
-                              for f in matches]
-            for group, video in zip(unique_matches, matches):
-                group = group.split("/")[-1]
-                if group in grouped_videos:
-                    grouped_videos[group][view] = video
-                else:
-                    grouped_videos[group] = {view: video}
+            for match in matches:
+                if (match is None) or (match.group("view") != cfg.path):
+                    continue
+                if all(match.group(k) == v
+                       for k, v in recording.items() if k != "name"):
+                    group_key = (
+                        session +
+                        "/" +
+                        match.group(0).replace(match.group("view"), "").split(os.sep)[-1]
+                    )
+                    if all(match.group(k) == v
+                           for k, v in calibration_keys.items()):
+                        group_dict = grouped_cal_videos
+                    else:
+                        group_dict = grouped_videos
+                    if group_key in grouped_videos:
+                        group_dict[group_key][view] = Path(match.group(0))
+                    else:
+                        group_dict[group_key] = {view: Path(match.group(0))}
         videos.update(**grouped_videos)
+        calibration_videos.update(**grouped_cal_videos)
 
-    return videos
+    return videos, calibration_videos
 
 @dataclass
 class Ch3DProject:
@@ -41,6 +65,7 @@ class Ch3DProject:
     name: str
     root: Path
     recordings: Dict[str, Dict[str, Path]]
+    calibrations: Dict[str, Dict[str, Path]]
     keypoints: List[KeypointConfig]
 
     @property
@@ -62,10 +87,19 @@ class Ch3DProject:
 
     @classmethod
     def from_cfg(cls, cfg: ProjectConfig):
-        recordings = find_videos(Path(cfg.root) / cfg.name / cfg.recording_root,
-                                 cfg.recordings,
-                                 cfg.videos)
-        return cls(cfg.name, Path(cfg.root), recordings, keypoints=cfg.keypoints)
+        recordings, calibrations  = find_videos(
+            dir=Path(cfg.root) / cfg.name / cfg.recording_root,
+            recording_regex=cfg.video_regex,
+            calibration_keys=cfg.calibration,
+            recordings=cfg.recordings,
+            views=cfg.views
+        )
+
+        return cls(name=cfg.name,
+                   root=Path(cfg.root),
+                   recordings=recordings,
+                   calibrations=calibrations,
+                   keypoints=cfg.keypoints)
 
     @classmethod
     def from_path(cls, path: str | Path, cfg_dir = None, overrides = None):
@@ -90,7 +124,8 @@ class Ch3DProject:
         pty.print(tab)
         # print recording infor
         tab = table.Table("Recording", "Files", title="Project recordings")
-        for name, files in self.recordings.items():
-            tab.add_row(name, ",\n".join([f"{view}: {Path(file).relative_to(self.path)}"
-                                         for view, file in files.items()]))
+        for group, files in self.recordings.items():
+            tab.add_row(group,
+                        ",\n".join([f"{view}: {file.relative_to(self.path)}"
+                                    for view, file in files.items()]))
         pty.print(tab)
