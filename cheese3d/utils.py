@@ -1,5 +1,6 @@
 import os
 import re
+from deeplabcut.modelzoo.api.spatiotemporal_adapt import Path
 import pims
 import cv2
 from glob import glob
@@ -60,6 +61,16 @@ class VideoFrames:
 
     def __str__(self):
         return str(self.path)
+
+    @staticmethod
+    def get_dims(path: str | Path):
+        cap = cv2.VideoCapture(str(path)) # type: ignore
+        height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT) # type: ignore
+        width = cap.get(cv2.CAP_PROP_FRAME_WIDTH) # type: ignore
+        cap.release()
+        cv2.destroyAllWindows() # type: ignore
+
+        return height, width
 
 def cropframe(image, crop_coords):
     sx, ex, sy, ey = crop_coords

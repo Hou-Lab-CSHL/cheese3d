@@ -15,6 +15,30 @@ def setup(name: str, path = os.getcwd()):
     Ch3DProject.initialize(name=name, root=Path(path))
     rich.print(f"Successfully initialized {name} :tada:")
 
+@cli.command(name="import")
+def import_model(
+    model: Annotated[str, typer.Argument(help="Path to existing model")],
+    name: Annotated[str, typer.Argument(help="Name of project")] = ".",
+    model_type: Annotated[str, typer.Option(
+        help="Type of project to import (only 'dlc' is valid for now)."
+    )] = "dlc",
+    path: Annotated[str, typer.Option(help="Path to project directory")] = os.getcwd(),
+    configs: Annotated[str, typer.Option(
+        help="Path to additional configs (relative to project)"
+    )] = "configs",
+    config_overrides: Annotated[Optional[List[str]], typer.Argument(
+        help="Config overrides passed to Hydra (https://hydra.cc/docs/intro/)"
+    )] = None
+):
+    """Import an existing pose model project into NAME."""
+    full_path = Path(path) / name
+    config_dir = Path(path) / configs
+    overrides = maybe(config_overrides, [])
+    project = Ch3DProject.from_path(full_path, config_dir,
+                                    overrides=overrides,
+                                    model_import=model)
+    project._export_labels()
+
 @cli.command()
 def summarize(
     name: Annotated[str, typer.Argument(help="Name of project")] = ".",
@@ -50,3 +74,21 @@ def sync(
     overrides = maybe(config_overrides, [])
     project = Ch3DProject.from_path(full_path, config_dir, overrides=overrides)
     project.synchronize()
+
+@cli.command()
+def extract(
+    name: Annotated[str, typer.Argument(help="Name of project")] = ".",
+    path: Annotated[str, typer.Option(help="Path to project directory")] = os.getcwd(),
+    configs: Annotated[str, typer.Option(
+        help="Path to additional configs (relative to project)"
+    )] = "configs",
+    config_overrides: Annotated[Optional[List[str]], typer.Argument(
+        help="Config overrides passed to Hydra (https://hydra.cc/docs/intro/)"
+    )] = None
+):
+    """Extract frames from video data."""
+    full_path = Path(path) / name
+    config_dir = Path(path) / configs
+    overrides = maybe(config_overrides, [])
+    project = Ch3DProject.from_path(full_path, config_dir, overrides=overrides)
+    project.extract_frames()

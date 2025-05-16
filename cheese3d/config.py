@@ -1,5 +1,4 @@
 import hydra
-from hydra.core.config_store import ConfigStore
 from omegaconf import MISSING, OmegaConf, DictConfig
 from dataclasses import dataclass, field
 from typing import Optional, Dict, List, Any
@@ -37,26 +36,6 @@ class VideoConfig:
         else:
             return self.extra_crops.get(crop, [None, None, None, None])
 
-    # def instantiate(self, shift = 0, crop = "default"):
-    #     """
-    #     Return a `fepipeline.behavior.VideoFrames` instance based on this config.
-
-    #     Arguments:
-    #     - `shift`: an optional +/- shift (in frames) applied to the video data
-    #     - `crop`: set to `"default"` to crop video using `self.crop` or set to
-    #         a key in `self.extra_crops` to use that bounding box instead
-    #     """
-    #     if isinstance(self.path, str):
-    #         video = filter_videos([self.path], [self.filterspec])[0]
-    #         crop_area = self.get_crop(crop)
-
-    #         return VideoFrames(video, shift, crop_area)
-    #     else:
-    #         videos = filter_videos(self.path, [self.filterspec for _ in self.path])
-    #         crop_area = self.get_crop(crop)
-
-    #         return [VideoFrames(video, shift, crop_area) for video in videos]
-
     def as_list(self):
         if isinstance(self.path, str):
             return [self.path]
@@ -83,13 +62,6 @@ class MultiViewConfig(dict[str, VideoConfig]):
 
     def __setattr__(self, name: str, value: VideoConfig, /) -> None:
         self[name] = value
-
-    # def instantiate(self, shifts = None, crops = None):
-    #     shifts = maybe(shifts, defaultdict(lambda: 0))
-    #     crops = maybe(crops, defaultdict(lambda: "default"))
-
-    #     return MulticamView({view: cfg.instantiate(shifts[view], crops[view])
-    #                          for view, cfg in self.items()})
 
     def as_dict(self):
         return dict(self)
@@ -215,6 +187,12 @@ _DEFAULT_KEYPOINTS = [
                           "bottomcenter"])
 ]
 
+@dataclass
+class ModelConfig:
+    name: str = MISSING
+    backend_type: str = "dlc"
+    backend_options: Dict[str, Any] = field(default_factory=(lambda: {}))
+
 _DEFAULT_VIDEO_REGEX = {
     "_path_": r".*_{{type}}_{{view}}.*\.avi",
     "type": r"[^_]+",
@@ -227,17 +205,18 @@ class ProjectConfig:
     recording_root: str = "videos"
     ephys_root: Optional[str] = None
     video_regex: Any = MISSING
+    model: ModelConfig = MISSING
     ephys_regex: Optional[Any] = None
     ephys_param: Optional[Dict[str, Any]] = None
     fps: int = 100
+    sync: SyncConfig = MISSING
+    recordings: List[Dict[str, str]] = MISSING
     views: MultiViewConfig = MISSING
     calibration: Dict[str, str] = MISSING
-    recordings: List[Dict[str, str]] = MISSING
     keypoints: List[KeypointConfig] = MISSING
-    sync: SyncConfig = MISSING
 
     @classmethod
-    def default(cls):
+    def default(cls, skip_model = False):
         cfg = OmegaConf.structured(cls)
         cfg.video_regex = _DEFAULT_VIDEO_REGEX
         cfg.views = SixCamViewConfig()
@@ -245,6 +224,8 @@ class ProjectConfig:
         cfg.recordings = []
         cfg.keypoints = _DEFAULT_KEYPOINTS
         cfg.sync = SyncConfig(["crosscorr", "regression", "samplerate"])
+        if not skip_model:
+            cfg.model = ModelConfig()
 
         return cfg
 
@@ -258,11 +239,13 @@ class ProjectConfig:
             else:
                 raise RuntimeError("Regex must contain '_path_' key.")
             for key, rstr in regex.items():
-                full_regex = full_regex.replace("{{" + key + "}}", fr"(?P<{key}>{rstr})") # type: ignore
+                full_regex = full_regex.replace("{{" + key + "}}", # type: ignore
+                                                fr"(?P<{key}>{rstr})")
 
             return full_regex
         else:
-            raise TypeError(f"Regex must be a string or a dictionary, got {type(regex)} instead.")
+            raise TypeError("Regex must be a string or a dictionary,"
+                            f" got {type(regex)} instead.")
 
     @classmethod
     def load(cls, cfg_file: str | Path,

@@ -166,8 +166,6 @@ class OpenEphysSyncReader(SyncSignalReader):
     def root_path(self):
         return self.source
 
-        return date, mouse, cond, run
-
 class DSISyncReader(SyncSignalReader):
     def load_signal(self):
         led_df = pd.read_csv(self.source, sep="\t", names=["timestamp", "signal"])

@@ -1,4 +1,3 @@
-import os
 import re
 from pathlib import Path
 from dataclasses import dataclass, field
@@ -8,10 +7,15 @@ from rich import print as rprint
 from typing import List, Dict, Optional, Any
 from collections import namedtuple
 
-from cheese3d.config import MultiViewConfig, ProjectConfig, KeypointConfig
+from cheese3d.config import (MultiViewConfig,
+                             KeypointConfig,
+                             ModelConfig,
+                             ProjectConfig)
 from cheese3d.synchronize.core import SyncConfig, SyncPipeline
 from cheese3d.synchronize.readers import VideoSyncReader, get_ephys_reader
-from cheese3d.utils import reglob
+from cheese3d.backends.core import Pose2dBackend
+from cheese3d.backends.dlc import DLCBackend
+from cheese3d.utils import reglob, maybe
 
 class RecordingKey(namedtuple("RecordingKey", ["session", "name", "attributes"])):
     __slots__ = () # prevent __dict__ creation since subclassing namedtuple
@@ -116,6 +120,40 @@ def find_ephys(dir: Path, ephys_regex: str, recordings: Dict[RecordingKey, Dict[
 
     return ephys
 
+def build_model_backend(cfg: ModelConfig | str,
+                        root: Path,
+                        recordings: Dict[RecordingKey, Dict[str, Path]],
+                        view_cfg: MultiViewConfig,
+                        keypoints: List[KeypointConfig]):
+    if isinstance(cfg, str):
+        videos = []
+        crops = []
+        for recording in recordings.values():
+            for view, video in recording.items():
+                videos.append(video)
+                crops.append(view_cfg[view].get_crop())
+
+        return DLCBackend.from_existing(Path(cfg), root, videos, keypoints, crops)
+    elif cfg.backend_type == "dlc":
+        videos = []
+        crops = []
+        for recording in recordings.values():
+            for view, video in recording.items():
+                videos.append(video)
+                crops.append(view_cfg[view].get_crop())
+
+        return DLCBackend(
+            name=cfg.name,
+            root_dir=root,
+            videos=videos,
+            keypoints=keypoints,
+            experimenter=cfg.backend_options.get("experimenter", "default"),
+            date=cfg.backend_options.get("date"),
+            crops=crops
+        )
+    else:
+        raise RuntimeError(f"Unrecognized model backend {cfg.backend_type}.")
+
 @dataclass
 class Ch3DProject:
     """
@@ -135,6 +173,7 @@ class Ch3DProject:
     calibrations: Dict[RecordingKey, Dict[str, Path]]
     view_config: MultiViewConfig
     keypoints: List[KeypointConfig]
+    model: Pose2dBackend
     ephys_recordings: Optional[Dict[RecordingKey, Path]] = None
     ephys_param: Optional[Dict[str, Any]] = None
     sync: SyncConfig = field(
@@ -146,20 +185,23 @@ class Ch3DProject:
         return self.root / self.name
 
     @staticmethod
-    def initialize(name: str, root: str | Path):
+    def initialize(name: str, root: str | Path, skip_model = False):
         location = Path(root) / name
         if location.exists():
             raise RuntimeError(f"Project {name} already exists under {root}")
         # create project directory
         location.mkdir(parents=True)
         # create a empty configuration file
-        cfg = ProjectConfig.default()
+        cfg = ProjectConfig.default(skip_model=skip_model)
         cfg.name = name
         with location / "config.yaml" as f:
             OmegaConf.save(cfg, f)
+        # create empty model folder
+        model_path = location / "model"
+        model_path.mkdir(parents=True)
 
     @classmethod
-    def from_cfg(cls, cfg: ProjectConfig, root: str | Path):
+    def from_cfg(cls, cfg: ProjectConfig, root: str | Path, model_import = None):
         root = Path(root)
         recordings, calibrations = find_videos(
             dir=root / cfg.name / cfg.recording_root,
@@ -182,10 +224,17 @@ class Ch3DProject:
             )
         else:
             ephys = None
+        model_cfg = maybe(model_import, cfg.model)
+        model = build_model_backend(model_cfg,
+                                    root=(root / cfg.name / "model" / "backend"),
+                                    recordings=recordings,
+                                    view_cfg=cfg.views,
+                                    keypoints=cfg.keypoints)
 
         return cls(name=cfg.name,
                    root=root,
                    fps=cfg.fps,
+                   model=model,
                    recordings=recordings,
                    calibrations=calibrations,
                    view_config=cfg.views,
@@ -195,12 +244,13 @@ class Ch3DProject:
                    sync=cfg.sync)
 
     @classmethod
-    def from_path(cls, path: str | Path, cfg_dir = None, overrides = None):
+    def from_path(cls, path: str | Path,
+                  cfg_dir = None, overrides = None, model_import = None):
         path = Path(path)
         cfg_file = path / "config.yaml"
         cfg = ProjectConfig.load(cfg_file, cfg_dir, overrides)
 
-        return cls.from_cfg(cfg, path.parent) # type: ignore
+        return cls.from_cfg(cfg, path.parent, model_import=model_import) # type: ignore
 
     def summarize(self):
         pty = console.Console()
@@ -279,3 +329,28 @@ class Ch3DProject:
                 pipeline = SyncPipeline.from_cfg(self.sync, video_reader, ephys_reader)
                 align_params = pipeline.align_recording()
                 pipeline.write_json(align_params)
+
+    def _create_labels(self):
+        # create label root if it doesn't exist
+        label_path = self.path / "labels"
+        label_path.mkdir(exist_ok=True)
+        # create label folders for each video
+        for recording in self.recordings.values():
+            for video in recording.values():
+                label_folder = label_path / video.stem
+                label_folder.mkdir(exist_ok=True)
+
+    def _export_labels(self):
+        self._create_labels()
+        label_paths = {
+            p.name: p
+            for p in map(Path, reglob(r".*", str(self.path / "labels")))
+        }
+        self.model.export_c3d_labels(label_paths)
+
+    def extract_frames(self):
+        self.model.extract_frames()
+        self._export_labels()
+
+    def label_frames(self):
+        raise NotImplementedError("Labeling tool not integrated yet.")
