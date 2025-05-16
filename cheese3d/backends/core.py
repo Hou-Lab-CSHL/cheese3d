@@ -9,7 +9,7 @@ class Pose2dBackend:
         """Import existing backend project into Cheese3D project."""
         raise NotImplementedError("This method should be implemented by subclasses.")
 
-    def import_c3d_labels(self):
+    def import_c3d_labels(self, videos: Dict[str, Path]):
         """Import Cheese3D label file and store backend file."""
         raise NotImplementedError("This method should be implemented by subclasses.")
 

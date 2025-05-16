@@ -353,6 +353,17 @@ class Ch3DProject:
                 label_folder = label_path / video.stem
                 label_folder.mkdir(exist_ok=True)
 
+    def _import_labels(self):
+        if self.model is None:
+            raise RuntimeError("Cannot import labels when pose model does not exist "
+                               "(hint: maybe you forgot to set `model.name` in the config?")
+        self._create_labels()
+        label_paths = {
+            p.name: p
+            for p in map(Path, reglob(r".*", str(self.model_path / self.model.name / "labels")))
+        }
+        self.model.import_c3d_labels(label_paths)
+
     def _export_labels(self):
         if self.model is None:
             raise RuntimeError("Cannot export labels when pose model does not exist "
@@ -365,6 +376,7 @@ class Ch3DProject:
         self.model.export_c3d_labels(label_paths)
 
     def extract_frames(self):
+        self._import_labels()
         if self.model is None:
             raise RuntimeError("Cannot extract frames when pose model does not exist "
                                "(hint: maybe you forgot to set `model.name` in the config?")
@@ -375,6 +387,7 @@ class Ch3DProject:
         raise NotImplementedError("Labeling tool not integrated yet.")
 
     def train(self, gpu):
+        self._import_labels()
         if self.model is None:
             raise RuntimeError("Cannot train model when pose model does not exist "
                                "(hint: maybe you forgot to set `model.name` in the config?")

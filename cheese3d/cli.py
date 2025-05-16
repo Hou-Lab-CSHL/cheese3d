@@ -39,7 +39,7 @@ def import_model(
     )] = None
 ):
     """Import an existing pose model project into NAME."""
-    project = _build_project(name, path, configs, config_overrides, model_import=model)
+    project = _build_project(path, name, configs, config_overrides, model_import=model)
     project._export_labels()
     rich.print(f"Done importing {model.split(os.sep)[-1]} :white_check_mark:")
 
@@ -55,7 +55,7 @@ def summarize(
     )] = None
 ):
     """Summarize a Cheese3D project based on its configuration file."""
-    project = _build_project(name, path, configs, config_overrides)
+    project = _build_project(path, name, configs, config_overrides)
     project.summarize()
 
 @cli.command()
@@ -70,7 +70,7 @@ def sync(
     )] = None
 ):
     """Synchronize the video (and possibly ephys) files in a Cheese3D project."""
-    project = _build_project(name, path, configs, config_overrides)
+    project = _build_project(path, name, configs, config_overrides)
     project.synchronize()
     rich.print("Synchronization completed! :white_check_mark:")
 
@@ -86,7 +86,7 @@ def extract(
     )] = None
 ):
     """Extract frames from video data."""
-    project = _build_project(name, path, configs, config_overrides)
+    project = _build_project(path, name, configs, config_overrides)
     project.extract_frames()
     rich.print("Frames extracted! :white_check_mark:")
 
@@ -94,7 +94,7 @@ def extract(
 def train(
     name: Annotated[str, typer.Argument(help="Name of project")] = ".",
     path: Annotated[str, typer.Option(help="Path to project directory")] = os.getcwd(),
-    gpu: Annotated[int | List[int], typer.Option(help="GPU ID(s) to use")] = 0,
+    gpu: Annotated[int, typer.Option(help="GPU ID(s) to use")] = 0,
     configs: Annotated[str, typer.Option(
         help="Path to additional configs (relative to project)"
     )] = "configs",
@@ -103,6 +103,20 @@ def train(
     )] = None
 ):
     """Train 2d pose model."""
-    project = _build_project(name, path, configs, config_overrides)
+    project = _build_project(path, name, configs, config_overrides)
     project.train(gpu)
     rich.print("Training complete :spaceship:")
+
+@cli.command()
+def debug(
+    name: Annotated[str, typer.Argument(help="Name of project")] = ".",
+    path: Annotated[str, typer.Option(help="Path to project directory")] = os.getcwd(),
+    configs: Annotated[str, typer.Option(
+        help="Path to additional configs (relative to project)"
+    )] = "configs",
+    config_overrides: Annotated[Optional[List[str]], typer.Argument(
+        help="Config overrides passed to Hydra (https://hydra.cc/docs/intro/)"
+    )] = None
+):
+    project = _build_project(path, name, configs, config_overrides)
+    project._import_labels()
