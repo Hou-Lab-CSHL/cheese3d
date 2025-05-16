@@ -5,6 +5,7 @@ description = "Sensitive detection and analysis of whole-face movement in mice."
 authors = [{ name = "Hou Lab CSHL", email = "the.hou.lab@gmail.com" }]
 readme = "README.md"
 requires-python = "==3.10.*"
+scripts = { cheese3d = "cheese3d.cli:cli" }
 dependencies = [
     "ipython",
     "ipykernel",
@@ -18,7 +19,7 @@ dependencies = [
     "hydra-core",
     "joblib",
     "torch <= 1.12.0",
-    "napari-deeplabcut @ https://github.com/Hou-Lab-CSHL/napari-deeplabcut.git",
+    # "napari-deeplabcut @ https://github.com/Hou-Lab-CSHL/napari-deeplabcut.git",
     "aniposelib @ https://github.com/Hou-Lab-CSHL/aniposelib.git#jax",
     "anipose @ https://github.com/Hou-Lab-CSHL/anipose.git",
     "opencv-contrib-python == 4.7.*",
@@ -26,45 +27,12 @@ dependencies = [
     "opencv-python-headless == 4.7.*",
     # "vtk == 9.3.*",
     # "mayavi == 4.8.2",
-    "av == 9.2.0",
+    # "av == 9.2.0",
     "pims == 0.6.*",
     "seaborn",
     "open-ephys-python-tools",
     "typer-slim[standard]>=0.15.3,<0.16",
 ]
-
-[tool.pixi.dependencies]
-c-compiler = "*"
-cxx-compiler = "*"
-ffmpeg = "==4.3.2"
-
-[tool.pixi.target.linux-64.dependencies]
-cudatoolkit = "11.7.*"
-cudnn = "8.*"
-
-[tool.pixi.target.osx-arm64.dependencies]
-tensorflow-deps = "*"
-hdf5 = "*"
-pytables = "*"
-
-[tool.pixi.target.linux-64.pypi-dependencies]
-blosc2 = "*"
-tensorflow = "==2.10.*"
-jax = { version = ">=0.4, <0.5", extras = ["cuda12_pip"] }
-deeplabcut = { git = "https://github.com/Hou-Lab-CSHL/DeepLabCut.git", extras = ["gui", "tf"] }
-
-[tool.pixi.target.osx-arm64.pypi-dependencies]
-tensorflow-macos = "==2.10.*"
-tensorflow-metal = "==0.6.*"
-jax = { version = ">=0.4, <0.5", extras = ["cpu"] }
-deeplabcut = { git = "https://github.com/Hou-Lab-CSHL/DeepLabCut.git", extras = ["gui", "apple_mchips"] }
-
-[tool.pixi.project]
-channels = ["conda-forge", "nvidia", "apple"]
-platforms = ["linux-64", "osx-arm64"]
-
-[tool.pixi.pypi-dependencies]
-cheese3d = { path = ".", editable = true }
 
 [build-system]
 build-backend = "hatchling.build"
@@ -72,3 +40,58 @@ requires = ["hatchling"]
 
 [tool.hatch.metadata]
 allow-direct-references = true
+
+# PIXI SPECIFIC
+
+[tool.pixi.workspace]
+channels = ["conda-forge", "nvidia", "apple"]
+platforms = ["linux-64", "osx-arm64"]
+
+[tool.pixi.environments]
+docs = { features = ["docs"] }
+
+[tool.pixi.tasks]
+docs = "cd docs && pixi run -e docs sphinx-build -b html source _build/html"
+docs-serve = "cd docs && pixi run -e docs sphinx-autobuild --port 8090 -b html source _build/html"
+
+[tool.pixi.host-dependencies]
+python = "3.10.*"
+
+[tool.pixi.dependencies]
+c-compiler = "*"
+cxx-compiler = "*"
+ffmpeg = "==4.4.1"
+av = "==9.2.0"
+
+[tool.pixi.pypi-dependencies]
+cheese3d = { path = ".", editable = true }
+
+[tool.pixi.target.linux-64.dependencies]
+cudatoolkit = "11.7.*"
+cudnn = "8.*"
+
+[tool.pixi.target.linux-64.pypi-dependencies]
+blosc2 = "*"
+tensorflow = "==2.10.*"
+jax = { version = ">=0.4, <0.5", extras = ["cuda12_pip"] }
+deeplabcut = { git = "https://github.com/Hou-Lab-CSHL/DeepLabCut.git", extras = ["tf"] }
+
+[tool.pixi.target.osx-arm64.dependencies]
+tensorflow-deps = "*"
+hdf5 = "*"
+pytables = "*"
+
+[tool.pixi.target.osx-arm64.pypi-dependencies]
+tensorflow-macos = "==2.10.*"
+tensorflow-metal = "==0.6.*"
+jax = { version = ">=0.4, <0.5", extras = ["cpu"] }
+deeplabcut = { git = "https://github.com/Hou-Lab-CSHL/DeepLabCut.git", extras = ["apple_mchips"] }
+
+[tool.pixi.feature.docs.pypi-dependencies]
+sphinx = ">=7.2.0,<8.0.0"
+sphinx-autodoc-typehints = ">=1.25.0,<2.0.0"
+myst-parser = ">=2.0.0,<3.0.0"
+nbsphinx = ">=0.9.0,<1.0.0"
+sphinx-autobuild = ">=2024.10.3,<2025"
+sphinx-book-theme = ">=1.1.4,<2"
+sphinxemoji = ">=0.3.1,<0.4"

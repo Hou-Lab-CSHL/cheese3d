@@ -1,4 +1,5 @@
 import re
+import os
 from pathlib import Path
 from dataclasses import dataclass, field
 from omegaconf import OmegaConf
@@ -193,7 +194,11 @@ class Ch3DProject:
 
     @property
     def model_path(self):
-        return self.root / self.name / self.model_root
+        return self.path / self.model_root
+
+    @property
+    def triangulation_path(self):
+        return self.path / "triangulation"
 
     @staticmethod
     def initialize(name: str, root: str | Path, skip_model = False):
@@ -392,3 +397,36 @@ class Ch3DProject:
             raise RuntimeError("Cannot train model when pose model does not exist "
                                "(hint: maybe you forgot to set `model.name` in the config?")
         self.model.train(gpu)
+
+
+    def _setup_anipose(self):
+        # make anipose project folder
+        self.triangulation_path.mkdir(exist_ok=True)
+        # create calibration subfolder
+        calibration_path = self.triangulation_path / "calibration"
+        calibration_path.mkdir(exist_ok=True)
+        for recording, videos in self.calibrations.items():
+            session_path = calibration_path / recording.name
+            session_path.mkdir(exist_ok=True)
+            for video in videos:
+                src = Path(self.path / video)
+                dst = session_path / src.name
+                relpath = Path(os.path.relpath(src, session_path))
+                if dst.exists():
+                    os.remove(dst)
+                os.symlink(relpath, dst)
+        # create videos subfolder
+        calibration_path = self.triangulation_path / "calibration"
+        calibration_path.mkdir(exist_ok=True)
+        for recording, videos in self.calibrations.items():
+            session_path = calibration_path / recording.name
+            session_path.mkdir(exist_ok=True)
+            for video in videos:
+                src = Path(self.path / video)
+                dst = session_path / src.name
+                relpath = Path(os.path.relpath(src, session_path))
+                if dst.exists():
+                    os.remove(dst)
+                os.symlink(relpath, dst)
+
+    # def calibrate(self):
