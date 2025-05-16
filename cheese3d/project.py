@@ -373,3 +373,9 @@ class Ch3DProject:
 
     def label_frames(self):
         raise NotImplementedError("Labeling tool not integrated yet.")
+
+    def train(self, gpu):
+        if self.model is None:
+            raise RuntimeError("Cannot train model when pose model does not exist "
+                               "(hint: maybe you forgot to set `model.name` in the config?")
+        self.model.train(gpu)

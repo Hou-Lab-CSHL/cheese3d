@@ -9,6 +9,14 @@ from cheese3d.utils import maybe
 
 cli = typer.Typer(no_args_is_help=True)
 
+def _build_project(path, name, configs, overrides, **kwargs):
+    full_path = Path(path) / name
+    config_dir = Path(path) / configs
+    overrides = maybe(overrides, [])
+
+    return Ch3DProject.from_path(full_path, config_dir,
+                                 overrides=overrides, **kwargs)
+
 @cli.command()
 def setup(name: str, path = os.getcwd()):
     """Setup a new Cheese3D project called NAME under --path."""
@@ -31,13 +39,9 @@ def import_model(
     )] = None
 ):
     """Import an existing pose model project into NAME."""
-    full_path = Path(path) / name
-    config_dir = Path(path) / configs
-    overrides = maybe(config_overrides, [])
-    project = Ch3DProject.from_path(full_path, config_dir,
-                                    overrides=overrides,
-                                    model_import=model)
+    project = _build_project(name, path, configs, config_overrides, model_import=model)
     project._export_labels()
+    rich.print(f"Done importing {model.split(os.sep)[-1]} :white_check_mark:")
 
 @cli.command()
 def summarize(
@@ -51,10 +55,7 @@ def summarize(
     )] = None
 ):
     """Summarize a Cheese3D project based on its configuration file."""
-    full_path = Path(path) / name
-    config_dir = Path(path) / configs
-    overrides = maybe(config_overrides, [])
-    project = Ch3DProject.from_path(full_path, config_dir, overrides=overrides)
+    project = _build_project(name, path, configs, config_overrides)
     project.summarize()
 
 @cli.command()
@@ -69,11 +70,9 @@ def sync(
     )] = None
 ):
     """Synchronize the video (and possibly ephys) files in a Cheese3D project."""
-    full_path = Path(path) / name
-    config_dir = Path(path) / configs
-    overrides = maybe(config_overrides, [])
-    project = Ch3DProject.from_path(full_path, config_dir, overrides=overrides)
+    project = _build_project(name, path, configs, config_overrides)
     project.synchronize()
+    rich.print("Synchronization completed! :white_check_mark:")
 
 @cli.command()
 def extract(
@@ -87,8 +86,23 @@ def extract(
     )] = None
 ):
     """Extract frames from video data."""
-    full_path = Path(path) / name
-    config_dir = Path(path) / configs
-    overrides = maybe(config_overrides, [])
-    project = Ch3DProject.from_path(full_path, config_dir, overrides=overrides)
+    project = _build_project(name, path, configs, config_overrides)
     project.extract_frames()
+    rich.print("Frames extracted! :white_check_mark:")
+
+@cli.command()
+def train(
+    name: Annotated[str, typer.Argument(help="Name of project")] = ".",
+    path: Annotated[str, typer.Option(help="Path to project directory")] = os.getcwd(),
+    gpu: Annotated[int | List[int], typer.Option(help="GPU ID(s) to use")] = 0,
+    configs: Annotated[str, typer.Option(
+        help="Path to additional configs (relative to project)"
+    )] = "configs",
+    config_overrides: Annotated[Optional[List[str]], typer.Argument(
+        help="Config overrides passed to Hydra (https://hydra.cc/docs/intro/)"
+    )] = None
+):
+    """Train 2d pose model."""
+    project = _build_project(name, path, configs, config_overrides)
+    project.train(gpu)
+    rich.print("Training complete :spaceship:")

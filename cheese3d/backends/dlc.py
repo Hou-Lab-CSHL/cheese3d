@@ -145,3 +145,11 @@ class DLCBackend(Pose2dBackend):
                            userfeedback=False,
                            crop=True,
                            videos_list=videos)
+
+    def train(self, gpu):
+        import deeplabcut as dlc
+        dlc.train_network(config=self.config_path,
+                          gputouse=gpu)
+        dlc.evaluate_network(config=self.config_path,
+                             gputouse=gpu,
+                             per_keypoint_evaluation=True)
