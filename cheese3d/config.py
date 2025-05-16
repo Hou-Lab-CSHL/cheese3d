@@ -1,14 +1,12 @@
 import hydra
-from omegaconf import MISSING, OmegaConf
+from hydra.core.config_store import ConfigStore
+from omegaconf import MISSING, OmegaConf, DictConfig
 from dataclasses import dataclass, field
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Any
 from pathlib import Path
 
-from cheese3d.utils import maybe
-
-# (top left x, top left y, bottom right x, bottom right y)
-# (xstart, xend, ystart, yend)
-BoundingBox = List[Optional[int]]
+from cheese3d.utils import maybe, BoundingBox
+from cheese3d.synchronize.core import SyncConfig
 
 @dataclass
 class VideoConfig:
@@ -31,13 +29,13 @@ class VideoConfig:
     extra_crops: Optional[Dict[str, BoundingBox]] = None
     filterspec: Optional[Dict[str, float]] = None
 
-    def get_crop(self, crop = "default"):
+    def get_crop(self, crop = "default") -> BoundingBox:
         if crop == "default":
             return self.crop
         elif self.extra_crops is None:
-            return (None, None, None, None)
+            return [None, None, None, None]
         else:
-            return self.extra_crops.get(crop, (None, None, None, None))
+            return self.extra_crops.get(crop, [None, None, None, None])
 
     # def instantiate(self, shift = 0, crop = "default"):
     #     """
@@ -217,15 +215,54 @@ _DEFAULT_KEYPOINTS = [
                           "bottomcenter"])
 ]
 
+_DEFAULT_VIDEO_REGEX = {
+    "_path_": r".*_{{type}}_{{view}}.*\.avi",
+    "type": r"[^_]+",
+    "view": r"TL|TR|L|R|TC|BC"
+}
+
 @dataclass
 class ProjectConfig:
     name: str = MISSING
     recording_root: str = "videos"
-    video_regex: str = r".*_(?P<cal>[^_]+)_(?P<view>TL|TR|L|R|TC|BC).*\.avi"
-    views: MultiViewConfig = field(default_factory=SixCamViewConfig)
-    calibration: Dict[str, str] = field(default_factory=lambda: {"cal": "cal"})
-    recordings: List[Dict[str, str]] = field(default_factory=lambda: [])
-    keypoints: List[KeypointConfig] = field(default_factory=lambda: _DEFAULT_KEYPOINTS)
+    ephys_root: Optional[str] = None
+    video_regex: Any = MISSING
+    ephys_regex: Optional[Any] = None
+    ephys_param: Optional[Dict[str, Any]] = None
+    fps: int = 100
+    views: MultiViewConfig = MISSING
+    calibration: Dict[str, str] = MISSING
+    recordings: List[Dict[str, str]] = MISSING
+    keypoints: List[KeypointConfig] = MISSING
+    sync: SyncConfig = MISSING
+
+    @classmethod
+    def default(cls):
+        cfg = OmegaConf.structured(cls)
+        cfg.video_regex = _DEFAULT_VIDEO_REGEX
+        cfg.views = SixCamViewConfig()
+        cfg.calibration = {"type": "cal"}
+        cfg.recordings = []
+        cfg.keypoints = _DEFAULT_KEYPOINTS
+        cfg.sync = SyncConfig(["crosscorr", "regression", "samplerate"])
+
+        return cfg
+
+    @staticmethod
+    def build_regex(regex):
+        if isinstance(regex, str):
+            return regex
+        elif isinstance(regex, dict) or isinstance(regex, DictConfig):
+            if "_path_" in regex:
+                full_regex = regex["_path_"]
+            else:
+                raise RuntimeError("Regex must contain '_path_' key.")
+            for key, rstr in regex.items():
+                full_regex = full_regex.replace("{{" + key + "}}", fr"(?P<{key}>{rstr})") # type: ignore
+
+            return full_regex
+        else:
+            raise TypeError(f"Regex must be a string or a dictionary, got {type(regex)} instead.")
 
     @classmethod
     def load(cls, cfg_file: str | Path,
@@ -243,5 +280,6 @@ class ProjectConfig:
             cfg = hydra.compose(cfg_file.name, overrides=overrides)
         schema = OmegaConf.structured(cls)
         cfg = OmegaConf.merge(schema, cfg)
+        cfg = OmegaConf.to_object(cfg)
 
         return cfg

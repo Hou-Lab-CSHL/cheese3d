@@ -32,3 +32,21 @@ def summarize(
     overrides = maybe(config_overrides, [])
     project = Ch3DProject.from_path(full_path, config_dir, overrides=overrides)
     project.summarize()
+
+@cli.command()
+def sync(
+    name: Annotated[str, typer.Argument(help="Name of project")] = ".",
+    path: Annotated[str, typer.Option(help="Path to project directory")] = os.getcwd(),
+    configs: Annotated[str, typer.Option(
+        help="Path to additional configs (relative to project)"
+    )] = "configs",
+    config_overrides: Annotated[Optional[List[str]], typer.Argument(
+        help="Config overrides passed to Hydra (https://hydra.cc/docs/intro/)"
+    )] = None
+):
+    """Synchronize the video (and possibly ephys) files in a Cheese3D project."""
+    full_path = Path(path) / name
+    config_dir = Path(path) / configs
+    overrides = maybe(config_overrides, [])
+    project = Ch3DProject.from_path(full_path, config_dir, overrides=overrides)
+    project.synchronize()
