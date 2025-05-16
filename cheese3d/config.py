@@ -1,4 +1,3 @@
-import os
 import hydra
 from omegaconf import MISSING, OmegaConf
 from dataclasses import dataclass, field
@@ -221,7 +220,6 @@ _DEFAULT_KEYPOINTS = [
 @dataclass
 class ProjectConfig:
     name: str = MISSING
-    root: str = os.getcwd()
     recording_root: str = "videos"
     video_regex: str = r".*_(?P<cal>[^_]+)_(?P<view>TL|TR|L|R|TC|BC).*\.avi"
     views: MultiViewConfig = field(default_factory=SixCamViewConfig)
@@ -235,6 +233,8 @@ class ProjectConfig:
              overrides: Optional[List[str]] = None):
         overrides = maybe(overrides, [])
         cfg_file = Path(cfg_file)
+        if not cfg_file.exists():
+            raise FileNotFoundError(f"Config file at path {cfg_file} does not exist.")
         if cfg_dir is not None:
             cfg_dir = Path(cfg_dir)
             overrides.append(f"++hydra.searchpath=[file://{str(cfg_dir.absolute())}]")

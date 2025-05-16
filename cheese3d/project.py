@@ -86,9 +86,10 @@ class Ch3DProject:
             OmegaConf.save(cfg, f)
 
     @classmethod
-    def from_cfg(cls, cfg: ProjectConfig):
+    def from_cfg(cls, cfg: ProjectConfig, root: str | Path):
+        root = Path(root)
         recordings, calibrations  = find_videos(
-            dir=Path(cfg.root) / cfg.name / cfg.recording_root,
+            dir=root / cfg.name / cfg.recording_root,
             recording_regex=cfg.video_regex,
             calibration_keys=cfg.calibration,
             recordings=cfg.recordings,
@@ -96,17 +97,18 @@ class Ch3DProject:
         )
 
         return cls(name=cfg.name,
-                   root=Path(cfg.root),
+                   root=root,
                    recordings=recordings,
                    calibrations=calibrations,
                    keypoints=cfg.keypoints)
 
     @classmethod
     def from_path(cls, path: str | Path, cfg_dir = None, overrides = None):
-        cfg_file = Path(path) / "config.yaml"
+        path = Path(path)
+        cfg_file = path / "config.yaml"
         cfg = ProjectConfig.load(cfg_file, cfg_dir, overrides)
 
-        return cls.from_cfg(cfg) # type: ignore
+        return cls.from_cfg(cfg, path.parent) # type: ignore
 
     def summarize(self):
         pty = console.Console()
@@ -118,7 +120,7 @@ class Ch3DProject:
         tab.add_row("Root Path", str(self.root))
         pty.print(tab)
         # print keypoint info
-        tab = table.Table("Label", "Groups", "Views", title="Project keypoints")
+        tab = table.Table("Label", "Group(s)", "View(s)", title="Project keypoints")
         for pt in self.keypoints:
             tab.add_row(pt.label, ", ".join(pt.groups), ", ".join(pt.views))
         pty.print(tab)
