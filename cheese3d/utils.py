@@ -1,11 +1,11 @@
 import os
 import re
-from deeplabcut.modelzoo.api.spatiotemporal_adapt import Path
 import pims
 import cv2
 from glob import glob
 from typing import List, Optional
 from contextlib import contextmanager
+from pathlib import Path
 
 # (top left x, top left y, bottom right x, bottom right y)
 # (xstart, xend, ystart, yend)

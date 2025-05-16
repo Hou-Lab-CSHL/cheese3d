@@ -120,21 +120,27 @@ def find_ephys(dir: Path, ephys_regex: str, recordings: Dict[RecordingKey, Dict[
 
     return ephys
 
-def build_model_backend(cfg: ModelConfig | str,
+def build_model_backend(cfg: ModelConfig | str | Path,
                         root: Path,
                         recordings: Dict[RecordingKey, Dict[str, Path]],
                         view_cfg: MultiViewConfig,
                         keypoints: List[KeypointConfig]):
-    if isinstance(cfg, str):
+    if isinstance(cfg, str) or isinstance(cfg, Path):
         videos = []
         crops = []
         for recording in recordings.values():
             for view, video in recording.items():
                 videos.append(video)
                 crops.append(view_cfg[view].get_crop())
+        existing_project = Path(cfg)
+        name = existing_project.name.split("-", 1)[0]
+        root = root / name / "backend"
 
-        return DLCBackend.from_existing(Path(cfg), root, videos, keypoints, crops)
+        return DLCBackend.from_existing(existing_project, root, videos, keypoints, crops)
     elif cfg.backend_type == "dlc":
+        if cfg.name is None:
+            return None
+
         videos = []
         crops = []
         for recording in recordings.values():
@@ -144,7 +150,7 @@ def build_model_backend(cfg: ModelConfig | str,
 
         return DLCBackend(
             name=cfg.name,
-            root_dir=root,
+            root_dir=root / cfg.name / "backend",
             videos=videos,
             keypoints=keypoints,
             experimenter=cfg.backend_options.get("experimenter", "default"),
@@ -168,12 +174,13 @@ class Ch3DProject:
     """
     name: str
     root: Path
+    model_root: str
     fps: int
     recordings: Dict[RecordingKey, Dict[str, Path]]
     calibrations: Dict[RecordingKey, Dict[str, Path]]
     view_config: MultiViewConfig
     keypoints: List[KeypointConfig]
-    model: Pose2dBackend
+    model: Optional[Pose2dBackend]
     ephys_recordings: Optional[Dict[RecordingKey, Path]] = None
     ephys_param: Optional[Dict[str, Any]] = None
     sync: SyncConfig = field(
@@ -183,6 +190,10 @@ class Ch3DProject:
     @property
     def path(self):
         return self.root / self.name
+
+    @property
+    def model_path(self):
+        return self.root / self.name / self.model_root
 
     @staticmethod
     def initialize(name: str, root: str | Path, skip_model = False):
@@ -196,9 +207,6 @@ class Ch3DProject:
         cfg.name = name
         with location / "config.yaml" as f:
             OmegaConf.save(cfg, f)
-        # create empty model folder
-        model_path = location / "model"
-        model_path.mkdir(parents=True)
 
     @classmethod
     def from_cfg(cls, cfg: ProjectConfig, root: str | Path, model_import = None):
@@ -226,13 +234,14 @@ class Ch3DProject:
             ephys = None
         model_cfg = maybe(model_import, cfg.model)
         model = build_model_backend(model_cfg,
-                                    root=(root / cfg.name / "model" / "backend"),
+                                    root=(root / cfg.name / cfg.model_root),
                                     recordings=recordings,
                                     view_cfg=cfg.views,
                                     keypoints=cfg.keypoints)
 
         return cls(name=cfg.name,
                    root=root,
+                   model_root=cfg.model_root,
                    fps=cfg.fps,
                    model=model,
                    recordings=recordings,
@@ -260,6 +269,7 @@ class Ch3DProject:
         tab.add_column("Value")
         tab.add_row("Name", self.name)
         tab.add_row("Root Path", str(self.root))
+        tab.add_row("Model Path", str(self.model_path))
         if self.ephys_param:
             tab.add_row(
                 "Ephys Params",
@@ -331,8 +341,11 @@ class Ch3DProject:
                 pipeline.write_json(align_params)
 
     def _create_labels(self):
+        if self.model is None:
+            raise RuntimeError("Cannot create labels when pose model does not exist "
+                               "(hint: maybe you forgot to set `model.name` in the config?")
         # create label root if it doesn't exist
-        label_path = self.path / "labels"
+        label_path = self.model_path / self.model.name / "labels"
         label_path.mkdir(exist_ok=True)
         # create label folders for each video
         for recording in self.recordings.values():
@@ -341,14 +354,20 @@ class Ch3DProject:
                 label_folder.mkdir(exist_ok=True)
 
     def _export_labels(self):
+        if self.model is None:
+            raise RuntimeError("Cannot export labels when pose model does not exist "
+                               "(hint: maybe you forgot to set `model.name` in the config?")
         self._create_labels()
         label_paths = {
             p.name: p
-            for p in map(Path, reglob(r".*", str(self.path / "labels")))
+            for p in map(Path, reglob(r".*", str(self.model_path / self.model.name / "labels")))
         }
         self.model.export_c3d_labels(label_paths)
 
     def extract_frames(self):
+        if self.model is None:
+            raise RuntimeError("Cannot extract frames when pose model does not exist "
+                               "(hint: maybe you forgot to set `model.name` in the config?")
         self.model.extract_frames()
         self._export_labels()
 

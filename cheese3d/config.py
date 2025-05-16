@@ -1,5 +1,5 @@
 import hydra
-from omegaconf import MISSING, OmegaConf, DictConfig
+from omegaconf import MISSING, OmegaConf, DictConfig, SCMode
 from dataclasses import dataclass, field
 from typing import Optional, Dict, List, Any
 from pathlib import Path
@@ -189,7 +189,7 @@ _DEFAULT_KEYPOINTS = [
 
 @dataclass
 class ModelConfig:
-    name: str = MISSING
+    name: Optional[str] = None
     backend_type: str = "dlc"
     backend_options: Dict[str, Any] = field(default_factory=(lambda: {}))
 
@@ -204,6 +204,7 @@ class ProjectConfig:
     name: str = MISSING
     recording_root: str = "videos"
     ephys_root: Optional[str] = None
+    model_root: str = "model"
     video_regex: Any = MISSING
     model: ModelConfig = MISSING
     ephys_regex: Optional[Any] = None

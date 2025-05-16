@@ -2,6 +2,8 @@ from pathlib import Path
 from typing import Dict
 
 class Pose2dBackend:
+    name: str
+
     @classmethod
     def from_existing(cls, root_dir: Path, project_path: Path, *args, **kwargs):
         """Import existing backend project into Cheese3D project."""
