@@ -27,22 +27,10 @@ cheese3d = { path = "packages/cheese3d", editable = true }
 cudatoolkit = "11.7.*"
 cudnn = "8.*"
 
-[target.linux-64.pypi-dependencies]
-blosc2 = "*"
-tensorflow = "==2.10.*"
-jax = { version = ">=0.4, <0.5", extras = ["cuda12_pip"] }
-deeplabcut = { git = "https://github.com/Hou-Lab-CSHL/DeepLabCut.git", extras = ["tf"] }
-
 [target.osx-arm64.dependencies]
 tensorflow-deps = "*"
 hdf5 = "*"
 pytables = "*"
-
-[target.osx-arm64.pypi-dependencies]
-tensorflow-macos = "==2.10.*"
-tensorflow-metal = "==0.6.*"
-jax = { version = ">=0.4, <0.5", extras = ["cpu"] }
-deeplabcut = { git = "https://github.com/Hou-Lab-CSHL/DeepLabCut.git", extras = ["apple_mchips"] }
 
 [feature.docs.pypi-dependencies]
 sphinx = ">=7.2.0,<8.0.0"

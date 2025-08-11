@@ -2045,7 +2045,7 @@ packages:
 - pypi: packages/cheese3d
   name: cheese3d
   version: 0.1.0
-  sha256: fe951cbd934913858ff7014bc091a6c57d9d1b872054f0394425decd12e4205d
+  sha256: a6f274b608747b3747bd72118cc9b81a384f32aea7874ff70c2e5731860ca370
   requires_dist:
   - pip>=25.2,<26
   - ipython
@@ -2069,6 +2069,14 @@ packages:
   - typer-slim[standard]>=0.15.3,<0.16
   - textual
   - textual-dev
+  - blosc2 ; sys_platform == 'linux'
+  - tensorflow==2.10.* ; sys_platform == 'linux'
+  - jax[cuda12-pip]>=0.4,<0.5 ; sys_platform == 'linux'
+  - deeplabcut[tf] @ https://github.com/Hou-Lab-CSHL/DeepLabCut.git ; sys_platform == 'linux'
+  - tensorflow-macos==2.10.* ; sys_platform == 'darwin'
+  - tensorflow-metal==0.6.* ; sys_platform == 'darwin'
+  - jax[cpu]>=0.4,<0.5 ; sys_platform == 'darwin'
+  - deeplabcut[apple-mchips] @ https://github.com/Hou-Lab-CSHL/DeepLabCut.git ; sys_platform == 'darwin'
   requires_python: ==3.10.*
   editable: true
 - conda: https://conda.anaconda.org/conda-forge/osx-arm64/clang-18.1.7-default_h095aff0_0.conda

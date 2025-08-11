@@ -14,21 +14,15 @@ dependencies = [
     "protobuf < 3.20",
     "tables == 3.7.*",
     "pandas == 2.1.*",
-    # "numpy == 1.23.2",
-    # "numpy == 1.26.1",
     "configobj == 5.0.8",
     "hydra-core",
     "joblib",
     "torch <= 1.12.0",
-    # "napari-deeplabcut @ https://github.com/Hou-Lab-CSHL/napari-deeplabcut.git",
     "aniposelib @ https://github.com/Hou-Lab-CSHL/aniposelib.git#jax",
     "anipose @ https://github.com/Hou-Lab-CSHL/anipose.git",
     "opencv-python == 4.7.*",
     "opencv-python-headless == 4.7.*",
     "opencv-contrib-python == 4.7.*",
-    # "vtk == 9.3.*",
-    # "mayavi == 4.8.2",
-    # "av == 9.2.0",
     "pims == 0.6.*",
     "seaborn",
     "open-ephys-python-tools",
@@ -36,6 +30,18 @@ dependencies = [
     "textual",
     "textual-dev",
     # "cheese3d-annotator == 0.1.0"
+
+    # Linux-specific deps
+    "blosc2; sys_platform == 'linux'",
+    "tensorflow == 2.10.*; sys_platform == 'linux'",
+    "jax[cuda12_pip] >=0.4,<0.5; sys_platform == 'linux'",
+    "deeplabcut[tf] @ https://github.com/Hou-Lab-CSHL/DeepLabCut.git ; sys_platform == 'linux'",
+
+    # Apple silicon-specific deps
+    "tensorflow-macos == 2.10.*; sys_platform == 'darwin'",
+    "tensorflow-metal == 0.6.*; sys_platform == 'darwin'",
+    "jax[cpu] >=0.4,<0.5; sys_platform == 'darwin'",
+    "deeplabcut[apple_mchips] @ https://github.com/Hou-Lab-CSHL/DeepLabCut.git ; sys_platform == 'darwin'",
 ]
 
 [build-system]
