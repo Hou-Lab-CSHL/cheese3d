@@ -1,0 +1,26 @@
+name: face-anno
+display_name: Face Anno
+contributions:
+  commands:
+    - id: face-anno.frame_picker
+      python_name: face_anno.frame_picker.fp_widget:FramePickerWidget
+      title: Frame Picker
+
+    - id: face-anno.frame_annotator
+      python_name: face_anno.frame_annotator.fa_widget:FrameAnnotatorWidget
+      title: Frame Annotator
+
+    - id: face-anno.curve_annotator
+      python_name: face_anno.curve_annotator.ca_widget:CurveAnnotatorWidget
+      title: Curve Annotator
+
+
+  widgets:
+    - command: face-anno.frame_picker
+      display_name: Frame Picker
+
+    - command: face-anno.frame_annotator
+      display_name: Frame Annotator
+
+    - command: face-anno.curve_annotator
+      display_name: Curve Annotator

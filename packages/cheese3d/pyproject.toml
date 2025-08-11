@@ -29,7 +29,7 @@ dependencies = [
     "typer-slim[standard]>=0.15.3,<0.16",
     "textual",
     "textual-dev",
-    # "cheese3d-annotator == 0.1.0"
+    "cheese3d_annotator == 0.1.0",
 
     # Linux-specific deps
     "blosc2; sys_platform == 'linux'",

@@ -1,5 +1,5 @@
 [project]
-name = "cheese3d-annotator"
+name = "cheese3d_annotator"
 version = "0.1.0"
 description = "Napari plugin for picking frames and annotating mouse faces in Cheese3D."
 authors = [
@@ -10,8 +10,8 @@ authors = [
 readme = "README.md"
 requires-python = "==3.10.*"
 dependencies = [
-    "tables == 3.7.*",
-    "pandas == 2.1.*",
+    "tables",
+    "pandas",
     "napari",
     "napari-video",
     "magicgui",
@@ -23,3 +23,13 @@ dependencies = [
 
 [project.entry-points."napari.manifest"]
 cheese3d_annotator = "cheese3d_annotator:napari.yaml"
+
+[build-system]
+build-backend = "hatchling.build"
+requires = ["hatchling"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["cheese3d_annotator"]
+
+[tool.hatch.metadata]
+allow-direct-references = true

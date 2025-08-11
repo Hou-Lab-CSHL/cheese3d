@@ -20,7 +20,7 @@ ffmpeg = "==4.4.1"
 av = "==9.2.0"
 
 [pypi-dependencies]
-# cheese3d-annotator = { path = "packages/cheese3d-annotator", editable = true }
+cheese3d_annotator = { path = "packages/cheese3d-annotator", editable = true }
 cheese3d = { path = "packages/cheese3d", editable = true }
 
 [target.linux-64.dependencies]
