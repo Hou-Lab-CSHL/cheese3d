@@ -1,5 +1,6 @@
 import re
 import os
+import toml
 from pathlib import Path
 from dataclasses import dataclass, field
 from omegaconf import OmegaConf
@@ -11,12 +12,14 @@ from collections import namedtuple
 from cheese3d.config import (MultiViewConfig,
                              KeypointConfig,
                              ModelConfig,
-                             ProjectConfig)
+                             TriangulationConfig,
+                             ProjectConfig,
+                             keypoints_by_group)
 from cheese3d.synchronize.core import SyncConfig, SyncPipeline
 from cheese3d.synchronize.readers import VideoSyncReader, get_ephys_reader
 from cheese3d.backends.core import Pose2dBackend
 from cheese3d.backends.dlc import DLCBackend
-from cheese3d.utils import reglob, maybe
+from cheese3d.utils import reglob, maybe, get_group_pattern
 
 class RecordingKey(namedtuple("RecordingKey", ["session", "name", "attributes"])):
     __slots__ = () # prevent __dict__ creation since subclassing namedtuple
@@ -180,6 +183,7 @@ class Ch3DProject:
     recordings: Dict[RecordingKey, Dict[str, Path]]
     calibrations: Dict[RecordingKey, Dict[str, Path]]
     view_config: MultiViewConfig
+    view_regex: str
     keypoints: List[KeypointConfig]
     model: Optional[Pose2dBackend]
     ephys_recordings: Optional[Dict[RecordingKey, Path]] = None
@@ -187,6 +191,8 @@ class Ch3DProject:
     sync: SyncConfig = field(
         default_factory=lambda: SyncConfig(["crosscorr", "regression", "sample_rate"])
     )
+    triangulation: TriangulationConfig = field(default_factory=TriangulationConfig)
+    ignore_keypoint_labels: List[str] = field(default_factory=list)
 
     @property
     def path(self):
@@ -243,6 +249,7 @@ class Ch3DProject:
                                     recordings=recordings,
                                     view_cfg=cfg.views,
                                     keypoints=cfg.keypoints)
+        view_regex = get_group_pattern(ProjectConfig.build_regex(cfg.video_regex), "view")
 
         return cls(name=cfg.name,
                    root=root,
@@ -252,10 +259,13 @@ class Ch3DProject:
                    recordings=recordings,
                    calibrations=calibrations,
                    view_config=cfg.views,
+                   view_regex=view_regex,
                    keypoints=cfg.keypoints,
                    ephys_recordings=ephys,
                    ephys_param=cfg.ephys_param,
-                   sync=cfg.sync)
+                   sync=cfg.sync,
+                   triangulation=cfg.triangulation,
+                   ignore_keypoint_labels=cfg.ignore_keypoint_labels)
 
     @classmethod
     def from_path(cls, path: str | Path,
@@ -398,35 +408,100 @@ class Ch3DProject:
                                "(hint: maybe you forgot to set `model.name` in the config?")
         self.model.train(gpu)
 
-
     def _setup_anipose(self):
+        if self.model is None:
+            raise RuntimeError("Cannot setup triangulation when pose model does not exist "
+                               "(hint: maybe you forgot to set `model.name` in the config?")
         # make anipose project folder
         self.triangulation_path.mkdir(exist_ok=True)
-        # create calibration subfolder
-        calibration_path = self.triangulation_path / "calibration"
-        calibration_path.mkdir(exist_ok=True)
-        for recording, videos in self.calibrations.items():
-            session_path = calibration_path / recording.name
+        # create session subfolders
+        for recording, videos in self.recordings.items():
+            session_path = self.triangulation_path / recording.name
             session_path.mkdir(exist_ok=True)
-            for video in videos:
+            # add raw videos
+            videos_path = session_path / "videos-raw"
+            videos_path.mkdir(exist_ok=True)
+            for video in videos.values():
                 src = Path(self.path / video)
-                dst = session_path / src.name
-                relpath = Path(os.path.relpath(src, session_path))
+                dst = videos_path / src.name
+                relpath = Path(os.path.relpath(src, videos_path))
                 if dst.exists():
                     os.remove(dst)
                 os.symlink(relpath, dst)
-        # create videos subfolder
-        calibration_path = self.triangulation_path / "calibration"
-        calibration_path.mkdir(exist_ok=True)
-        for recording, videos in self.calibrations.items():
-            session_path = calibration_path / recording.name
-            session_path.mkdir(exist_ok=True)
-            for video in videos:
-                src = Path(self.path / video)
-                dst = session_path / src.name
-                relpath = Path(os.path.relpath(src, session_path))
-                if dst.exists():
-                    os.remove(dst)
-                os.symlink(relpath, dst)
+            # add calibration
+            calibration_path = session_path / "calibration"
+            calibration_path.mkdir(exist_ok=True)
+            # add calibration files
+            cal_key = RecordingKey(recording.session, recording.name)
+            matches = [k for k in self.calibrations.keys() if cal_key.matches(k)]
+            if len(matches) == 0:
+                raise RuntimeError(f"No calibration found for {recording} when setting up triangulation")
+            for match in matches:
+                for video in self.calibrations[match].values():
+                    src = Path(self.path / video)
+                    dst = calibration_path / src.name
+                    relpath = Path(os.path.relpath(src, calibration_path))
+                    if dst.exists():
+                        os.remove(dst)
+                    os.symlink(relpath, dst)
+        # create anipose config file
+        kp_schema = keypoints_by_group(self.keypoints)
+        for group, kps in kp_schema.items():
+            if len(kps) > 2:
+                kp_schema[group].append(kps[0])
+        config = {
+            "project": self.name,
+            "model_folder": os.path.relpath(self.model.project_path, self.triangulation_path),
+            "nesting": 1,
+            "pipeline": {"videos-raw": "videos-raw",},
+            "labeling": {
+                "scheme": list(kp_schema.values()),
+                "ignore": self.ignore_keypoint_labels
+            },
+            "filter": {
+                "enabled": self.triangulation.filter2d,
+                "type": "medfilt",
+                "medfilt": 13, # length of median filter
+                "offset_threshold": 5, # offset from median filter to count as jump
+                "score_threshold": 0.8, # score below which to count as bad
+                "spline": False, # interpolate using linearly instead of cubic spline
+            },
+            "calibration": {
+                "board_type": "charuco",
+                "board_size": [7, 7],
+                "board_marker_bits": 4,
+                "board_marker_dict_number": 50,
+                "board_marker_length": 4.5, # mm
+                "board_square_side_length": 6 # mm
+            },
+            "triangulation": {
+                "triangulate": True,
+                "cam_regex": f"({self.view_regex})",
+                "manually_verify": False,
+                "axes": self.triangulation.axes,
+                "reference_point": self.triangulation.ref_point,
+                "optim": True,
+                "score_threshold": self.triangulation.score_threshold,
+                "scale_smooth": 0.0,
+            }
+        }
+        with open(self.triangulation_path / "config.toml", "w") as f:
+            toml.dump(config, f)
 
-    # def calibrate(self):
+    def _load_anipose_cfg(self):
+        from anipose.anipose import load_config
+        self._setup_anipose()
+
+        return load_config(str(self.triangulation_path / "config.toml"))
+
+    def calibrate(self):
+        from anipose.calibrate import calibrate_all
+        calibrate_all(self._load_anipose_cfg())
+
+    def track(self):
+        from anipose.pose_videos import pose_videos_all
+        pose_videos_all(self._load_anipose_cfg())
+
+    def triangulate(self):
+        from anipose.triangulate import triangulate_all
+        triangulate_all(self._load_anipose_cfg())

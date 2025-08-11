@@ -108,7 +108,7 @@ def train(
     rich.print("Training complete :spaceship:")
 
 @cli.command()
-def debug(
+def calibrate(
     name: Annotated[str, typer.Argument(help="Name of project")] = ".",
     path: Annotated[str, typer.Option(help="Path to project directory")] = os.getcwd(),
     configs: Annotated[str, typer.Option(
@@ -119,4 +119,54 @@ def debug(
     )] = None
 ):
     project = _build_project(path, name, configs, config_overrides)
-    project._import_labels()
+    rich.print("Calibrating ...")
+    project.calibrate()
+    rich.print("Calibration complete :white_check_mark:")
+
+@cli.command()
+def track(
+    name: Annotated[str, typer.Argument(help="Name of project")] = ".",
+    path: Annotated[str, typer.Option(help="Path to project directory")] = os.getcwd(),
+    configs: Annotated[str, typer.Option(
+        help="Path to additional configs (relative to project)"
+    )] = "configs",
+    config_overrides: Annotated[Optional[List[str]], typer.Argument(
+        help="Config overrides passed to Hydra (https://hydra.cc/docs/intro/)"
+    )] = None
+):
+    project = _build_project(path, name, configs, config_overrides)
+    rich.print("Tracking 2D pose ...")
+    project.track()
+    rich.print("Pose estimation complete :white_check_mark:")
+
+@cli.command()
+def triangulate(
+    name: Annotated[str, typer.Argument(help="Name of project")] = ".",
+    path: Annotated[str, typer.Option(help="Path to project directory")] = os.getcwd(),
+    configs: Annotated[str, typer.Option(
+        help="Path to additional configs (relative to project)"
+    )] = "configs",
+    config_overrides: Annotated[Optional[List[str]], typer.Argument(
+        help="Config overrides passed to Hydra (https://hydra.cc/docs/intro/)"
+    )] = None
+):
+    project = _build_project(path, name, configs, config_overrides)
+    rich.print("Triangulating ...")
+    project.triangulate()
+    rich.print("Triangulation complete :white_check_mark:")
+
+@cli.command()
+def analyze(
+    name: Annotated[str, typer.Argument(help="Name of project")] = ".",
+    path: Annotated[str, typer.Option(help="Path to project directory")] = os.getcwd(),
+    configs: Annotated[str, typer.Option(
+        help="Path to additional configs (relative to project)"
+    )] = "configs",
+    config_overrides: Annotated[Optional[List[str]], typer.Argument(
+        help="Config overrides passed to Hydra (https://hydra.cc/docs/intro/)"
+    )] = None
+):
+    project = _build_project(path, name, configs, config_overrides)
+    project.calibrate()
+    project.track()
+    project.triangulate()

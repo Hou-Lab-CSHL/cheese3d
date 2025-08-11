@@ -4,6 +4,11 @@ from typing import Dict
 class Pose2dBackend:
     name: str
 
+    @property
+    def project_path(self):
+        """Return the path to the actual project folder."""
+        raise NotImplementedError("This method should be implemented by subclasses.")
+
     @classmethod
     def from_existing(cls, root_dir: Path, project_path: Path, *args, **kwargs):
         """Import existing backend project into Cheese3D project."""

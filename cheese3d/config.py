@@ -1,5 +1,5 @@
 import hydra
-from omegaconf import MISSING, OmegaConf, DictConfig, SCMode
+from omegaconf import MISSING, OmegaConf, DictConfig
 from dataclasses import dataclass, field
 from typing import Optional, Dict, List, Any
 from pathlib import Path
@@ -84,6 +84,17 @@ class KeypointConfig:
     label: str = MISSING
     groups: List[str] = field(default_factory=(lambda: ["default"]))
     views: List[str] = field(default_factory=(lambda: []))
+
+def keypoints_by_group(keypoints: List[KeypointConfig]):
+    kp_by_group = {}
+    for kp in keypoints:
+        for group in kp.groups:
+            if group in kp_by_group:
+                kp_by_group[group].append(kp.label)
+            else:
+                kp_by_group[group] = [kp.label]
+
+    return kp_by_group
 
 _DEFAULT_KEYPOINTS = [
     KeypointConfig(label="nose(bottom)",
@@ -200,6 +211,19 @@ _DEFAULT_VIDEO_REGEX = {
 }
 
 @dataclass
+class TriangulationConfig:
+    axes: List[List[str]] = MISSING
+    ref_point: str = MISSING
+    filter2d: bool = False
+    score_threshold: float = 0.9
+
+_DEFAULT_TRIANGULATION_AXES = [
+    [ "z", "nose(top)", "nose(bottom)",],
+    [ "x", "eye(front)(left)", "eye(front)(right)",],
+]
+_DEFAULT_TRIANGULATION_REF = "ref(head-post)"
+
+@dataclass
 class ProjectConfig:
     name: str = MISSING
     recording_root: str = "videos"
@@ -212,9 +236,11 @@ class ProjectConfig:
     fps: int = 100
     sync: SyncConfig = MISSING
     recordings: List[Dict[str, str]] = MISSING
+    triangulation: TriangulationConfig = MISSING
     views: MultiViewConfig = MISSING
     calibration: Dict[str, str] = MISSING
     keypoints: List[KeypointConfig] = MISSING
+    ignore_keypoint_labels: List[str] = MISSING
 
     @classmethod
     def default(cls, skip_model = False):
@@ -223,7 +249,10 @@ class ProjectConfig:
         cfg.views = SixCamViewConfig()
         cfg.calibration = {"type": "cal"}
         cfg.recordings = []
+        cfg.triangulation = TriangulationConfig(axes=_DEFAULT_TRIANGULATION_AXES,
+                                                ref_point=_DEFAULT_TRIANGULATION_REF)
         cfg.keypoints = _DEFAULT_KEYPOINTS
+        cfg.ignore_keypoint_labels = ["ref(head-post)"]
         cfg.sync = SyncConfig(["crosscorr", "regression", "samplerate"])
         if not skip_model:
             cfg.model = ModelConfig()
@@ -239,6 +268,8 @@ class ProjectConfig:
                 full_regex = regex["_path_"]
             else:
                 raise RuntimeError("Regex must contain '_path_' key.")
+            if "view" not in regex:
+                raise RuntimeError("Regex must contain 'view' key.")
             for key, rstr in regex.items():
                 full_regex = full_regex.replace("{{" + key + "}}", # type: ignore
                                                 fr"(?P<{key}>{rstr})")

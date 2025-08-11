@@ -7,6 +7,7 @@ readme = "README.md"
 requires-python = "==3.10.*"
 scripts = { cheese3d = "cheese3d.cli:cli" }
 dependencies = [
+    "pip>=25.2,<26",
     "ipython",
     "ipykernel",
     "jupyter",
@@ -22,9 +23,9 @@ dependencies = [
     # "napari-deeplabcut @ https://github.com/Hou-Lab-CSHL/napari-deeplabcut.git",
     "aniposelib @ https://github.com/Hou-Lab-CSHL/aniposelib.git#jax",
     "anipose @ https://github.com/Hou-Lab-CSHL/anipose.git",
-    "opencv-contrib-python == 4.7.*",
     "opencv-python == 4.7.*",
     "opencv-python-headless == 4.7.*",
+    "opencv-contrib-python == 4.7.*",
     # "vtk == 9.3.*",
     # "mayavi == 4.8.2",
     # "av == 9.2.0",
