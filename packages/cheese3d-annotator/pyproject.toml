@@ -1,0 +1,25 @@
+[project]
+name = "cheese3d-annotator"
+version = "0.1.0"
+description = "Napari plugin for picking frames and annotating mouse faces in Cheese3D."
+authors = [
+    { name = "Hou Lab", email = "the.hou.lab@gmail.com"},
+    { name = "Kyle Daruwalla", email = "daruwal@cshl.edu"},
+    { name = "Rubin Zhao", email = "rzhao@cshl.edu"}
+]
+readme = "README.md"
+requires-python = "==3.10.*"
+dependencies = [
+    "tables == 3.7.*",
+    "pandas == 2.1.*",
+    "napari",
+    "napari-video",
+    "magicgui",
+    "numpy",
+    "scikit-image",
+    "imageio",
+    "qtpy"
+]
+
+[project.entry-points."napari.manifest"]
+cheese3d_annotator = "cheese3d_annotator:napari.yaml"

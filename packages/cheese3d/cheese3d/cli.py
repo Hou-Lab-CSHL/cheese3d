@@ -4,6 +4,7 @@ import rich
 from pathlib import Path
 from typing import Annotated, Optional, List
 
+from cheese3d.interative import run_interative
 from cheese3d.project import Ch3DProject
 from cheese3d.utils import maybe
 
@@ -170,3 +171,16 @@ def analyze(
     project.calibrate()
     project.track()
     project.triangulate()
+
+@cli.command()
+def interactive(
+    name: Annotated[str, typer.Argument(help="Name of project")] = ".",
+    path: Annotated[str, typer.Option(help="Path to project directory")] = os.getcwd(),
+    configs: Annotated[str, typer.Option(
+        help="Path to additional configs (relative to project)"
+    )] = "configs",
+    config_overrides: Annotated[Optional[List[str]], typer.Argument(
+        help="Config overrides passed to Hydra (https://hydra.cc/docs/intro/)"
+    )] = None
+):
+    run_interative()
