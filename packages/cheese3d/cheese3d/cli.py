@@ -92,6 +92,22 @@ def extract(
     rich.print("Frames extracted! :white_check_mark:")
 
 @cli.command()
+def label(
+    name: Annotated[str, typer.Argument(help="Name of project")] = ".",
+    path: Annotated[str, typer.Option(help="Path to project directory")] = os.getcwd(),
+    configs: Annotated[str, typer.Option(
+        help="Path to additional configs (relative to project)"
+    )] = "configs",
+    config_overrides: Annotated[Optional[List[str]], typer.Argument(
+        help="Config overrides passed to Hydra (https://hydra.cc/docs/intro/)"
+    )] = None
+):
+    """Label extracted frames for model training."""
+    project = _build_project(path, name, configs, config_overrides)
+    project.label_frames()
+    rich.print("Labeling complete! :white_check_mark:")
+
+@cli.command()
 def train(
     name: Annotated[str, typer.Argument(help="Name of project")] = ".",
     path: Annotated[str, typer.Option(help="Path to project directory")] = os.getcwd(),

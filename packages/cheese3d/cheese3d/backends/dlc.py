@@ -190,7 +190,8 @@ class DLCBackend(Pose2dBackend):
                 images = reglob(r".*\.png", str(label_folder))
                 for image in images:
                     image = Path(image)
-                    shutil.copy2(image, path)
+                    if image.resolve() != (path / image.name).resolve():
+                        shutil.copy2(image, path)
                     relpath = os.path.relpath(path / image.name, label_folder)
                     os.remove(image)
                     os.symlink(relpath, image)

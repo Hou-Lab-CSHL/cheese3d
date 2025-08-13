@@ -368,15 +368,22 @@ class Ch3DProject:
                 label_folder = label_path / video.stem
                 label_folder.mkdir(exist_ok=True)
 
+    def _label_folder_paths(self):
+        if self.model is None:
+            raise RuntimeError("Cannot find labels when pose model does not exist "
+                               "(hint: maybe you forgot to set `model.name` in the config?")
+
+        return {
+            p.name: p
+            for p in map(Path, reglob(r".*", str(self.model_path / self.model.name / "labels")))
+        }
+
     def _import_labels(self):
         if self.model is None:
             raise RuntimeError("Cannot import labels when pose model does not exist "
                                "(hint: maybe you forgot to set `model.name` in the config?")
         self._create_labels()
-        label_paths = {
-            p.name: p
-            for p in map(Path, reglob(r".*", str(self.model_path / self.model.name / "labels")))
-        }
+        label_paths = self._label_folder_paths()
         self.model.import_c3d_labels(label_paths)
 
     def _export_labels(self):
@@ -384,10 +391,7 @@ class Ch3DProject:
             raise RuntimeError("Cannot export labels when pose model does not exist "
                                "(hint: maybe you forgot to set `model.name` in the config?")
         self._create_labels()
-        label_paths = {
-            p.name: p
-            for p in map(Path, reglob(r".*", str(self.model_path / self.model.name / "labels")))
-        }
+        label_paths = self._label_folder_paths()
         self.model.export_c3d_labels(label_paths)
 
     def extract_frames(self):
@@ -399,7 +403,21 @@ class Ch3DProject:
         self._export_labels()
 
     def label_frames(self):
-        raise NotImplementedError("Labeling tool not integrated yet.")
+        if self.model is None:
+            raise RuntimeError("Cannot label frames when pose model does not exist "
+                               "(hint: maybe you forgot to set `model.name` in the config?")
+
+        import napari
+        from cheese3d_annotator.widget import FrameAnnotatorWidget
+
+        self._export_labels()
+        viewer = napari.Viewer()
+        annotator = FrameAnnotatorWidget(viewer)
+        annotator.set_file_dialogs(img_folder=(self.model_path / self.model.name / "labels"),
+                                   config_file=(self.path / "config.yaml"))
+        viewer.window.add_dock_widget(annotator)
+        viewer.show(block=True)
+        self._import_labels()
 
     def train(self, gpu):
         self._import_labels()
