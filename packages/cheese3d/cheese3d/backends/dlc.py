@@ -224,6 +224,13 @@ class DLCBackend(Pose2dBackend):
 
     def train(self, gpu):
         import deeplabcut as dlc
+        training_datasets = reglob("iteration-[0-9]+", path=str(self.project_path / "training-datasets"))
+        if len(training_datasets) > 0:
+            dlc.merge_datasets(config=self.config_path)
+        dlc.create_training_dataset(config=self.config_path,
+                                    userfeedback=False,
+                                    net_type="resnet_50",
+                                    augmenter_type="imgaug")
         dlc.train_network(config=self.config_path,
                           gputouse=gpu)
         dlc.evaluate_network(config=self.config_path,

@@ -276,8 +276,8 @@ class Ch3DProject:
 
         return cls.from_cfg(cfg, path.parent, model_import=model_import) # type: ignore
 
-    def summarize(self):
-        pty = console.Console()
+    def summarize(self, pty = None):
+        pty = maybe(pty, console.Console())
         # print basic info
         tab = table.Table(title="Cheese3D project info")
         tab.add_column("Key")

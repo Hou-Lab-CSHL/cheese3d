@@ -1,0 +1,135 @@
+Screen {
+    align: center middle;
+}
+
+Button {
+    padding: 0 2;
+}
+
+.helpmenu {
+    margin: 0 1;
+    padding: 0;
+    border: none;
+}
+.helpmenu > Contents {
+    padding: 0;
+}
+
+RegexInput {
+    border: round gray;
+    height: 12;
+}
+RegexInput #buttons {
+    width: auto;
+    margin: 0 1;
+}
+RegexInput #buttons Button {
+    min-width: 0;
+    min-height: 0;
+    width: 5;
+    height: 3;
+    padding: 0;
+    content-align: center middle;
+}
+
+StartMenu {
+    width: auto;
+}
+StartMenu Horizontal {
+    align: center middle;
+}
+StartMenu Button {
+    margin: 2;
+}
+
+MainScreen {
+    align: left top;
+}
+MainScreen #recordings_list {
+    margin: 0 1;
+}
+MainScreen #recordings_list > Static {
+    margin: 1 0;
+}
+MainScreen .buttons_group {
+    height: auto;
+    margin: 1 0;
+}
+MainScreen .buttons_group > HorizontalGroup {
+    width: auto;
+    height: auto;
+}
+MainScreen #model_log {
+    margin: 1;
+}
+
+LabelFramesScreen {
+    align: center middle;
+}
+LabelFramesScreen #modal {
+    align: center middle;
+    width: 60%;
+    height: 25%;
+    border: thick gray 80%;
+    background: $surface;
+}
+LabelFramesScreen #modal > Horizontal {
+    align: center middle;
+}
+LabelFramesScreen #modal > Horizontal > Widget {
+    text-align: center;
+    width: auto;
+}
+
+ProjectWizard {
+    border: heavy gray;
+    min-height: 10;
+}
+
+CreateWizardLoading {
+    align: center middle;
+}
+CreateWizardLoading #modal {
+    align: center middle;
+    width: 60%;
+    height: 25%;
+    border: thick gray 80%;
+    background: $surface;
+}
+CreateWizardLoading #modal > Horizontal {
+    align: center middle;
+}
+CreateWizardLoading #modal > Horizontal > Widget {
+    text-align: center;
+    width: auto;
+}
+
+EphysWizard {
+    border: heavy gray;
+    min-height: 5;
+}
+EphysWizard Input {
+    width: auto;
+    min-width: 20;
+}
+EphysWizard Select {
+    min-width: 10;
+}
+EphysWizard .ephys_params {
+    border: heavy gray;
+}
+EphysWizard .ephys_params > Input {
+    min-width: 20;
+}
+
+ModelWizard {
+    border: heavy gray;
+    min-height: 5;
+}
+ModelWizard Input {
+    width: auto;
+    min-width: 20;
+}
+ModelWizard Select {
+    width: 15;
+}

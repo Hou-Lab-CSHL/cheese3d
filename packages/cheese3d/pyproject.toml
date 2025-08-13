@@ -28,7 +28,7 @@ dependencies = [
     "open-ephys-python-tools",
     "typer-slim[standard]>=0.15.3,<0.16",
     "textual",
-    "textual-dev",
+    "textual-fspicker",
     "cheese3d_annotator == 0.1.0",
 
     # Linux-specific deps
