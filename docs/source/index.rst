@@ -36,9 +36,7 @@ If you use Cheese3D, please cite our preprint:
 
     installation
     hardware
-    usage
-    api
-    contributing
+    quick-start
 
 Indices and tables
 ==================

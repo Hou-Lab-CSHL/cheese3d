@@ -1,0 +1,292 @@
+name: test
+recording_root: videos
+ephys_root: null
+model_root: model
+video_regex:
+  _path_: .*_{{type}}_{{view}}.*\.avi
+  type: '[^_]+'
+  view: TL|TR|L|R|TC|BC
+model:
+  name: test
+  backend_type: dlc
+  backend_options: {}
+ephys_regex: null
+ephys_param: null
+fps: 100
+sync:
+  pipeline:
+  - crosscorr
+  - regression
+  - samplerate
+  led_threshold: 0.9
+  max_regression_rmse: 0.01
+  ref_view: bottomcenter
+  ref_crop: default
+recordings: []
+triangulation:
+  axes:
+  - - z
+    - nose(top)
+    - nose(bottom)
+  - - x
+    - eye(front)(left)
+    - eye(front)(right)
+  ref_point: ref(head-post)
+  filter2d: false
+  score_threshold: 0.9
+views:
+  topleft:
+    path: TL
+    crop:
+    - null
+    - null
+    - null
+    - null
+    extra_crops: null
+    filterspec: null
+  topright:
+    path: TR
+    crop:
+    - null
+    - null
+    - null
+    - null
+    extra_crops: null
+    filterspec: null
+  left:
+    path: L
+    crop:
+    - null
+    - null
+    - null
+    - null
+    extra_crops: null
+    filterspec: null
+  right:
+    path: R
+    crop:
+    - null
+    - null
+    - null
+    - null
+    extra_crops: null
+    filterspec: null
+  topcenter:
+    path: TC
+    crop:
+    - null
+    - null
+    - null
+    - null
+    extra_crops: null
+    filterspec: null
+  bottomcenter:
+    path: BC
+    crop:
+    - null
+    - null
+    - null
+    - null
+    extra_crops: null
+    filterspec: null
+calibration:
+  type: cal
+keypoints:
+- label: nose(bottom)
+  groups:
+  - nose
+  views:
+  - left
+  - right
+  - bottomcenter
+- label: nose(tip)
+  groups:
+  - nose
+  views:
+  - topleft
+  - topright
+  - left
+  - right
+  - topcenter
+  - bottomcenter
+- label: nose(top)
+  groups:
+  - nose
+  views:
+  - topleft
+  - topright
+  - left
+  - right
+  - topcenter
+  - bottomcenter
+- label: pad(top)(left)
+  groups:
+  - whiskers(left)
+  views:
+  - topleft
+  - left
+  - bottomcenter
+- label: pad(side)(left)
+  groups:
+  - whiskers(left)
+  views:
+  - left
+  - bottomcenter
+- label: pad(top)(right)
+  groups:
+  - whiskers(right)
+  views:
+  - topright
+  - right
+  - bottomcenter
+- label: pad(side)(right)
+  groups:
+  - whiskers(right)
+  views:
+  - right
+  - bottomcenter
+- label: pad(center)
+  groups:
+  - whiskers(left)
+  - whiskers(right)
+  views:
+  - left
+  - right
+  - bottomcenter
+- label: lowerlip
+  groups:
+  - mouth
+  views:
+  - left
+  - right
+  - bottomcenter
+- label: upperlip(left)
+  groups:
+  - mouth
+  views:
+  - left
+  - right
+  - bottomcenter
+- label: upperlip(right)
+  groups:
+  - mouth
+  views:
+  - left
+  - right
+  - bottomcenter
+- label: eye(front)(left)
+  groups:
+  - eye(left)
+  views:
+  - topleft
+  - left
+  - topcenter
+- label: eye(top)(left)
+  groups:
+  - eye(left)
+  views:
+  - topleft
+  - left
+  - topcenter
+- label: eye(back)(left)
+  groups:
+  - eye(left)
+  views:
+  - topleft
+  - left
+  - topcenter
+- label: eye(bottom)(left)
+  groups:
+  - eye(left)
+  views:
+  - topleft
+  - left
+  - topcenter
+- label: eye(front)(right)
+  groups:
+  - eye(right)
+  views:
+  - topright
+  - right
+  - topcenter
+- label: eye(top)(right)
+  groups:
+  - eye(right)
+  views:
+  - topright
+  - right
+  - topcenter
+- label: eye(back)(right)
+  groups:
+  - eye(right)
+  views:
+  - topright
+  - right
+  - topcenter
+- label: eye(bottom)(right)
+  groups:
+  - eye(right)
+  views:
+  - topright
+  - right
+  - topcenter
+- label: ear(base)(left)
+  groups:
+  - ear(left)
+  views:
+  - topleft
+  - left
+- label: ear(top)(left)
+  groups:
+  - ear(left)
+  views:
+  - topleft
+  - left
+- label: ear(tip)(left)
+  groups:
+  - ear(left)
+  views:
+  - topleft
+  - left
+- label: ear(bottom)(left)
+  groups:
+  - ear(left)
+  views:
+  - topleft
+  - left
+- label: ear(base)(right)
+  groups:
+  - ear(right)
+  views:
+  - topright
+  - right
+- label: ear(top)(right)
+  groups:
+  - ear(right)
+  views:
+  - topright
+  - right
+- label: ear(tip)(right)
+  groups:
+  - ear(right)
+  views:
+  - topright
+  - right
+- label: ear(bottom)(right)
+  groups:
+  - ear(right)
+  views:
+  - topright
+  - right
+- label: ref(head-post)
+  groups:
+  - ref
+  views:
+  - topleft
+  - topright
+  - left
+  - right
+  - topcenter
+  - bottomcenter
+ignore_keypoint_labels:
+- ref(head-post)

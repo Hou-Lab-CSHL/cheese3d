@@ -209,7 +209,7 @@ class Ch3DProject:
     @staticmethod
     def initialize(name: str, root: str | Path, skip_model = False):
         location = Path(root) / name
-        if location.exists():
+        if (location / "config.yaml").exists():
             raise RuntimeError(f"Project {name} already exists under {root}")
         # create project directory
         location.mkdir(parents=True)
