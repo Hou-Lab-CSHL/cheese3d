@@ -62,6 +62,9 @@ MainScreen .buttons_group > HorizontalGroup {
 MainScreen #model_log {
     margin: 1;
 }
+MainScreen TabbedContent {
+    margin: 1 0 0 0;
+}
 
 LabelFramesScreen {
     align: center middle;

@@ -1,4 +1,3 @@
-import io
 from omegaconf import OmegaConf
 from typing import Optional, List
 from pathlib import Path
@@ -16,7 +15,6 @@ from textual.containers import (Horizontal,
                                 VerticalGroup,
                                 VerticalScroll,
                                 CenterMiddle)
-from textual.binding import Binding
 from textual.widgets import (Checkbox,
                              Footer,
                              Header,
@@ -53,6 +51,18 @@ Either:
     - Put '*' after a match to match 0 or more instances (e.g. '.*')
     - Put '+' after a match to match 1 or more instances (e.g. '[0-9]+')
     - Put '{n}' after a match to match exactly n instances (e.g. '[a-z,A-Z]{3}')
+"""
+
+_MAIN_HELP_MSG = """
+Use the tabs to navigate through the Cheese3D pipeline (typically from left to right).
+Project is live-loaded from disk whenever you switch tabs (so you can edit your config file).
+
+Tab info:
+- [bold]"summary":[/bold] an overview of your project including detected videos (and ephys)
+- [bold]"select recordings":[/bold] select video recordings to include in project
+- [bold]"model":[/bold] model-related actions like labeling frames and training
+- [bold]"pose estimation":[/bold] analysis-related actions like camera
+    calibration, keypoint tracking, and triangulation
 """
 
 class RichConsole(RichLog):
@@ -716,30 +726,33 @@ class MainScreen(Screen):
 
     def compose(self) -> ComposeResult:
         yield Header()
-        with TabbedContent(initial="summary", id="all_tabs"):
-            with TabPane(title="summary", id="summary"):
-                yield RichConsole(id="summary_log")
-            with TabPane(title="select recordings", id="recordings"):
-                with Vertical(id="recordings_list"):
-                    yield Static("", id="recording_path")
-                    yield SelectionList[str](id="select_recordings")
-            with TabPane(title="model", id="model"):
-                with Vertical():
-                    with CenterMiddle(classes="buttons_group"):
-                        with HorizontalGroup(id="model_buttons"):
-                            yield Button("Extract frames", id="extract")
-                            yield Button("Label frames", id="label")
-                            yield Button("Train network", id="train")
-                    yield TextualStdout(id="model_log")
-            with TabPane(title="pose estimation", id="pose"):
-                with Vertical():
-                    with CenterMiddle(classes="buttons_group"):
-                        with HorizontalGroup(id="pose_buttons"):
-                            yield Button("Calibrate", id="calibrate")
-                            yield Button("Track", id="track")
-                            yield Button("Triangulate", id="triangulate")
-                            yield Button("Visualize", id="visualize")
-                    yield TextualStdout(id="pose_log")
+        with Vertical():
+            with Collapsible(classes="helpmenu", title="help", collapsed=True):
+                yield Static(_MAIN_HELP_MSG, id="main_help")
+            with TabbedContent(initial="summary", id="all_tabs"):
+                with TabPane(title="summary", id="summary"):
+                    yield RichConsole(id="summary_log")
+                with TabPane(title="select recordings", id="recordings"):
+                    with Vertical(id="recordings_list"):
+                        yield Static("", id="recording_path")
+                        yield SelectionList[str](id="select_recordings")
+                with TabPane(title="model", id="model"):
+                    with Vertical():
+                        with CenterMiddle(classes="buttons_group"):
+                            with HorizontalGroup(id="model_buttons"):
+                                yield Button("Extract frames", id="extract")
+                                yield Button("Label frames", id="label")
+                                yield Button("Train network", id="train")
+                        yield TextualStdout(id="model_log")
+                with TabPane(title="pose estimation", id="pose"):
+                    with Vertical():
+                        with CenterMiddle(classes="buttons_group"):
+                            with HorizontalGroup(id="pose_buttons"):
+                                yield Button("Calibrate", id="calibrate")
+                                yield Button("Track", id="track")
+                                yield Button("Triangulate", id="triangulate")
+                                yield Button("Visualize", id="visualize")
+                        yield TextualStdout(id="pose_log")
         yield Footer()
 
     @on(TabbedContent.TabActivated)
