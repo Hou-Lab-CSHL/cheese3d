@@ -1,5 +1,0 @@
-defaults:
-- common
-- dataset: default-rig
-- dlc: null
-- anipose: null

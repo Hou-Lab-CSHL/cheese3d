@@ -1,8 +1,0 @@
-# the find_allego function is from cheese3d.configutils.find_allego
-# see the docstring for more info
-
-type: allego
-path: ${find_allego:${paths.repo},${dataset.name},${dataset.mouse},${dataset.run}}
-sync_channel: 32
-sync_threshold: 0.2
-sample_rate: 30000

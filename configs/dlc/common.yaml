@@ -1,8 +1,0 @@
-name: ???
-experimenter: defaultuser
-date: ${default_dlc_date:${paths.dlc.projects},${.name},${.experimenter},${now:%Y-%m-%d}}
-network: resnet_50
-snapshot: latest
-augmentation: imgaug
-sessions: ???
-default_config: default-rig
