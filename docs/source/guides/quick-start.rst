@@ -18,6 +18,7 @@ You should notice the following new folders:
 * ``demo/videos`` containing the source video data
 * ``dlc-projects`` containing an pre-trained DLC model
 
+.. _create_new_project:
 Creating a new project
 ----------------------
 

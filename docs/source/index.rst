@@ -32,14 +32,26 @@ If you use Cheese3D, please cite our preprint:
 
 .. toctree::
     :maxdepth: 2
-    :caption: Contents:
+    :caption: Guides
 
-    installation
-    hardware
-    quick-start
+    guides/installation
+    guides/hardware
+    guides/quick-start
+
+.. toctree::
+    :maxdepth: 2
+    :caption: How-to examples
+
+    howto/regex
+
+.. toctree::
+    :maxdepth: 2
+    :caption: Reference
+
+    reference/configuration
 
 Indices and tables
-==================
+------------------
 
 * :ref:`genindex`
 * :ref:`modindex`
