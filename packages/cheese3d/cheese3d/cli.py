@@ -189,6 +189,20 @@ def analyze(
     project.triangulate()
 
 @cli.command()
+def visualize(
+    name: Annotated[str, typer.Argument(help="Name of project")] = ".",
+    path: Annotated[str, typer.Option(help="Path to project directory")] = os.getcwd(),
+    configs: Annotated[str, typer.Option(
+        help="Path to additional configs (relative to project)"
+    )] = "configs",
+    config_overrides: Annotated[Optional[List[str]], typer.Argument(
+        help="Config overrides passed to Hydra (https://hydra.cc/docs/intro/)"
+    )] = None
+):
+    project = _build_project(path, name, configs, config_overrides)
+    project.visualize()
+
+@cli.command()
 def interactive(
     web: Annotated[bool, typer.Option(help="Set to enable web mode UI")] = False,
 ):

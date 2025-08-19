@@ -469,7 +469,7 @@ class Ch3DProject:
                 kp_schema[group].append(kps[0])
         config = {
             "project": self.name,
-            "model_folder": os.path.relpath(self.model.project_path, self.triangulation_path),
+            "model_folder": os.path.relpath(self.model.project_path, os.getcwd()),
             "nesting": 1,
             "pipeline": {"videos-raw": "videos-raw",},
             "labeling": {
@@ -523,3 +523,21 @@ class Ch3DProject:
     def triangulate(self):
         from anipose.triangulate import triangulate_all
         triangulate_all(self._load_anipose_cfg())
+
+    def visualize(self):
+        from anipose.label_videos import label_videos_all, label_videos_filtered_all
+        anipose_cfg = self._load_anipose_cfg()
+        rprint("Labeling videos in 2D...")
+        label_videos_all(anipose_cfg)
+
+        if anipose_cfg["filter"]["enabled"]:
+            rprint("Labeling filtered videos in 2D...")
+            label_videos_filtered_all(anipose_cfg)
+
+        from anipose.label_videos_proj import label_proj_all
+        rprint("Labeling reprojected 3D points in 2D...")
+        label_proj_all(anipose_cfg)
+
+        from anipose.label_filter_compare import label_filter_compare_all
+        rprint("Stitching labeled videos together...")
+        label_filter_compare_all(anipose_cfg)

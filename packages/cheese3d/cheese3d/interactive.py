@@ -2,7 +2,7 @@ import io
 from omegaconf import OmegaConf
 from typing import Optional, List
 from pathlib import Path
-from contextlib import redirect_stdout
+from contextlib import redirect_stdout, redirect_stderr
 from textual import work, on
 from textual.app import App, ComposeResult
 from textual.message import Message
@@ -60,15 +60,54 @@ class RichConsole(RichLog):
         self.write(*args, **kwargs)
 
 class TextualStdout(RichLog):
-    """Custom stdout-like object that writes to a RichLog widget."""
+    """Custom stdout-like object that writes to a RichLog widget and handles progress bars."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.current_line = ""
+        self.last_was_progress = False
+
     def write(self, text: str) -> int:
-        if text.strip():  # Only log non-empty lines
-            # Call from main thread using call_from_thread
+        # Handle carriage return (progress bar updates)
+        if "\r" in text and not text.endswith("\n"):
+            # Extract the progress line (last part after \r)
+            progress_text = text.split("\r")[-1].strip()
+            if progress_text:
+                if self.last_was_progress:
+                    # Update last line by clearing and rewriting
+                    self.app.call_from_thread(self._update_progress_line, progress_text)
+                else:
+                    # First progress line
+                    self.app.call_from_thread(super().write, progress_text)
+                self.last_was_progress = True
+        elif text.strip():
+            # Regular line - write normally
             self.app.call_from_thread(super().write, text.rstrip())
+            self.last_was_progress = False
+
         return len(text)
+
+    def _update_progress_line(self, new_text: str):
+        """Update the last line for progress bars."""
+        # remove last line
+        if self.lines:
+            self.lines.pop()
+        # clear cache of old line
+        y = len(self.lines)
+        scroll_x, _ = self.scroll_offset
+        width = self.scrollable_content_region.width
+        key = (y + self._start_line, scroll_x, width, self._widest_line_width)
+        self._line_cache.discard(key)
+        # write new line
+        super().write(new_text)
+        # refresh just this line
+        self.refresh_line(y)
 
     def flush(self):
         pass  # RichLog handles its own flushing
+
+    def close(self):
+        pass # no need to "close" this output stream
 
 class LabeledInput(Input):
 
@@ -630,12 +669,16 @@ class MainScreen(Screen):
         super().__init__()
 
     def on_mount(self) -> None:
-        summary_log = self.query_one("#summary_log")
-        self.project.summarize(summary_log)
+        self._refresh_summary()
 
     def _check_in_sessions(self, session: str):
         k = RecordingKey(session, "")
         return any(k2.matches(k) for k2 in self.project.recordings.keys())
+
+    def _refresh_summary(self):
+        summary_log = self.query_one("#summary_log")
+        summary_log.clear()
+        self.project.summarize(summary_log)
 
     def _refresh_recording_list(self):
         config = ProjectConfig.load(self.project.path / "config.yaml")
@@ -695,13 +738,33 @@ class MainScreen(Screen):
                             yield Button("Calibrate", id="calibrate")
                             yield Button("Track", id="track")
                             yield Button("Triangulate", id="triangulate")
+                            yield Button("Visualize", id="visualize")
                     yield TextualStdout(id="pose_log")
         yield Footer()
 
     @on(TabbedContent.TabActivated)
     def update_tabs(self, msg: TabbedContent.TabActivated):
-        if msg.pane.id == "recordings":
+        self.project = Ch3DProject.from_path(self.project.path)
+        if msg.pane.id == "summary":
+            self._refresh_summary()
+        elif msg.pane.id == "recordings":
             self._refresh_recording_list()
+
+    @on(SelectionList.SelectedChanged, "#select_recordings")
+    def update_selected_recordings(self, msg: SelectionList.SelectedChanged):
+        config = ProjectConfig.load(self.project.path / "config.yaml")
+        current = set(recording["name"] for recording in config.recordings) # type: ignore
+        selections = [selection.name for selection in msg.selection_list.selected]
+        new_recordings = []
+        for recording in config.recordings: # type: ignore
+            name = recording.get("name", "")
+            if name in selections:
+                new_recordings.append(recording)
+        for selection in selections:
+            if selection not in current:
+                new_recordings.append({"name": selection}) # type: ignore
+        config.recordings = new_recordings # type: ignore
+        OmegaConf.save(config, self.project.path / "config.yaml")
 
     @on(Button.Pressed, "#extract")
     @work(thread=True)
@@ -709,7 +772,7 @@ class MainScreen(Screen):
         self._disable_model_in_progress()
         log = self.query_one("#model_log")
         log.clear() # type: ignore
-        with redirect_stdout(log): # type: ignore
+        with redirect_stdout(log), redirect_stderr(log): # type: ignore
             self.project.extract_frames()
         self._enable_model_done()
 
@@ -723,7 +786,7 @@ class MainScreen(Screen):
         self._disable_model_in_progress()
         log = self.query_one("#model_log")
         log.clear() # type: ignore
-        with redirect_stdout(log): # type: ignore
+        with redirect_stdout(log), redirect_stderr(log): # type: ignore
             self.project.train(0)
         self._enable_model_done()
 
@@ -733,7 +796,7 @@ class MainScreen(Screen):
         self._disable_pose_in_progress()
         log = self.query_one("#pose_log")
         log.clear() # type: ignore
-        with redirect_stdout(log): # type: ignore
+        with redirect_stdout(log), redirect_stderr(log): # type: ignore
             self.project.calibrate()
         self._enable_pose_done()
 
@@ -743,7 +806,7 @@ class MainScreen(Screen):
         self._disable_pose_in_progress()
         log = self.query_one("#pose_log")
         log.clear() # type: ignore
-        with redirect_stdout(log): # type: ignore
+        with redirect_stdout(log), redirect_stderr(log): # type: ignore
             self.project.track()
         self._enable_pose_done()
 
@@ -753,8 +816,18 @@ class MainScreen(Screen):
         self._disable_pose_in_progress()
         log = self.query_one("#pose_log")
         log.clear() # type: ignore
-        with redirect_stdout(log): # type: ignore
+        with redirect_stdout(log), redirect_stderr(log): # type: ignore
             self.project.triangulate()
+        self._enable_pose_done()
+
+    @on(Button.Pressed, "#visualize")
+    @work(thread=True)
+    def visualize(self):
+        self._disable_pose_in_progress()
+        log = self.query_one("#pose_log")
+        log.clear() # type: ignore
+        with redirect_stdout(log), redirect_stderr(log): # type: ignore
+            self.project.visualize()
         self._enable_pose_done()
 
 class Cheese3dApp(App):
