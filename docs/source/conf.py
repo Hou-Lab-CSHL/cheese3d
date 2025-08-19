@@ -37,6 +37,11 @@ exclude_patterns = []
 
 html_theme = 'sphinx_book_theme'
 html_static_path = ['_static']
+html_title = "Cheese3D"
+html_theme_options = {
+    "repository_url": "https://github.com/HouLabCSHL/cheese3d",
+    "use_repository_button": True,
+}
 
 # Napoleon settings
 napoleon_google_docstring = True
