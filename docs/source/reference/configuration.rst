@@ -48,9 +48,20 @@ Below is a description of all the options available in the configuration file.
       - ``null``
       - Optional ephys file matching regex.
     * - ``ephys_param``
-      -
+      - :ref:`ephys_params`
+      - ``null``
+      - Optional options for the ephys acquisition system.
+    * - ``fps``
+      - ``int``
+      - ``100``
+      - Frames per second of *all* cameras.
+    * - ``sync``
+      - :ref:`sync_options`
+      - :ref:`sync_options`
+      - Options for temporally synchronizing video (and ephys) data sources.
 
 .. _model_options:
+
 Model options
 -------------
 
@@ -78,6 +89,7 @@ Below is a description of the sub-configuration under the ``model`` key in the :
       - Additional options relevant to the backend. Just ``experimenter`` and ``date`` for now with DLC. These are auto-generated when creating a project based on whether the model is created or imported.
 
 .. _ephys_params:
+
 Ephys options
 -------------
 
@@ -107,3 +119,56 @@ Below is a description of the sub-configurations under the ``ephys_params`` key 
       - ``int``
       - ``30000``
       - Sample rate of the acquisition system.
+
+.. _openephys_config_ref:
+.. list-table:: Open Ephys configuration file parameters
+    :header-rows: 1
+
+    * - Key
+      - Type
+      - Default
+      - Description
+    * - ``type``
+      - ``Literal["openephys"]``
+      - ``openephys``
+      - Type of ephys system.
+    * - ``sync_channel``
+      - ``int``
+      - ``32``
+      - Channel for synchronization signal.
+    * - ``sync_threshold``
+      - ``float``
+      - ``0.2``
+      - Voltage threshold for detecting an "on" synchronization pulse.
+    * - ``sample_rate``
+      - ``int``
+      - ``30000``
+      - Sample rate of the acquisition system.
+
+.. _dsi_config_ref:
+.. list-table:: DSI configuration file parameters
+    :header-rows: 1
+
+    * - Key
+      - Type
+      - Default
+      - Description
+    * - ``type``
+      - ``Literal["dsi"]``
+      - ``dsi``
+      - Type of ephys system.
+    * - ``sync_threshold``
+      - ``float``
+      - ``0.2``
+      - Voltage threshold for detecting an "on" synchronization pulse.
+    * - ``sample_rate``
+      - ``int``
+      - ``1000``
+      - Sample rate of the acquisition system.
+
+.. _sync_options:
+
+Sync options
+------------
+
+Cheese3D will temporally synchronize video data across all cameras (and optionally ephys data). Below are the options for the
