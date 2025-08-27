@@ -11,6 +11,9 @@ dev = { features = ["dev"] }
 docs = "cd docs && pixi run -e docs sphinx-build -b html source _build/html"
 docs-serve = "cd docs && pixi run -e docs sphinx-autobuild --port 8090 -b html source _build/html"
 
+[activation.env]
+LD_LIBRARY_PATH = "$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
+
 [host-dependencies]
 python = "3.10.*"
 
