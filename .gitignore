@@ -3,6 +3,10 @@ demo-data/
 demo-data.tar.gz
 cheese3d_examples.tar.gz
 
+# docker container settings
+.devcontainer/
+docker-compose.yaml
+
 # dlc and anipose
 dlc-projects/
 
