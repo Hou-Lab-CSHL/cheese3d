@@ -122,7 +122,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/fb/76/641ae371508676492379f16e2fa48f4e2c11741bd63c48be4b12a6b09cba/aiosignal-1.4.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/7e/b3/6b4067be973ae96ba0d615946e314c5ae35f9f993eca561b356540bb0c2b/alabaster-1.0.0-py3-none-any.whl
       - pypi: git+https://github.com/Hou-Lab-CSHL/anipose.git#77802e7f10db00780ddfe54c2a65bc475e012c43
-      - pypi: git+https://github.com/Hou-Lab-CSHL/aniposelib.git?rev=4c5522d#4c5522d4ea48295af7e0eb14bb16519e206f3425
+      - pypi: git+https://github.com/Hou-Lab-CSHL/aniposelib.git?rev=50c5b9d#50c5b9d798a2605847dbe20631c544937c11fd71
       - pypi: https://files.pythonhosted.org/packages/78/b6/6307fbef88d9b5ee7421e68d78a9f162e0da4900bc5f5793f6d3d0e34fb8/annotated_types-0.7.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/3e/38/7859ff46355f76f8d19459005ca000b6e7012f2f1ca597746cbcd1fbfe5e/antlr4-python3-runtime-4.9.3.tar.gz
       - pypi: https://files.pythonhosted.org/packages/6f/12/e5e0282d673bb9746bacfb6e2dba8719989d3660cdb2ea79aee9a9651afb/anyio-4.10.0-py3-none-any.whl
@@ -533,7 +533,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/fb/76/641ae371508676492379f16e2fa48f4e2c11741bd63c48be4b12a6b09cba/aiosignal-1.4.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/7e/b3/6b4067be973ae96ba0d615946e314c5ae35f9f993eca561b356540bb0c2b/alabaster-1.0.0-py3-none-any.whl
       - pypi: git+https://github.com/Hou-Lab-CSHL/anipose.git#77802e7f10db00780ddfe54c2a65bc475e012c43
-      - pypi: git+https://github.com/Hou-Lab-CSHL/aniposelib.git?rev=4c5522d#4c5522d4ea48295af7e0eb14bb16519e206f3425
+      - pypi: git+https://github.com/Hou-Lab-CSHL/aniposelib.git?rev=50c5b9d#50c5b9d798a2605847dbe20631c544937c11fd71
       - pypi: https://files.pythonhosted.org/packages/78/b6/6307fbef88d9b5ee7421e68d78a9f162e0da4900bc5f5793f6d3d0e34fb8/annotated_types-0.7.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/3e/38/7859ff46355f76f8d19459005ca000b6e7012f2f1ca597746cbcd1fbfe5e/antlr4-python3-runtime-4.9.3.tar.gz
       - pypi: https://files.pythonhosted.org/packages/6f/12/e5e0282d673bb9746bacfb6e2dba8719989d3660cdb2ea79aee9a9651afb/anyio-4.10.0-py3-none-any.whl
@@ -923,7 +923,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/fb/76/641ae371508676492379f16e2fa48f4e2c11741bd63c48be4b12a6b09cba/aiosignal-1.4.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/7e/b3/6b4067be973ae96ba0d615946e314c5ae35f9f993eca561b356540bb0c2b/alabaster-1.0.0-py3-none-any.whl
       - pypi: git+https://github.com/Hou-Lab-CSHL/anipose.git#77802e7f10db00780ddfe54c2a65bc475e012c43
-      - pypi: git+https://github.com/Hou-Lab-CSHL/aniposelib.git?rev=4c5522d#4c5522d4ea48295af7e0eb14bb16519e206f3425
+      - pypi: git+https://github.com/Hou-Lab-CSHL/aniposelib.git?rev=50c5b9d#50c5b9d798a2605847dbe20631c544937c11fd71
       - pypi: https://files.pythonhosted.org/packages/78/b6/6307fbef88d9b5ee7421e68d78a9f162e0da4900bc5f5793f6d3d0e34fb8/annotated_types-0.7.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/3e/38/7859ff46355f76f8d19459005ca000b6e7012f2f1ca597746cbcd1fbfe5e/antlr4-python3-runtime-4.9.3.tar.gz
       - pypi: https://files.pythonhosted.org/packages/6f/12/e5e0282d673bb9746bacfb6e2dba8719989d3660cdb2ea79aee9a9651afb/anyio-4.10.0-py3-none-any.whl
@@ -1335,7 +1335,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/fb/76/641ae371508676492379f16e2fa48f4e2c11741bd63c48be4b12a6b09cba/aiosignal-1.4.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/7e/b3/6b4067be973ae96ba0d615946e314c5ae35f9f993eca561b356540bb0c2b/alabaster-1.0.0-py3-none-any.whl
       - pypi: git+https://github.com/Hou-Lab-CSHL/anipose.git#77802e7f10db00780ddfe54c2a65bc475e012c43
-      - pypi: git+https://github.com/Hou-Lab-CSHL/aniposelib.git?rev=4c5522d#4c5522d4ea48295af7e0eb14bb16519e206f3425
+      - pypi: git+https://github.com/Hou-Lab-CSHL/aniposelib.git?rev=50c5b9d#50c5b9d798a2605847dbe20631c544937c11fd71
       - pypi: https://files.pythonhosted.org/packages/78/b6/6307fbef88d9b5ee7421e68d78a9f162e0da4900bc5f5793f6d3d0e34fb8/annotated_types-0.7.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/3e/38/7859ff46355f76f8d19459005ca000b6e7012f2f1ca597746cbcd1fbfe5e/antlr4-python3-runtime-4.9.3.tar.gz
       - pypi: https://files.pythonhosted.org/packages/6f/12/e5e0282d673bb9746bacfb6e2dba8719989d3660cdb2ea79aee9a9651afb/anyio-4.10.0-py3-none-any.whl
@@ -1727,7 +1727,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/fb/76/641ae371508676492379f16e2fa48f4e2c11741bd63c48be4b12a6b09cba/aiosignal-1.4.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/32/34/d4e1c02d3bee589efb5dfa17f88ea08bdb3e3eac12bc475462aec52ed223/alabaster-0.7.16-py3-none-any.whl
       - pypi: git+https://github.com/Hou-Lab-CSHL/anipose.git#77802e7f10db00780ddfe54c2a65bc475e012c43
-      - pypi: git+https://github.com/Hou-Lab-CSHL/aniposelib.git?rev=4c5522d#4c5522d4ea48295af7e0eb14bb16519e206f3425
+      - pypi: git+https://github.com/Hou-Lab-CSHL/aniposelib.git?rev=50c5b9d#50c5b9d798a2605847dbe20631c544937c11fd71
       - pypi: https://files.pythonhosted.org/packages/78/b6/6307fbef88d9b5ee7421e68d78a9f162e0da4900bc5f5793f6d3d0e34fb8/annotated_types-0.7.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/3e/38/7859ff46355f76f8d19459005ca000b6e7012f2f1ca597746cbcd1fbfe5e/antlr4-python3-runtime-4.9.3.tar.gz
       - pypi: https://files.pythonhosted.org/packages/6f/12/e5e0282d673bb9746bacfb6e2dba8719989d3660cdb2ea79aee9a9651afb/anyio-4.10.0-py3-none-any.whl
@@ -2151,7 +2151,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/fb/76/641ae371508676492379f16e2fa48f4e2c11741bd63c48be4b12a6b09cba/aiosignal-1.4.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/32/34/d4e1c02d3bee589efb5dfa17f88ea08bdb3e3eac12bc475462aec52ed223/alabaster-0.7.16-py3-none-any.whl
       - pypi: git+https://github.com/Hou-Lab-CSHL/anipose.git#77802e7f10db00780ddfe54c2a65bc475e012c43
-      - pypi: git+https://github.com/Hou-Lab-CSHL/aniposelib.git?rev=4c5522d#4c5522d4ea48295af7e0eb14bb16519e206f3425
+      - pypi: git+https://github.com/Hou-Lab-CSHL/aniposelib.git?rev=50c5b9d#50c5b9d798a2605847dbe20631c544937c11fd71
       - pypi: https://files.pythonhosted.org/packages/78/b6/6307fbef88d9b5ee7421e68d78a9f162e0da4900bc5f5793f6d3d0e34fb8/annotated_types-0.7.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/3e/38/7859ff46355f76f8d19459005ca000b6e7012f2f1ca597746cbcd1fbfe5e/antlr4-python3-runtime-4.9.3.tar.gz
       - pypi: https://files.pythonhosted.org/packages/6f/12/e5e0282d673bb9746bacfb6e2dba8719989d3660cdb2ea79aee9a9651afb/anyio-4.10.0-py3-none-any.whl
@@ -2557,7 +2557,7 @@ packages:
   - flask-compress
   - flask-ipban
   - mayavi ; extra == 'viz'
-- pypi: git+https://github.com/Hou-Lab-CSHL/aniposelib.git?rev=4c5522d#4c5522d4ea48295af7e0eb14bb16519e206f3425
+- pypi: git+https://github.com/Hou-Lab-CSHL/aniposelib.git?rev=50c5b9d#50c5b9d798a2605847dbe20631c544937c11fd71
   name: aniposelib
   version: 0.4.3
   requires_dist:
@@ -3154,7 +3154,7 @@ packages:
 - pypi: ./packages/cheese3d
   name: cheese3d
   version: 0.1.0
-  sha256: 3d9c1b35cfe0fc7bc4af5773a2aa1a648a2177ab5ecee1c88a62c2ffff59305e
+  sha256: d1164fd2430cbc350459581d32b518d055b351ddc19114aaf33633f1cb4b05f6
   requires_dist:
   - pip>=25.2,<26
   - ipython
@@ -3167,7 +3167,7 @@ packages:
   - hydra-core
   - joblib
   - torch<=1.12.0
-  - aniposelib @ git+https://github.com/Hou-Lab-CSHL/aniposelib.git@4c5522d
+  - aniposelib @ git+https://github.com/Hou-Lab-CSHL/aniposelib.git@50c5b9d
   - anipose @ git+https://github.com/Hou-Lab-CSHL/anipose.git
   - opencv-python==4.7.*
   - opencv-python-headless==4.7.*
