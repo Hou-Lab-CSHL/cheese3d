@@ -89,6 +89,24 @@ ProjectWizard {
     min-height: 10;
 }
 
+DialogBox {
+    align: center middle;
+}
+DialogBox #modal {
+    align: center middle;
+    width: 50%;
+    height: 20%;
+    border: thick gray 80%;
+    background: $surface;
+}
+DialogBox #modal > Horizontal {
+    align: center middle;
+}
+DialogBox #modal > Horizontal > Widget {
+    text-align: center;
+    width: auto;
+}
+
 CreateWizardLoading {
     align: center middle;
 }

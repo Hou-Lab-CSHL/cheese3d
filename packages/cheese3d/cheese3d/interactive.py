@@ -551,6 +551,21 @@ class StartMenu(Screen):
         if project_path is not None:
             self.app.push_screen(MainScreen(project_path))
 
+class DialogBox(ModalScreen):
+    def __init__(self, message: str = "Completed step", button_text: str = "Continue", *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.message = message
+        self.button_text = button_text
+
+    @on(Button.Pressed, "#continue")
+    def close(self):
+        self.dismiss()
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="modal"):
+            yield Horizontal(Static(f"[bold]{self.message}[/bold]", id="msg"))
+            yield Horizontal(Button(self.button_text, id="continue", variant="success"))
+
 class CreateWizardLoading(ModalScreen):
     def __init__(self, project_config, ephys_config, model_config, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -788,6 +803,7 @@ class MainScreen(Screen):
         with redirect_stdout(log), redirect_stderr(log): # type: ignore
             self.project.extract_frames()
         self._enable_model_done()
+        self.app.call_from_thread(self.app.push_screen, DialogBox("Frame extraction completed!"))
 
     @on(Button.Pressed, "#label")
     def label_frames(self):
@@ -802,6 +818,7 @@ class MainScreen(Screen):
         with redirect_stdout(log), redirect_stderr(log): # type: ignore
             self.project.train(0)
         self._enable_model_done()
+        self.app.call_from_thread(self.app.push_screen, DialogBox("Model training completed!"))
 
     @on(Button.Pressed, "#calibrate")
     @work(thread=True)
@@ -812,6 +829,7 @@ class MainScreen(Screen):
         with redirect_stdout(log), redirect_stderr(log): # type: ignore
             self.project.calibrate()
         self._enable_pose_done()
+        self.app.call_from_thread(self.app.push_screen, DialogBox("Camera calibration completed!"))
 
     @on(Button.Pressed, "#track")
     @work(thread=True)
@@ -822,6 +840,7 @@ class MainScreen(Screen):
         with redirect_stdout(log), redirect_stderr(log): # type: ignore
             self.project.track()
         self._enable_pose_done()
+        self.app.call_from_thread(self.app.push_screen, DialogBox("2D pose tracking completed!"))
 
     @on(Button.Pressed, "#triangulate")
     @work(thread=True)
@@ -832,6 +851,7 @@ class MainScreen(Screen):
         with redirect_stdout(log), redirect_stderr(log): # type: ignore
             self.project.triangulate()
         self._enable_pose_done()
+        self.app.call_from_thread(self.app.push_screen, DialogBox("3D triangulation completed!"))
 
     @on(Button.Pressed, "#visualize")
     @work(thread=True)
@@ -842,6 +862,7 @@ class MainScreen(Screen):
         with redirect_stdout(log), redirect_stderr(log): # type: ignore
             self.project.visualize()
         self._enable_pose_done()
+        self.app.call_from_thread(self.app.push_screen, DialogBox("Visualization completed!"))
 
 class Cheese3dApp(App):
     """Interactive Cheese3D TUI via Textual."""
