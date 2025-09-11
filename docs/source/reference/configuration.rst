@@ -259,7 +259,7 @@ Example:
 .. code-block:: yaml
 
    calibration:
-   - type: cal
+     type: cal
 
 Triangulation options
 ---------------------
