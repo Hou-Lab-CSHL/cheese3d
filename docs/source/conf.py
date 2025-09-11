@@ -26,6 +26,7 @@ extensions = [
     'sphinx.ext.viewcode',
     'sphinx.ext.napoleon',
     'sphinx.ext.mathjax',
+    'sphinx.ext.autosectionlabel',
     'sphinxemoji.sphinxemoji',
 ]
 
@@ -42,6 +43,9 @@ html_theme_options = {
     "repository_url": "https://github.com/HouLabCSHL/cheese3d",
     "use_repository_button": True,
 }
+
+# Auto-section label settings
+autosectionlabel_prefix_document = True
 
 # Napoleon settings
 napoleon_google_docstring = True
