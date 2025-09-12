@@ -2,7 +2,8 @@ import os
 import re
 import pims
 import cv2
-import sre_parse
+import numpy as np
+import pandas as pd
 from glob import glob
 from typing import List, Optional
 from contextlib import contextmanager
@@ -98,6 +99,41 @@ def reglob(pattern, path = None, recursive = False):
     regex = re.compile(pattern)
 
     return sorted([f for f in files if regex.search(f) is not None])
+
+def read_3d_data(data_dir: str | Path, extra_cols = None):
+    """Load 3D landmark data from Anipose.
+
+    ### Arguments
+    - `data_dir`: the Anipose directory for the video to load
+    - `extra_cols`: optional, a list of extra columns to include in the output
+       where each extra column is a string appended to a landmark name
+       (e.g. "error" in this list becomes "lowerlip_error" for the 3D CSV header)
+
+    ### Returns
+    A dictionary of 3D data where each key is a landmark name
+    and the associated value is an array of shape `(time, 3)`.
+    If `extra_cols` is provided, an additional dictionary is returned where each
+    entry corresponds to an extra column and the value is dictionary of landmarks
+    to arrays of shape `(time,)`.
+    """
+    files = glob(str(Path(data_dir) / "pose-3d" / "*.csv"))
+    data = pd.read_csv(files[0])
+    cols = data.head() # name of all the columns
+    landmark_names = np.unique([s.split('_')[0]
+                                for s in cols if s.endswith(('_x', '_y', '_z'))])
+    landmarks = {landmark: np.stack([data[f"{landmark}_x"],
+                                     data[f"{landmark}_y"],
+                                     data[f"{landmark}_z"]], axis=-1)
+                 for landmark in landmark_names}
+
+    if extra_cols is not None:
+        extra_landmarks = {col: {landmark: np.asarray(data[f"{landmark}_{col}"])
+                                 for landmark in landmark_names}
+                           for col in extra_cols}
+
+        return landmarks, extra_landmarks
+    else:
+        return landmarks
 
 def get_group_pattern(regex: str, group_name: str):
     """

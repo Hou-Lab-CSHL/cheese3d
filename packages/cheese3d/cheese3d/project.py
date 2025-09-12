@@ -1,6 +1,7 @@
 import re
 import os
 import toml
+import pandas as pd
 from pathlib import Path
 from dataclasses import dataclass, field
 from omegaconf import OmegaConf
@@ -9,17 +10,19 @@ from rich import print as rprint
 from typing import List, Dict, Optional, Any
 from collections import namedtuple
 
+from cheese3d.anatomy import compute_anatomical_measurements
 from cheese3d.config import (MultiViewConfig,
                              KeypointConfig,
                              ModelConfig,
                              TriangulationConfig,
                              ProjectConfig,
-                             keypoints_by_group)
+                             keypoints_by_group,
+                             _DEFAULT_KEYPOINTS)
 from cheese3d.synchronize.core import SyncConfig, SyncPipeline
 from cheese3d.synchronize.readers import VideoSyncReader, get_ephys_reader
 from cheese3d.backends.core import Pose2dBackend
 from cheese3d.backends.dlc import DLCBackend
-from cheese3d.utils import reglob, maybe, get_group_pattern
+from cheese3d.utils import read_3d_data, reglob, maybe, get_group_pattern
 
 class RecordingKey(namedtuple("RecordingKey", ["session", "name", "attributes"])):
     __slots__ = () # prevent __dict__ creation since subclassing namedtuple
@@ -521,8 +524,31 @@ class Ch3DProject:
         pose_videos_all(self._load_anipose_cfg())
 
     def triangulate(self):
+        # first triangulate points using Anipose
         from anipose.triangulate import triangulate_all
         triangulate_all(self._load_anipose_cfg())
+        # now compute cheese3d features
+        exclude_kps = set(kp.label for kp in _DEFAULT_KEYPOINTS) - set(kp.label for kp in self.keypoints)
+        if len(exclude_kps) > 0:
+            rprint("[bold red]Keypoint configuration does not match default Cheese3D keypoints. "
+                   "Some Cheese3D features may not be computed![/bold red]")
+        for session in self.triangulation_path.iterdir():
+            if session.is_dir():
+                landmarks = read_3d_data(session)
+                c3d_features = compute_anatomical_measurements(landmarks, exclude_kps)
+                # write features to csv
+                c3d_features_df = pd.DataFrame({
+                    k: v
+                    for _, features in c3d_features.items()
+                    for k, v in features.items()
+                })
+                if len(c3d_features_df) == 0:
+                    rprint(f"[bold red]No features constructed for {session.name}, skipping![/bold red]")
+                csv_output = (session / "cheese3d")
+                csv_output.mkdir(exist_ok=True)
+                csv_output = csv_output / "cheese3d_features.csv"
+                if not csv_output.exists():
+                    c3d_features_df.to_csv(csv_output, index=False, index_label=None)
 
     def visualize(self):
         from anipose.label_videos import label_videos_all, label_videos_filtered_all
