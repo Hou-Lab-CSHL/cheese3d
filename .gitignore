@@ -4,6 +4,7 @@ cheese3d_demo_data/
 cheese3d_demo_model-houlab-2025-05-28/
 cheese3d_demo.tar.gz
 demo-internal/
+demoproject.tar.gz
 
 # docker container settings
 .devcontainer/
