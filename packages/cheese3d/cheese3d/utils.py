@@ -2,12 +2,27 @@ import os
 import re
 import pims
 import cv2
+import subprocess
+import platform
+import shutil
 import numpy as np
 import pandas as pd
 from glob import glob
 from typing import List, Optional, Tuple
 from contextlib import contextmanager
 from pathlib import Path
+
+# choose default ffmpeg video encoder
+if platform.system() == "Linux" or platform.system() == "Windows":
+    try:
+        subprocess.check_output('nvidia-smi && ffmpeg -encoders | grep h264_nvenc')
+        FFMPEG_ENCODER = "h264_nvenc"
+    except Exception:
+        FFMPEG_ENCODER = "libx264"
+elif platform.system() == "Darwin":
+    FFMPEG_ENCODER = "h264_videotoolbox"
+else:
+    FFMPEG_ENCODER = "libx264"
 
 # (top left x, top left y, bottom right x, bottom right y)
 # (xstart, xend, ystart, yend)
@@ -112,6 +127,57 @@ def dlc_folder_to_components(folder: str | Path):
     *name, experimenter, year, month, date = Path(folder).name.split("-")
 
     return "-".join(name), experimenter, "-".join([year, month, date])
+
+def downsample_video_data(videos, start_offset = 0, fps = None):
+    for video in videos:
+        cmd = subprocess.run([
+            "ffprobe", "-v", "quiet",
+            "-select_streams", "v:0",
+            "-show_entries", "stream=width,height",
+            "-of", "csv=s=x:p=0",
+            video
+        ], capture_output=True)
+        if cmd.returncode:
+            raise RuntimeError("Failed to get video resolution "
+                               f"(return code = {cmd.returncode}, args = {cmd.args})")
+        else:
+            vid_size = tuple(map(int, cmd.stdout.decode("utf-8").strip().split("x")))
+            if start_offset > 0:
+                filter_args = f"[0:v]select='gt(n\,{start_offset})'[trim];[trim]"
+            else:
+                filter_args = f"[0:v]"
+            if fps is not None:
+                # fps_args = ["-r", f"'100000/{round(fps*1000)}'"]
+                # fps_args = ["-r", str(fps)]
+                # filter_args += f"fps=fps={fps}[fps];[fps]"
+                # filter_args += f"fps=100000/{round(fps * 1000)}[fps];[fps]"
+                # filter_args += f"framerate=fps={round(fps, ndigits=6)}[fps];[fps]"
+                input_fps = ["-r", f"{100 * fps/100}/1"]
+                output_fps = ["-r", "100/1"]
+            else:
+                input_fps = ["-r", "100/1"]
+                output_fps = ["-r", "100/1"]
+            filter_args += f"scale=-2:{vid_size[1]}[out]"
+            tmp_file = Path(video)
+            tmp_file = str(tmp_file.with_name(tmp_file.name + "_tmp"))
+            shutil.move(video, tmp_file)
+            cmd = subprocess.run([
+                "ffmpeg", "-y",
+                *input_fps,
+                "-i", tmp_file,
+                "-filter_complex", filter_args,
+                "-map", "[out]",
+                "-c:v", FFMPEG_ENCODER,
+                "-b:v", "10000k",
+                "-crf", "18",
+                "-preset", "superfast",
+                *output_fps,
+                video
+            ])
+            if cmd.returncode:
+                raise RuntimeError("Failed to get video resolution "
+                                    f"(return code = {cmd.returncode}, "
+                                    f"args = {cmd.args})")
 
 def read_3d_data(data_dir: str | Path, extra_cols = None):
     """Load 3D landmark data from Anipose.

@@ -1,6 +1,5 @@
 import re
 import os
-from pydantic.v1.typing import AnnotatedTypeNames
 import toml
 import pandas as pd
 from pathlib import Path
@@ -25,6 +24,7 @@ from cheese3d.synchronize.readers import VideoSyncReader, get_ephys_reader
 from cheese3d.backends.core import Pose2dBackend
 from cheese3d.backends.dlc import DLCBackend
 from cheese3d.utils import (dlc_folder_to_components,
+                            downsample_video_data,
                             read_3d_data,
                             reglob,
                             maybe,
@@ -360,9 +360,10 @@ class Ch3DProject:
             rprint(f"[bold green]Synchronizing recording videos:[/bold green] {recording.name}")
             ref_video = views[self.sync.ref_view]
             ref_crop = self.view_config[self.sync.ref_view].get_crop(self.sync.ref_crop)
+            align_params = {}
             for view, video in views.items():
                 if view == self.sync.ref_view:
-                    continue
+                    align_params[view] = {(video, 0, self.fps)}
                 crop = self.view_config[view].get_crop(self.sync.ref_crop)
                 ref_reader = VideoSyncReader(source=self.path / ref_video,
                                              sample_rate=self.fps,
@@ -373,8 +374,18 @@ class Ch3DProject:
                                                 threshold=self.sync.led_threshold,
                                                 crop=crop)
                 pipeline = SyncPipeline.from_cfg(self.sync, ref_reader, target_reader)
-                align_params = pipeline.align_recording()
-                pipeline.write_json(align_params)
+                align_param = pipeline.align_recording()
+                pipeline.write_json(align_param)
+                align_params[view] = (video,
+                                      int(round(align_param.lag, 2) * align_param.sample_rate), # type: ignore
+                                      align_param.sample_rate)
+            ref_lag = min(-lag for _, lag, _ in align_params.values())
+            for video, lag, fps in align_params.values():
+                shift = -lag - ref_lag
+                if fps != self.fps:
+                    downsample_video_data([str(self.path / video)], start_offset=shift, fps=fps)
+                else:
+                    downsample_video_data([str(self.path / video)], start_offset=shift)
         # run ephys synchronization if available
         if self.ephys_sessions and self.ephys_param:
             for recording, ephys_file in self.ephys_sessions.items():
