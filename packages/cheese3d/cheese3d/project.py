@@ -140,7 +140,7 @@ def build_model_backend(cfg: ModelConfig | str | Path,
                 videos.append(video)
                 crops.append(view_cfg[view].get_crop())
         existing_project = Path(cfg)
-        name = "-".join(existing_project.name.split("-")[:-2])
+        name = "-".join(existing_project.name.split("-")[:-5])
         root = root / name / "backend"
 
         return DLCBackend.from_existing(existing_project, root, videos, keypoints, crops)

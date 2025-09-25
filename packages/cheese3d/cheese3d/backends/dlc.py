@@ -59,14 +59,13 @@ class DLCBackend(Pose2dBackend):
                         symlinks=True,
                         ignore_dangling_symlinks=True)
         # create dlc project
-        *name, experimenter, date = project_path.name.split("-")
-        name = "-".join(name)
-        return cls(name=name,
+        *name, experimenter, year, month, date = project_path.name.split("-")
+        return cls(name="-".join(name),
                    root_dir=root_dir,
                    videos=videos,
                    keypoints=keypoints,
                    experimenter=experimenter,
-                   date=date,
+                   date="-".join([year, month, date]),
                    crops=crops)
 
     @property
