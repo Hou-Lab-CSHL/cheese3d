@@ -70,7 +70,7 @@ class VideoFrames:
         height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT) # type: ignore
         width = cap.get(cv2.CAP_PROP_FRAME_WIDTH) # type: ignore
         cap.release()
-        cv2.destroyAllWindows() # type: ignore
+        # cv2.destroyAllWindows() # type: ignore
 
         return height, width
 

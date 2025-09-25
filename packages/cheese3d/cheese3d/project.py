@@ -81,8 +81,9 @@ def find_videos(dir: Path,
                     continue
                 if all(match.group(k) == v
                        for k, v in recording.items() if k != "name"):
-                    group_name = Path(match.group(0)
-                                           .replace(match.group("view"), "")).stem
+                    view_start, view_end = match.span("view")
+                    group_name = match.group(0)
+                    group_name = Path(group_name[:view_start] + group_name[view_end:]).stem
                     group_key = RecordingKey(session,
                                              group_name,
                                              **{k: v for k, v in match.groupdict().items()
@@ -305,20 +306,20 @@ class Ch3DProject:
         tab = table.Table("Recording", "Files", title="Project recordings")
         for group, files in self.recordings.items():
             tab.add_row(group.as_str(),
-                        ",\n".join([f"{view}: {file.relative_to(self.path)}"
+                        ",\n".join([f"{view}: {file if file.is_absolute else file.relative_to(self.path)}"
                                     for view, file in files.items()]))
         pty.print(tab)
         # print ephys info
         if self.ephys_param:
             tab = table.Table("Recording", "Files", title="Project ephys recordings")
             for group, file in self.ephys_recordings.items(): # type: ignore
-                tab.add_row(group.as_str(), str(file.relative_to(self.path)))
+                tab.add_row(group.as_str(), str(file if file.is_absolute else file.relative_to(self.path)))
             pty.print(tab)
         # print calibration info
         tab = table.Table("Recording", "Files", title="Project calibrations")
         for group, files in self.calibrations.items():
             tab.add_row(group.as_str(),
-                        ",\n".join([f"{view}: {file.relative_to(self.path)}"
+                        ",\n".join([f"{view}: {file if file.is_absolute else file.relative_to(self.path)}"
                                     for view, file in files.items()]))
         pty.print(tab)
 
