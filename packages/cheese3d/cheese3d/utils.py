@@ -100,6 +100,11 @@ def reglob(pattern, path = None, recursive = False):
 
     return sorted([f for f in files if regex.search(f) is not None])
 
+def dlc_folder_to_components(folder: str | Path):
+    *name, experimenter, year, month, date = Path(folder).name.split("-")
+
+    return "-".join(name), experimenter, "-".join([year, month, date])
+
 def read_3d_data(data_dir: str | Path, extra_cols = None):
     """Load 3D landmark data from Anipose.
 

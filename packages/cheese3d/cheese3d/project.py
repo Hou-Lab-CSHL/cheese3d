@@ -22,7 +22,7 @@ from cheese3d.synchronize.core import SyncConfig, SyncPipeline
 from cheese3d.synchronize.readers import VideoSyncReader, get_ephys_reader
 from cheese3d.backends.core import Pose2dBackend
 from cheese3d.backends.dlc import DLCBackend
-from cheese3d.utils import read_3d_data, reglob, maybe, get_group_pattern
+from cheese3d.utils import dlc_folder_to_components, read_3d_data, reglob, maybe, get_group_pattern
 
 class RecordingKey(namedtuple("RecordingKey", ["session", "name", "attributes"])):
     __slots__ = () # prevent __dict__ creation since subclassing namedtuple
@@ -140,7 +140,7 @@ def build_model_backend(cfg: ModelConfig | str | Path,
                 videos.append(video)
                 crops.append(view_cfg[view].get_crop())
         existing_project = Path(cfg)
-        name = "-".join(existing_project.name.split("-")[:-5])
+        name, *_ = dlc_folder_to_components(existing_project)
         root = root / name / "backend"
 
         return DLCBackend.from_existing(existing_project, root, videos, keypoints, crops)

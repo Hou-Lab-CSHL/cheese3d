@@ -9,7 +9,7 @@ from omegaconf import OmegaConf
 
 from cheese3d.backends.core import Pose2dBackend
 from cheese3d.config import KeypointConfig
-from cheese3d.utils import maybe, reglob, BoundingBox, VideoFrames
+from cheese3d.utils import maybe, reglob, BoundingBox, VideoFrames, dlc_folder_to_components
 
 class DLCBackend(Pose2dBackend):
     def __init__(self,
@@ -59,13 +59,13 @@ class DLCBackend(Pose2dBackend):
                         symlinks=True,
                         ignore_dangling_symlinks=True)
         # create dlc project
-        *name, experimenter, year, month, date = project_path.name.split("-")
-        return cls(name="-".join(name),
+        name, experimenter, date = dlc_folder_to_components(project_path)
+        return cls(name=name,
                    root_dir=root_dir,
                    videos=videos,
                    keypoints=keypoints,
                    experimenter=experimenter,
-                   date="-".join([year, month, date]),
+                   date=date,
                    crops=crops)
 
     @property
