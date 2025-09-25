@@ -17,16 +17,10 @@ class VideoConfig:
     - `crop`: a bounding box of the form `(xstart, xend, ystart, yend)`
         where any coordinate maybe set to `None` to accept the full bounds
     - `extra_crops`: a dictionary of bounding boxes structured similar to `crop`
-    - `filterspec`: a filter specs for FFMPEG specified as a dictionary
-        of the form (set to `None` for no filter):
-        - `brightness`: value in [-1.0, 1.0] (default 0)
-        - `contrast`: value in [-1000.0, 1000.0] (default 1)
-        - `saturation`: value in [0.0, 3.0] (default 1)
     """
-    path: str = MISSING
+    view: str = MISSING
     crop: BoundingBox = field(default_factory=lambda: [None, None, None, None])
     extra_crops: Optional[Dict[str, BoundingBox]] = None
-    filterspec: Optional[Dict[str, float]] = None
 
     def get_crop(self, crop = "default") -> BoundingBox:
         if crop == "default":
@@ -37,10 +31,10 @@ class VideoConfig:
             return self.extra_crops.get(crop, [None, None, None, None])
 
     def as_list(self):
-        if isinstance(self.path, str):
-            return [self.path]
+        if isinstance(self.view, str):
+            return [self.view]
         else:
-            return self.path
+            return self.view
 
 class MultiViewConfig(dict[str, VideoConfig]):
     """

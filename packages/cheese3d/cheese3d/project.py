@@ -77,7 +77,7 @@ def find_videos(dir: Path,
                    for f in reglob(recording_regex, path=str(dir / session))]
         for view, video_cfg in views.items():
             for match in matches:
-                if (match is None) or (match.group("view") != video_cfg.path):
+                if (match is None) or (match.group("view") != video_cfg.view):
                     continue
                 if all(match.group(k) == v
                        for k, v in recording.items() if k != "name"):
@@ -182,7 +182,8 @@ class Ch3DProject:
     """
     name: str
     root: Path
-    model_root: str
+    recording_root: Path
+    model_root: Path
     fps: int
     recordings: Dict[RecordingKey, Dict[str, Path]]
     calibrations: Dict[RecordingKey, Dict[str, Path]]
@@ -190,6 +191,7 @@ class Ch3DProject:
     view_regex: str
     keypoints: List[KeypointConfig]
     model: Optional[Pose2dBackend]
+    ephys_root: Optional[Path] = None
     ephys_recordings: Optional[Dict[RecordingKey, Path]] = None
     ephys_param: Optional[Dict[str, Any]] = None
     sync: SyncConfig = field(
@@ -204,7 +206,27 @@ class Ch3DProject:
 
     @property
     def model_path(self):
-        return self.path / self.model_root
+        if self.model_root.is_relative_to(self.path):
+            return self.path / self.model_root
+        else:
+            return self.model_root
+
+    @property
+    def recording_path(self):
+        if self.recording_root.is_relative_to(self.path):
+            return self.path / self.recording_root
+        else:
+            return self.recording_root
+
+    @property
+    def ephys_path(self):
+        if self.ephys_root:
+            if self.ephys_root.is_relative_to(self.path):
+                return self.path / self.ephys_root
+            else:
+                return self.ephys_root
+        else:
+            return None
 
     @property
     def triangulation_path(self):
@@ -227,7 +249,7 @@ class Ch3DProject:
     def from_cfg(cls, cfg: ProjectConfig, root: str | Path, model_import = None):
         root = Path(root)
         recordings, calibrations = find_videos(
-            dir=root / cfg.name / cfg.recording_root,
+            dir=root / cfg.name / os.path.relpath(cfg.recording_root, root / cfg.name),
             recording_regex=ProjectConfig.build_regex(cfg.video_regex),
             calibration_keys=cfg.calibration,
             recordings=cfg.recordings,
@@ -235,7 +257,7 @@ class Ch3DProject:
         )
         if cfg.ephys_regex and cfg.ephys_root and cfg.ephys_param:
             ephys = find_ephys(
-                dir=root / cfg.name / cfg.ephys_root,
+                dir=root / cfg.name / os.path.relpath(cfg.ephys_root, root / cfg.name),
                 ephys_regex=ProjectConfig.build_regex(cfg.ephys_regex),
                 recordings=recordings
             )
@@ -249,7 +271,8 @@ class Ch3DProject:
             ephys = None
         model_cfg = maybe(model_import, cfg.model)
         model = build_model_backend(model_cfg,
-                                    root=(root / cfg.name / cfg.model_root),
+                                    root=(root / cfg.name /
+                                          os.path.relpath(cfg.model_root, root / cfg.name)),
                                     recordings=recordings,
                                     view_cfg=cfg.views,
                                     keypoints=cfg.keypoints)
@@ -257,7 +280,9 @@ class Ch3DProject:
 
         return cls(name=cfg.name,
                    root=root,
-                   model_root=cfg.model_root,
+                   recording_root=Path(cfg.recording_root),
+                   ephys_root=Path(cfg.ephys_root) if cfg.ephys_root else None,
+                   model_root=Path(cfg.model_root),
                    fps=cfg.fps,
                    model=model,
                    recordings=recordings,
@@ -288,13 +313,16 @@ class Ch3DProject:
         tab.add_column("Value")
         tab.add_row("Name", self.name)
         tab.add_row("Root Path", str(self.root))
+        tab.add_row("Recording Path", str(self.recording_path))
         tab.add_row("Model Path", str(self.model_path))
         if self.ephys_param:
+            tab.add_row("Ephys Path", str(self.ephys_path))
             tab.add_row(
                 "Ephys Params",
                 ", ".join([f"{k}: {v}" for k, v in self.ephys_param.items()])
             )
         else:
+            tab.add_row("Ephys Path", "N/A")
             tab.add_row("Ephys Params", "N/A")
         pty.print(tab)
         # print keypoint info
@@ -303,23 +331,23 @@ class Ch3DProject:
             tab.add_row(pt.label, ", ".join(pt.groups), ", ".join(pt.views))
         pty.print(tab)
         # print recording info
-        tab = table.Table("Recording", "Files", title="Project recordings")
+        tab = table.Table("Recording", "Files (relative to Recording Path)", title="Project recordings")
         for group, files in self.recordings.items():
             tab.add_row(group.as_str(),
-                        ",\n".join([f"{view}: {file if file.is_absolute else file.relative_to(self.path)}"
+                        ",\n".join([f"{view}: {file.relative_to(self.recording_path)}"
                                     for view, file in files.items()]))
         pty.print(tab)
         # print ephys info
         if self.ephys_param:
-            tab = table.Table("Recording", "Files", title="Project ephys recordings")
+            tab = table.Table("Recording", "Files (relative to Ephys Path)", title="Project ephys recordings")
             for group, file in self.ephys_recordings.items(): # type: ignore
-                tab.add_row(group.as_str(), str(file if file.is_absolute else file.relative_to(self.path)))
+                tab.add_row(group.as_str(), str(file.relative_to(self.recording_path)))
             pty.print(tab)
         # print calibration info
-        tab = table.Table("Recording", "Files", title="Project calibrations")
+        tab = table.Table("Recording", "Files (relative to Recording Path)", title="Project calibrations")
         for group, files in self.calibrations.items():
             tab.add_row(group.as_str(),
-                        ",\n".join([f"{view}: {file if file.is_absolute else file.relative_to(self.path)}"
+                        ",\n".join([f"{view}: {file.relative_to(self.recording_path)}"
                                     for view, file in files.items()]))
         pty.print(tab)
 
