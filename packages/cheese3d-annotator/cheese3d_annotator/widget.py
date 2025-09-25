@@ -1,10 +1,13 @@
 import os
+import imageio
+import yaml
 import numpy as np
 import pandas as pd
 from typing import List
-from magicgui.widgets import Container, FileEdit, ComboBox, Label, CheckBox
+from magicgui.widgets import Container, FileEdit, ComboBox, Label, CheckBox, PushButton
 from qtpy.QtWidgets import QListWidget, QListWidgetItem, QMessageBox, QSizePolicy
-from qtpy.QtGui import QFont
+from qtpy.QtGui import QFont, QImage, QPixmap, QIcon
+from qtpy.QtCore import QSize
 from napari import Viewer
 from glob import glob
 from skimage.io import imread
@@ -23,7 +26,7 @@ class FrameAnnotatorWidget(Container):
         super().__init__()
         self.viewer = viewer
         self.viewer.layers.clear()
-        # self.viewer.window.remove_dock_widget("all") # type: ignore
+        self.viewer.window.remove_dock_widget("all") # type: ignore
         self.viewer.grid.enabled = False
 
         # Main UI elements
@@ -49,8 +52,8 @@ class FrameAnnotatorWidget(Container):
         # Help instructions
         self.help_label = Label(value="""
             <b>Instructions:</b><br>
-            - Select the <b>Root Folder</b> containing recording subfolders.<br>
-            - Load a config file with keypoint definition.<br>
+            - [OPTIONAL] Select the <b>Root Folder</b> containing recording subfolders.<br>
+            - [OPTIONAL] Load a config file with keypoint definition.<br>
             - Click a folder to view and annotate.<br>
             - <b>Left-click</b> to add a point.<br>
             - <b>Right-click</b> to delete a point.<br>
@@ -126,8 +129,8 @@ class FrameAnnotatorWidget(Container):
             self.refresh_folders()
 
     def set_file_dialogs(self, img_folder: str | Path, config_file: str | Path):
-        self.root_folder.value = Path(img_folder)
-        self.config_path.value = Path(config_file)
+        self.config_path.set_value(Path(config_file))
+        self.root_folder.set_value(Path(img_folder))
 
     def load_config(self):
         self.keypoints, self.skeleton_edges = load_keypoints_and_skeleton(self.config_path.value)
@@ -136,7 +139,6 @@ class FrameAnnotatorWidget(Container):
         if len(self.keypoints) > 0:
             self.keypoint_dropdown.set_choice(self.keypoints[0])
         self.keypoint_dropdown.enabled = True
-        self.keypoint_dropdown.show()
 
         cmap = get_colormap("husl")
         colors = cmap.map(np.linspace(0, 1, len(self.keypoints)))
@@ -389,7 +391,6 @@ class FrameAnnotatorWidget(Container):
     def _on_frame_change(self, event=None):
         self.refresh_points()
 
-
     def _resolve_conflicts(self, df: pd.DataFrame, valid_keypoints: List[str]) -> pd.DataFrame:
         """
         Keep only valid keypoints from config, and for each filename,
@@ -419,3 +420,141 @@ class FrameAnnotatorWidget(Container):
             df = pd.concat([df, pd.DataFrame(missing_rows)], ignore_index=True)
 
         return df
+
+class FramePickerWidget(Container):
+    def __init__(self, viewer: Viewer):
+        super().__init__()
+        self.viewer = viewer
+        self.viewer.layers.clear()
+        self.viewer.window.remove_dock_widget("all") # type: ignore
+        self.viewer.grid.enabled = True
+
+        self.saved_frames = set()
+
+        self.save_dir = FileEdit(label="Save Directory", mode="d") # type: ignore
+        self.save_button = PushButton(label="Save Current Frames")
+        self.delete_button = PushButton(label="Delete Selected Frame")
+
+        self.frame_list = QListWidget()
+        self.frame_list.setSpacing(4)
+        self.frame_list.setIconSize(QSize(96, 96))
+        self.frame_list.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.frame_list.itemClicked.connect(self.jump_to_time)
+
+        self.extend([
+            self.save_dir,
+            self.save_button,
+            self.delete_button,
+        ])
+        self.native.setMinimumWidth(240)
+        self.native.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
+
+        layout = self.native.layout()
+        layout.setSpacing(8)
+        layout.addWidget(self.frame_list)
+
+        self.save_button.clicked.connect(self.save_current_frames)
+        self.delete_button.clicked.connect(self.delete_selected_frame)
+
+    def set_save_directory(self, folder: str | Path):
+        self.save_dir.set_value(folder)
+
+    def save_current_frames(self):
+        base_dir = self.save_dir.value
+        if not base_dir or not os.path.isdir(base_dir):
+            QMessageBox.warning(None, "Invalid Directory", "Please select a valid save directory.")
+            return
+
+        current_time = self.viewer.dims.current_step[0]
+
+        for layer in self.viewer.layers:
+            if layer.ndim >= 3 and layer.data.shape[0] > 1 and hasattr(layer.data, "__getitem__"):
+                try:
+                    frame = layer.data[current_time]
+                    video_name = os.path.splitext(os.path.basename(layer.name))[0]
+                    video_folder = os.path.join(base_dir, video_name)
+                    os.makedirs(video_folder, exist_ok=True)
+
+                    filename = f"{current_time:03d}.png"
+                    filepath = os.path.join(video_folder, filename)
+                    if not os.path.exists(filepath):
+                        imageio.imwrite(filepath, frame)
+                        annotations_path = os.path.join(video_folder, "annotations.yaml")
+                        with open(annotations_path, "r") as f:
+                            annotations = yaml.safe_load(f)
+                        annotations[filename] = [[None, None]]
+                        with open(annotations_path, "a") as f:
+                            yaml.safe_dump(annotations, f)
+                except Exception as e:
+                    print(f"Failed to save from layer {layer.name}: {e}")
+
+        if current_time not in self.saved_frames:
+            self.saved_frames.add(current_time)
+            self._update_frame_list_sorted()
+
+    def delete_selected_frame(self):
+        base_dir = self.save_dir.value
+        selected_item = self.frame_list.currentItem()
+        if not selected_item:
+            QMessageBox.information(None, "No Selection", "Please select a frame to delete.")
+            return
+
+        try:
+            frame_index = int(selected_item.text().split()[1])
+        except Exception:
+            QMessageBox.warning(None, "Invalid Item", "Selected item is not a valid frame.")
+            return
+
+        # Remove from internal state
+        if frame_index in self.saved_frames:
+            self.saved_frames.remove(frame_index)
+
+        # Remove image files
+        for layer in self.viewer.layers:
+            if layer.ndim >= 3 and layer.data.shape[0] > 1:
+                video_name = os.path.splitext(os.path.basename(layer.name))[0]
+                frame_file = os.path.join(base_dir, video_name, f"{frame_index:03d}.png")
+                if os.path.exists(frame_file):
+                    try:
+                        os.remove(frame_file)
+                        print(f"Deleted: {frame_file}")
+                    except Exception as e:
+                        print(f"Failed to delete {frame_file}: {e}")
+
+        # Refresh list
+        self._update_frame_list_sorted()
+
+    def _create_thumbnail(self, frame_index, size=128):
+        for layer in self.viewer.layers:
+            if layer.ndim >= 3 and layer.data.shape[0] > 1:
+                try:
+                    image = layer.data[frame_index]
+                    if image.ndim == 2:
+                        image = np.stack([image]*3, axis=-1)
+                    elif image.shape[-1] > 3:
+                        image = image[..., :3]
+                    image = (image / image.max() * 255).astype(np.uint8)
+                    h, w, _ = image.shape
+                    qimage = QImage(image.data, w, h, 3 * w, QImage.Format_RGB888)
+                    pixmap = QPixmap.fromImage(qimage).scaled(size, size)
+                    return QIcon(pixmap)
+                except Exception as e:
+                    print(f"Thumbnail generation failed: {e}")
+                    return None
+        return None
+
+    def _update_frame_list_sorted(self):
+        self.frame_list.clear()
+        for frame_idx in sorted(self.saved_frames):
+            icon = self._create_thumbnail(frame_idx)
+            item = QListWidgetItem(f"Frame {frame_idx:03d}")
+            if icon:
+                item.setIcon(icon)
+            self.frame_list.addItem(item)
+
+    def jump_to_time(self, item):
+        try:
+            frame_index = int(item.text().split()[1])
+            self.viewer.dims.current_step = (frame_index,) + self.viewer.dims.current_step[1:]
+        except Exception as e:
+            QMessageBox.warning(None, "Jump Failed", str(e))

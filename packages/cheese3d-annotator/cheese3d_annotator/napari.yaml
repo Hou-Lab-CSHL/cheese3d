@@ -2,9 +2,14 @@ name: cheese3d-annotator
 display_name: Cheese3D Annotator
 contributions:
   commands:
+    - id: cheese3d-annotator.frame_picker
+      python_name: cheese3d-annotator.widget:FramePickerWidget
+      title: Cheese3D Frame Picker
     - id: cheese3d-annotator.frame_annotator
       python_name: cheese3d-annotator.widget:FrameAnnotatorWidget
       title: Cheese3D Frame Annotator
   widgets:
     - command: cheese3d-annotator.frame_annotator
       display_name: Cheese3D Frame Annotator
+    - command: cheese3d-annotator.frame_picker
+      display_name: Cheese3D Frame Picker

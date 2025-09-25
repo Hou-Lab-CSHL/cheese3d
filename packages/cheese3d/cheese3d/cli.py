@@ -1,6 +1,7 @@
 import os
 import typer
 import rich
+import questionary
 from pathlib import Path
 from typing import Annotated, Optional, List
 
@@ -84,11 +85,25 @@ def extract(
     )] = "configs",
     config_overrides: Annotated[Optional[List[str]], typer.Argument(
         help="Config overrides passed to Hydra (https://hydra.cc/docs/intro/)"
-    )] = None
+    )] = None,
+    manual: Annotated[bool, typer.Option(help="Set to manual frame picking GUI")] = False,
 ):
     """Extract frames from video data."""
     project = _build_project(path, name, configs, config_overrides)
-    project.extract_frames()
+    if manual:
+        choices = [questionary.Choice(title=f"session: {k.session}, name: {k.name}",
+                                      value=k)
+                   for k in project.recordings.keys()]
+        choices.append(questionary.Choice(title="exit (q)", value="exit", shortcut_key="q"))
+        while True:
+            chosen = questionary.select("Which recording would you like to extract frames for?",
+                                        choices=choices).ask()
+            if (chosen == "exit") or (chosen is None):
+                break
+            else:
+                project.extract_frames(recordings=[chosen], manual=True)
+    else:
+        project.extract_frames(manual=False)
     rich.print("Frames extracted! :white_check_mark:")
 
 @cli.command()

@@ -27,6 +27,7 @@ dependencies = [
     "seaborn",
     "open-ephys-python-tools",
     "typer-slim[standard]>=0.15.3,<0.16",
+    "questionary",
     "textual",
     "textual-fspicker",
     "textual_serve",

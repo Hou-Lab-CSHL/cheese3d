@@ -28,7 +28,7 @@ def load_keypoints_and_skeleton(config_path):
         skeleton_edges.extend(list(zip(loop, [*loop[1:], loop[0]])))
     keypoints = [kp["label"] for kp in keypoints]
 
-    return keypoints, skeleton_edges
+    return keypoints, []
 
 
 def create_empty_annotations(image_paths: List[str | Path],

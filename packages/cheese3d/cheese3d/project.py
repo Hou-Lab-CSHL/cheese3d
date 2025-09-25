@@ -36,7 +36,10 @@ class RecordingKey(namedtuple("RecordingKey", ["session", "name", "attributes"])
         return super().__new__(cls, session, name, frozenset(attributes.items()))
 
     def __eq__(self, other):
-        return (self.name == other.name) and self.matches(other)
+        if isinstance(other, RecordingKey):
+            return (self.name == other.name) and self.matches(other)
+        else:
+            return False
 
     def __hash__(self):
         # we assume that self.name contains all the info in self.attributes
@@ -422,12 +425,29 @@ class Ch3DProject:
         label_paths = self._label_folder_paths()
         self.model.export_c3d_labels(label_paths)
 
-    def extract_frames(self):
+    def extract_frames(self, recordings: Optional[List[RecordingKey]] = None, manual = False):
         self._import_labels()
         if self.model is None:
             raise RuntimeError("Cannot extract frames when pose model does not exist "
                                "(hint: maybe you forgot to set `model.name` in the config?")
-        self.model.extract_frames()
+
+        if manual:
+            if not recordings:
+                raise ValueError("A list of recordings must be specified in manual extraction mode.")
+            import napari
+            from cheese3d_annotator.widget import FramePickerWidget
+
+            for recording in recordings:
+                rprint(f"Extracting {recording.name} ... close Napari window when complete.")
+                viewer = napari.Viewer()
+                picker = FramePickerWidget(viewer)
+                viewer.window.add_dock_widget(picker)
+                viewer.open([v for v in self.recordings[recording].values()],
+                            plugin="video", stack=False)
+                picker.set_save_directory(self.model_path / self.model.name / "labels")
+                napari.run()
+        else:
+            self.model.extract_frames()
         self._export_labels()
 
     def label_frames(self):

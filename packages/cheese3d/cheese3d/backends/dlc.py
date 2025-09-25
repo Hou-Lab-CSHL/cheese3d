@@ -212,15 +212,15 @@ class DLCBackend(Pose2dBackend):
                     with open(path / "annotations.yaml", "w") as f:
                         yaml.safe_dump(annotations, f)
 
-    def extract_frames(self):
+    def extract_frames(self, videos: Optional[List[Path]]):
         import deeplabcut as dlc
-        project_videos = [p.name for p in self.videos]
-        videos = [p for p in reglob(r".*", str(self.project_path / "videos"))
-                    if Path(p).name in project_videos]
+        project_videos = maybe(videos, [p.name for p in self.videos])
+        videos_list = [p for p in reglob(r".*", str(self.project_path / "videos"))
+                         if Path(p).name in project_videos]
         dlc.extract_frames(config=self.config_path,
                            userfeedback=False,
                            crop=True,
-                           videos_list=videos)
+                           videos_list=videos_list)
 
     def train(self, gpu):
         import deeplabcut as dlc

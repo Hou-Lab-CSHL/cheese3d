@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict
+from typing import Dict, List, Optional
 
 class Pose2dBackend:
     name: str
@@ -22,7 +22,7 @@ class Pose2dBackend:
         """Export backend labels on disk to Cheese3D labels."""
         raise NotImplementedError("This method should be implemented by subclasses.")
 
-    def extract_frames(self):
+    def extract_frames(self, videos: Optional[List[Path]] = None):
         """Extract frames from videos."""
         raise NotImplementedError("This method should be implemented by subclasses.")
 
