@@ -416,9 +416,9 @@ class Ch3DProject:
         self._export_labels()
         viewer = napari.Viewer()
         annotator = FrameAnnotatorWidget(viewer)
+        viewer.window.add_dock_widget(annotator)
         annotator.set_file_dialogs(img_folder=(self.model_path / self.model.name / "labels"),
                                    config_file=(self.path / "config.yaml"))
-        viewer.window.add_dock_widget(annotator)
         viewer.show(block=True)
         self._import_labels()
 
