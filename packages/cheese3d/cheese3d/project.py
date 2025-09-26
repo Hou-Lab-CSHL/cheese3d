@@ -22,7 +22,12 @@ from cheese3d.synchronize.core import SyncConfig, SyncPipeline
 from cheese3d.synchronize.readers import VideoSyncReader, get_ephys_reader
 from cheese3d.backends.core import Pose2dBackend
 from cheese3d.backends.dlc import DLCBackend
-from cheese3d.utils import dlc_folder_to_components, read_3d_data, reglob, maybe, get_group_pattern
+from cheese3d.utils import (dlc_folder_to_components,
+                            read_3d_data,
+                            reglob,
+                            maybe,
+                            get_group_pattern,
+                            relative_path)
 
 class RecordingKey(namedtuple("RecordingKey", ["session", "name", "attributes"])):
     __slots__ = () # prevent __dict__ creation since subclassing namedtuple
@@ -249,7 +254,7 @@ class Ch3DProject:
     def from_cfg(cls, cfg: ProjectConfig, root: str | Path, model_import = None):
         root = Path(root)
         recordings, calibrations = find_videos(
-            dir=root / cfg.name / os.path.relpath(cfg.recording_root, root / cfg.name),
+            dir=root / cfg.name / relative_path(cfg.recording_root, root / cfg.name),
             recording_regex=ProjectConfig.build_regex(cfg.video_regex),
             calibration_keys=cfg.calibration,
             recordings=cfg.recordings,
@@ -257,7 +262,7 @@ class Ch3DProject:
         )
         if cfg.ephys_regex and cfg.ephys_root and cfg.ephys_param:
             ephys = find_ephys(
-                dir=root / cfg.name / os.path.relpath(cfg.ephys_root, root / cfg.name),
+                dir=root / cfg.name / relative_path(cfg.ephys_root, root / cfg.name),
                 ephys_regex=ProjectConfig.build_regex(cfg.ephys_regex),
                 recordings=recordings
             )
@@ -272,7 +277,7 @@ class Ch3DProject:
         model_cfg = maybe(model_import, cfg.model)
         model = build_model_backend(model_cfg,
                                     root=(root / cfg.name /
-                                          os.path.relpath(cfg.model_root, root / cfg.name)),
+                                          relative_path(cfg.model_root, root / cfg.name)),
                                     recordings=recordings,
                                     view_cfg=cfg.views,
                                     keypoints=cfg.keypoints)
@@ -573,6 +578,7 @@ class Ch3DProject:
                 })
                 if len(c3d_features_df) == 0:
                     rprint(f"[bold red]No features constructed for {session.name}, skipping![/bold red]")
+                    continue
                 csv_output = (session / "cheese3d")
                 csv_output.mkdir(exist_ok=True)
                 csv_output = csv_output / "cheese3d_features.csv"

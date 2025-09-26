@@ -5,13 +5,14 @@ import cv2
 import numpy as np
 import pandas as pd
 from glob import glob
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from contextlib import contextmanager
 from pathlib import Path
 
 # (top left x, top left y, bottom right x, bottom right y)
 # (xstart, xend, ystart, yend)
 BoundingBox = List[Optional[int]]
+RGB = Tuple[int, int, int]
 
 class VideoFrames:
     """
@@ -85,6 +86,13 @@ def unzip(iter):
 def maybe(this, that):
     return that if this is None else this
 
+def relative_path(path: str | Path, start: str | Path):
+    path = Path(path)
+    if path.is_absolute():
+        return os.path.relpath(path, start)
+    else:
+        return path
+
 def reglob(pattern, path = None, recursive = False):
     """
     `glob` a filesystem using regex patterns.
@@ -139,6 +147,20 @@ def read_3d_data(data_dir: str | Path, extra_cols = None):
         return landmarks, extra_landmarks
     else:
         return landmarks
+
+def tiny_cmap(center, delta, n):
+    import seaborn as sns
+    import matplotlib as mpl
+
+    if isinstance(center, str):
+        _cmap = sns.color_palette(center, as_cmap=True)
+    elif isinstance(center, (list, tuple)):
+        _cmap = sns.dark_palette(tuple(center), input="rgb", as_cmap=True)
+
+    if isinstance(_cmap, list):
+        _cmap = mpl.colors.LinearSegmentedColormap.from_list("tiny_cmap", _cmap)
+
+    return list(_cmap(np.linspace(center - delta, center + delta, n)))
 
 def get_group_pattern(regex: str, group_name: str):
     """

@@ -413,26 +413,26 @@ def compute_ear_area(ear_base, ear_tip, ear_top, ear_bottom):
 def compute_anatomical_measurements(landmarks, exclude = None):
     structure = {
         "eye": [
-            "eye-height-left",
-            "eye-height-right",
-            "eye-width-left",
-            "eye-width-right",
-            "eye-area-left",
-            "eye-area-right"
+            "eye-height-left-mm",
+            "eye-height-right-mm",
+            "eye-width-left-mm",
+            "eye-width-right-mm",
+            "eye-area-left-mm2",
+            "eye-area-right-mm2"
         ],
         "ear": [
-            "ear-height-left",
-            "ear-height-right",
-            "ear-width-left",
-            "ear-width-right",
-            "ear-angle-left",
-            "ear-angle-right",
-            "ear-area-left",
-            "ear-area-right"
+            "ear-height-left-mm",
+            "ear-height-right-mm",
+            "ear-width-left-mm",
+            "ear-width-right-mm",
+            "ear-angle-left-deg",
+            "ear-angle-right-deg",
+            "ear-area-left-mm2",
+            "ear-area-right-mm2"
         ],
-        "mouth": ["mouth-area"],
-        "nose": ["nose-bulge-volume"],
-        "cheek": ["cheek-bulge-volume"]
+        "mouth": ["mouth-area-mm2"],
+        "nose": ["nose-bulge-volume-mm3"],
+        "cheek": ["cheek-bulge-volume-mm3"]
     }
     exclude = [] if exclude is None else exclude
 
@@ -443,93 +443,93 @@ def compute_anatomical_measurements(landmarks, exclude = None):
             if name in exclude:
                 continue
 
-            if name == "eye-height-left":
+            if name == "eye-height-left-mm":
                 measurements[group][name] = compute_eye_height(
                     landmarks["eye(top)(left)"],
                     landmarks["eye(bottom)(left)"]
                 )
-            elif name == "eye-height-right":
+            elif name == "eye-height-right-mm":
                 measurements[group][name] = compute_eye_height(
                     landmarks["eye(top)(right)"],
                     landmarks["eye(bottom)(right)"]
                 )
-            elif name == "eye-width-left":
+            elif name == "eye-width-left-mm":
                 measurements[group][name] = compute_eye_width(
                     landmarks["eye(front)(left)"],
                     landmarks["eye(back)(left)"]
                 )
-            elif name == "eye-width-right":
+            elif name == "eye-width-right-mm":
                 measurements[group][name] = compute_eye_width(
                     landmarks["eye(front)(right)"],
                     landmarks["eye(back)(right)"]
                 )
-            elif name == "eye-area-left":
+            elif name == "eye-area-left-mm2":
                 measurements[group][name] = compute_eye_orbital_tightness(
                     landmarks["eye(front)(left)"],
                     landmarks["eye(back)(left)"],
                     landmarks["eye(top)(left)"],
                     landmarks["eye(bottom)(left)"]
                 )
-            elif name == "eye-area-right":
+            elif name == "eye-area-right-mm2":
                 measurements[group][name] = compute_eye_orbital_tightness(
                     landmarks["eye(front)(right)"],
                     landmarks["eye(back)(right)"],
                     landmarks["eye(top)(right)"],
                     landmarks["eye(bottom)(right)"]
                 )
-            elif name == "ear-height-left":
+            elif name == "ear-height-left-mm":
                 measurements[group][name] = compute_ear_height(
                     landmarks["ear(base)(left)"],
                     landmarks["ear(tip)(left)"]
                 )
-            elif name == "ear-height-right":
+            elif name == "ear-height-right-mm":
                 measurements[group][name] = compute_ear_height(
                     landmarks["ear(base)(right)"],
                     landmarks["ear(tip)(right)"]
                 )
-            elif name == "ear-width-left":
+            elif name == "ear-width-left-mm":
                 measurements[group][name] = compute_ear_width(
                     landmarks["ear(top)(left)"],
                     landmarks["ear(bottom)(left)"]
                 )
-            elif name == "ear-width-right":
+            elif name == "ear-width-right-mm":
                 measurements[group][name] = compute_ear_width(
                     landmarks["ear(top)(right)"],
                     landmarks["ear(bottom)(right)"]
                 )
-            elif name == "ear-angle-left":
+            elif name == "ear-angle-left-deg":
                 measurements[group][name] = compute_ear_angle(
                     landmarks["ear(tip)(left)"],
                     landmarks["ear(base)(left)"],
                     landmarks["pad(center)"]
                 )
-            elif name == "ear-angle-right":
+            elif name == "ear-angle-right-deg":
                 measurements[group][name] = compute_ear_angle(
                     landmarks["ear(tip)(right)"],
                     landmarks["ear(base)(right)"],
                     landmarks["pad(center)"]
                 )
-            elif name == "ear-area-left":
+            elif name == "ear-area-left-mm2":
                 measurements[group][name] = compute_ear_area(
                     landmarks["ear(base)(left)"],
                     landmarks["ear(tip)(left)"],
                     landmarks["ear(top)(left)"],
                     landmarks["ear(bottom)(left)"]
                 )
-            elif name == "ear-area-right":
+            elif name == "ear-area-right-mm2":
                 measurements[group][name] = compute_ear_area(
                     landmarks["ear(base)(right)"],
                     landmarks["ear(tip)(right)"],
                     landmarks["ear(top)(right)"],
                     landmarks["ear(bottom)(right)"]
                 )
-            elif name == "mouth-area":
+            elif name == "mouth-area-mm2":
                 measurements[group][name] = compute_mouth_area(
                     landmarks["lowerlip"],
                     landmarks["upperlip(left)"],
                     landmarks["upperlip(right)"]
                 )
-            elif name == "nose-bulge-volume":
+            elif name == "nose-bulge-volume-mm3":
                 measurements[group][name] = compute_nose_bulge_volume(
                     landmarks["eye(front)(left)"],
                     landmarks["eye(front)(right)"],
@@ -537,7 +537,7 @@ def compute_anatomical_measurements(landmarks, exclude = None):
                     landmarks["pad(top)(left)"],
                     landmarks["pad(top)(right)"]
                 )
-            elif name == "cheek-bulge-volume":
+            elif name == "cheek-bulge-volume-mm3":
                 measurements[group][name] = compute_cheek_bulge_volume(
                     landmarks["nose(bottom)"],
                     landmarks["pad(top)(left)"],

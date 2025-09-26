@@ -1,10 +1,10 @@
 import hydra
 from omegaconf import MISSING, OmegaConf, DictConfig
 from dataclasses import dataclass, field
-from typing import Optional, Dict, List, Any
+from typing import Optional, Dict, List, Any, Literal
 from pathlib import Path
 
-from cheese3d.utils import maybe, BoundingBox
+from cheese3d.utils import maybe, BoundingBox, RGB
 from cheese3d.synchronize.core import SyncConfig
 
 @dataclass
@@ -193,6 +193,52 @@ _DEFAULT_KEYPOINTS = [
 ]
 
 @dataclass
+class KeypointGroupConfig:
+    name: str = MISSING
+    skeleton: List[List[str]] = MISSING
+
+_DEFAULT_KEYPOINT_GROUPS = [
+    KeypointGroupConfig(name="nose",
+                        skeleton=[["nose(bottom)", "nose(tip)"],
+                                  ["nose(tip)", "nose(top)"],
+                                  ["nose(top)", "nose(bottom)"]]),
+    KeypointGroupConfig(name="whiskers(left)",
+                        skeleton=[["pad(top)(left)", "pad(side)(left)"],
+                                  ["pad(side)(left)", "pad(center)"],
+                                  ["pad(center)", "pad(top)(left)"]]),
+    KeypointGroupConfig(name="whiskers(right)",
+                        skeleton=[["pad(top)(right)", "pad(side)(right)"],
+                                  ["pad(side)(right)", "pad(center)"],
+                                  ["pad(center)", "pad(top)(right)"]]),
+    KeypointGroupConfig(name="mouth",
+                        skeleton=[["lowerlip", "upperlip(left)"],
+                                  ["upperlip(left)", "upperlip(right)"],
+                                  ["upperlip(right)", "lowerlip"]]),
+    KeypointGroupConfig(name="eye(left)",
+                        skeleton=[["eye(front)(left)", "eye(top)(left)"],
+                                  ["eye(top)(left)", "eye(back)(left)"],
+                                  ["eye(back)(left)", "eye(bottom)(left)"],
+                                  ["eye(bottom)(left)", "eye(front)(left)"]]),
+    KeypointGroupConfig(name="eye(right)",
+                        skeleton=[["eye(front)(right)", "eye(top)(right)"],
+                                  ["eye(top)(right)", "eye(back)(right)"],
+                                  ["eye(back)(right)", "eye(bottom)(right)"],
+                                  ["eye(bottom)(right)", "eye(front)(right)"]]),
+    KeypointGroupConfig(name="ear(left)",
+                        skeleton=[["ear(base)(left)", "ear(top)(left)"],
+                                  ["ear(top)(left)", "ear(tip)(left)"],
+                                  ["ear(tip)(left)", "ear(bottom)(left)"],
+                                  ["ear(bottom)(left)", "ear(base)(left)"]]),
+    KeypointGroupConfig(name="ear(right)",
+                        skeleton=[["ear(base)(right)", "ear(top)(right)"],
+                                  ["ear(top)(right)", "ear(tip)(right)"],
+                                  ["ear(tip)(right)", "ear(bottom)(right)"],
+                                  ["ear(bottom)(right)", "ear(base)(right)"]]),
+    KeypointGroupConfig(name="ref",
+                        skeleton=[])
+]
+
+@dataclass
 class ModelConfig:
     name: Optional[str] = None
     backend_type: str = "dlc"
@@ -234,6 +280,7 @@ class ProjectConfig:
     views: MultiViewConfig = MISSING
     calibration: Dict[str, str] = MISSING
     keypoints: List[KeypointConfig] = MISSING
+    keypoint_groups: List[KeypointGroupConfig] = MISSING
     ignore_keypoint_labels: List[str] = MISSING
 
     @classmethod
@@ -246,6 +293,7 @@ class ProjectConfig:
         cfg.triangulation = TriangulationConfig(axes=_DEFAULT_TRIANGULATION_AXES,
                                                 ref_point=_DEFAULT_TRIANGULATION_REF)
         cfg.keypoints = _DEFAULT_KEYPOINTS
+        cfg.keypoint_groups = _DEFAULT_KEYPOINT_GROUPS
         cfg.ignore_keypoint_labels = ["ref(head-post)"]
         cfg.sync = SyncConfig(["crosscorr", "regression", "samplerate"])
         if not skip_model:
