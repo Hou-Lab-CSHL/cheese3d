@@ -89,7 +89,7 @@ def maybe(this, that):
 def relative_path(path: str | Path, start: str | Path):
     path = Path(path)
     if path.is_absolute():
-        return os.path.relpath(path, start)
+        return Path(os.path.relpath(path, start))
     else:
         return path
 

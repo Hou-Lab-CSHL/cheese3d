@@ -211,25 +211,16 @@ class Ch3DProject:
 
     @property
     def model_path(self):
-        if self.model_root.is_relative_to(self.path):
-            return self.path / self.model_root
-        else:
-            return self.model_root
+        return self.path / relative_path(self.model_root, self.path)
 
     @property
     def recording_path(self):
-        if self.recording_root.is_relative_to(self.path):
-            return self.path / self.recording_root
-        else:
-            return self.recording_root
+        return self.path / relative_path(self.recording_root, self.path)
 
     @property
     def ephys_path(self):
         if self.ephys_root:
-            if self.ephys_root.is_relative_to(self.path):
-                return self.path / self.ephys_root
-            else:
-                return self.ephys_root
+            return self.path / relative_path(self.ephys_root, self.path)
         else:
             return None
 
