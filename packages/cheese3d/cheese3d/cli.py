@@ -150,6 +150,7 @@ def calibrate(
         help="Config overrides passed to Hydra (https://hydra.cc/docs/intro/)"
     )] = None
 ):
+    """Extract camera calibration for triangulation."""
     project = _build_project(path, name, configs, config_overrides)
     rich.print("Calibrating ...")
     project.calibrate()
@@ -166,6 +167,7 @@ def track(
         help="Config overrides passed to Hydra (https://hydra.cc/docs/intro/)"
     )] = None
 ):
+    """Track 2D keypoints using trained pose estimation model."""
     project = _build_project(path, name, configs, config_overrides)
     rich.print("Tracking 2D pose ...")
     project.track()
@@ -182,6 +184,7 @@ def triangulate(
         help="Config overrides passed to Hydra (https://hydra.cc/docs/intro/)"
     )] = None
 ):
+    """Triangulate 2D pose estimation result to obtain 3D keypoints and Cheese3D features."""
     project = _build_project(path, name, configs, config_overrides)
     rich.print("Triangulating ...")
     project.triangulate()
@@ -198,13 +201,17 @@ def analyze(
         help="Config overrides passed to Hydra (https://hydra.cc/docs/intro/)"
     )] = None
 ):
+    """
+    Run full analysis including: Camera calibration, 2D keypoint tracking,
+    3D triangulation, and feature extraction.
+    """
     project = _build_project(path, name, configs, config_overrides)
     project.calibrate()
     project.track()
     project.triangulate()
 
 @cli.command()
-def visualize(
+def generate_videos(
     name: Annotated[str, typer.Argument(help="Name of project")] = ".",
     path: Annotated[str, typer.Option(help="Path to project directory")] = os.getcwd(),
     configs: Annotated[str, typer.Option(
@@ -214,6 +221,7 @@ def visualize(
         help="Config overrides passed to Hydra (https://hydra.cc/docs/intro/)"
     )] = None
 ):
+    """Generate videos with pose estimation results overlaid."""
     project = _build_project(path, name, configs, config_overrides)
     project.visualize()
 
@@ -221,4 +229,5 @@ def visualize(
 def interactive(
     web: Annotated[bool, typer.Option(help="Set to enable web mode UI")] = False,
 ):
+    """Run interactive GUI."""
     run_interative(web_mode=web)

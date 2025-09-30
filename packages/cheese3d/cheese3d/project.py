@@ -434,6 +434,7 @@ class Ch3DProject:
         if manual:
             if not recordings:
                 raise ValueError("A list of recordings must be specified in manual extraction mode.")
+
             import napari
             from cheese3d_annotator.widget import FramePickerWidget
 
