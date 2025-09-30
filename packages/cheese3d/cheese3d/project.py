@@ -1,5 +1,6 @@
 import re
 import os
+from pydantic.v1.typing import AnnotatedTypeNames
 import toml
 import pandas as pd
 from pathlib import Path
@@ -13,6 +14,7 @@ from collections import namedtuple
 from cheese3d.anatomy import compute_anatomical_measurements
 from cheese3d.config import (MultiViewConfig,
                              KeypointConfig,
+                             KeypointGroupConfig,
                              ModelConfig,
                              TriangulationConfig,
                              ProjectConfig,
@@ -198,6 +200,7 @@ class Ch3DProject:
     view_config: MultiViewConfig
     view_regex: str
     keypoints: List[KeypointConfig]
+    keypoint_groups: List[KeypointGroupConfig]
     model: Optional[Pose2dBackend]
     ephys_root: Optional[Path] = None
     ephys_recordings: Optional[Dict[RecordingKey, Path]] = None
@@ -289,6 +292,7 @@ class Ch3DProject:
                    view_config=cfg.views,
                    view_regex=view_regex,
                    keypoints=cfg.keypoints,
+                   keypoint_groups=cfg.keypoint_groups,
                    ephys_recordings=ephys,
                    ephys_param=cfg.ephys_param,
                    sync=cfg.sync,
@@ -597,7 +601,7 @@ class Ch3DProject:
                 if not csv_output.exists():
                     c3d_features_df.to_csv(csv_output, index=False, index_label=None)
 
-    def visualize(self):
+    def generate_videos(self):
         from anipose.label_videos import label_videos_all, label_videos_filtered_all
         anipose_cfg = self._load_anipose_cfg()
         rprint("Labeling videos in 2D...")
@@ -614,3 +618,33 @@ class Ch3DProject:
         from anipose.label_filter_compare import label_filter_compare_all
         rprint("Stitching labeled videos together...")
         label_filter_compare_all(anipose_cfg)
+
+    def visualize(self, recording: RecordingKey):
+        import napari
+        from cheese3d_annotator.data_visualizer.qc_video import QCReprojApp
+        from cheese3d_annotator.data_visualizer.rig_view import RigViewer
+        from cheese3d_annotator.data_visualizer.widget import _SyncController
+
+        videos = {recording.name: {
+            self.view_config[view].view: str(path)
+            for view, path in self.recordings[recording].items()
+        }}
+        anipose_folder = self.triangulation_path / recording.name
+        calibration = anipose_folder / "calibration" / "calibration.toml"
+        pose3d = anipose_folder / "pose-3d" / f"{recording.name}.csv"
+        c3d_features = anipose_folder / "cheese3d" / "cheese3d_features.csv"
+        view_names = {cfg.view: view for view, cfg in self.view_config.items()}
+        skeleton = []
+        for group in self.keypoint_groups:
+            skeleton.extend(group.skeleton)
+        qc = QCReprojApp(videos_by_group=videos,
+                         calibration_path=calibration,
+                         pose3d_csv=pose3d,
+                         view_code_to_name=view_names,
+                         skeleton_config=skeleton)
+        rig = RigViewer(calibration_path=calibration,
+                        features_csv=c3d_features,
+                        annotation_path=pose3d,
+                        skeleton_config=skeleton)
+        _SyncController(rig, qc)
+        napari.run()

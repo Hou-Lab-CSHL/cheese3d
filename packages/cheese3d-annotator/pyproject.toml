@@ -19,7 +19,8 @@ dependencies = [
     "scikit-image",
     "imageio",
     "qtpy",
-    "PyQt5"
+    "PyQt5",
+    "pyqtgraph"
 ]
 
 [project.entry-points."napari.manifest"]

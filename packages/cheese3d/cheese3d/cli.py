@@ -223,7 +223,32 @@ def generate_videos(
 ):
     """Generate videos with pose estimation results overlaid."""
     project = _build_project(path, name, configs, config_overrides)
-    project.visualize()
+    project.generate_videos()
+
+@cli.command()
+def visualize(
+    name: Annotated[str, typer.Argument(help="Name of project")] = ".",
+    path: Annotated[str, typer.Option(help="Path to project directory")] = os.getcwd(),
+    configs: Annotated[str, typer.Option(
+        help="Path to additional configs (relative to project)"
+    )] = "configs",
+    config_overrides: Annotated[Optional[List[str]], typer.Argument(
+        help="Config overrides passed to Hydra (https://hydra.cc/docs/intro/)"
+    )] = None
+):
+    """Visualize the output of Cheese3D using interactive GUI."""
+    project = _build_project(path, name, configs, config_overrides)
+    choices = [questionary.Choice(title=f"session: {k.session}, name: {k.name}",
+                                  value=k)
+               for k in project.recordings.keys()]
+    choices.append(questionary.Choice(title="exit (q)", value="exit", shortcut_key="q"))
+    while True:
+        chosen = questionary.select("Which recording would you like to visualize?",
+                                    choices=choices).ask()
+        if (chosen == "exit") or (chosen is None):
+            break
+        else:
+            project.visualize(chosen)
 
 @cli.command()
 def interactive(
