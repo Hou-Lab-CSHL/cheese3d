@@ -58,6 +58,11 @@ class DLCBackend(Pose2dBackend):
                         dirs_exist_ok=True,
                         symlinks=True,
                         ignore_dangling_symlinks=True)
+        # create links for video files
+        for video in videos:
+            abspath = video.resolve()
+            relpath = os.path.relpath(abspath, root_dir / project_path / "videos")
+            os.symlink(relpath, root_dir / project_path / "videos" / video.name)
         # create dlc project
         name, experimenter, date = dlc_folder_to_components(project_path)
         return cls(name=name,
@@ -104,7 +109,8 @@ class DLCBackend(Pose2dBackend):
                         maybe(crop[3], int(height)))
             else:
                 crop = (crop[0], crop[2], crop[1], crop[3])
-            videos[str(video.absolute())] = {
+            video_path = self.project_path / "videos" / video.name
+            videos[str(video_path.absolute())] = {
                 "crop": ", ".join(map(str, crop))
             }
         dlc_config.video_sets = videos
@@ -212,7 +218,7 @@ class DLCBackend(Pose2dBackend):
                     with open(path / "annotations.yaml", "w") as f:
                         yaml.safe_dump(annotations, f)
 
-    def extract_frames(self, videos: Optional[List[Path]]):
+    def extract_frames(self, videos: Optional[List[Path]] = None):
         import deeplabcut as dlc
         project_videos = maybe(videos, [p.name for p in self.videos])
         videos_list = [p for p in reglob(r".*", str(self.project_path / "videos"))
