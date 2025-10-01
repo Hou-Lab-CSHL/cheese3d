@@ -61,8 +61,8 @@ class DLCBackend(Pose2dBackend):
         # create links for video files
         for video in videos:
             abspath = video.resolve()
-            relpath = os.path.relpath(abspath, root_dir / project_path / "videos")
-            os.symlink(relpath, root_dir / project_path / "videos" / video.name)
+            relpath = os.path.relpath(abspath, root_dir / project_path.name / "videos")
+            os.symlink(relpath, root_dir / project_path.name / "videos" / video.name)
         # create dlc project
         name, experimenter, date = dlc_folder_to_components(project_path)
         return cls(name=name,
