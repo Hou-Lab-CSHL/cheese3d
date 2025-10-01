@@ -148,7 +148,7 @@ def _apply_head2world_if_present(Xh: np.ndarray, xform: Optional[tuple[np.ndarra
     if Xh.size == 0 or xform is None:
         return Xh
     R_wh, c_h = xform
-    return (R_wh.T @ (Xh + c_h).T).T
+    return (-R_wh.T @ (Xh + c_h).T).T
 
 
 # ─────────────────────────────────────────────── main viewer (data-only)
@@ -333,14 +333,14 @@ class RigViewer:
                 rvec = np.asarray(cam.get("rotation") or cam.get("rvec")).reshape(3)
                 tvec = np.asarray(cam.get("translation") or cam.get("tvec")).reshape(3)
                 Rm = _rvec_to_R(rvec)
-                C = -(Rm.T @ tvec)
+                C = (Rm.T @ tvec)
                 size = tuple(cam.get("size") or (640, 480))
             except Exception as e:
                 print(f"[warn] Bad camera entry skipped: {e}")
                 continue
 
             imgplane = _imgplane_corners(K, frustum_z, size)
-            imgplane_w = (Rm.T @ imgplane.T).T + C
+            imgplane_w = (-Rm.T @ imgplane.T).T + C
             for i in range(4):
                 frusta.append(np.stack([C, imgplane_w[i]]))
                 frusta.append(np.stack([imgplane_w[i], imgplane_w[(i + 1) % 4]]))
