@@ -447,10 +447,9 @@ class Ch3DProject:
                 viewer = napari.Viewer()
                 picker = FramePickerWidget(viewer)
                 viewer.window.add_dock_widget(picker)
-                viewer.open([v for v in self.recordings[recording].values()],
-                            plugin="video", stack=False)
+                picker.set_videos([v for v in self.recordings[recording].values()])
                 picker.set_save_directory(self.model_path / self.model.name / "labels")
-                napari.run()
+                viewer.show(block=True)
         else:
             self.model.extract_frames()
         self._export_labels()

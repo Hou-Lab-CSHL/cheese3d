@@ -9,6 +9,7 @@ from qtpy.QtWidgets import QListWidget, QListWidgetItem, QMessageBox, QSizePolic
 from qtpy.QtGui import QFont, QImage, QPixmap, QIcon
 from qtpy.QtCore import QSize
 from napari import Viewer
+from napari_video.napari_video import VideoReaderNP
 from glob import glob
 from skimage.io import imread
 from skimage.color import rgb2gray
@@ -455,6 +456,12 @@ class FramePickerWidget(Container):
 
         self.save_button.clicked.connect(self.save_current_frames)
         self.delete_button.clicked.connect(self.delete_selected_frame)
+
+    def set_videos(self, videos: List[str | Path]):
+        for video in videos:
+            video = Path(video)
+            reader = VideoReaderNP(str(video))
+            self.viewer.add_image(reader, name=video.name)
 
     def set_save_directory(self, folder: str | Path):
         self.save_dir.set_value(folder)

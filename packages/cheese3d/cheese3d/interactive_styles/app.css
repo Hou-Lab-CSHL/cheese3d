@@ -66,20 +66,20 @@ MainScreen TabbedContent {
     margin: 1 0 0 0;
 }
 
-LabelFramesScreen {
+BlockScreen {
     align: center middle;
 }
-LabelFramesScreen #modal {
+BlockScreen #modal {
     align: center middle;
     width: 60%;
     height: 25%;
     border: thick gray 80%;
     background: $surface;
 }
-LabelFramesScreen #modal > Horizontal {
+BlockScreen #modal > Horizontal {
     align: center middle;
 }
-LabelFramesScreen #modal > Horizontal > Widget {
+BlockScreen #modal > Horizontal > Widget {
     text-align: center;
     width: auto;
 }
@@ -103,6 +103,42 @@ DialogBox #modal > Horizontal {
     align: center middle;
 }
 DialogBox #modal > Horizontal > Widget {
+    text-align: center;
+    width: auto;
+}
+
+ChoiceBox {
+    align: center middle;
+}
+ChoiceBox #modal {
+    align: center middle;
+    width: 50%;
+    height: 20%;
+    border: thick gray 80%;
+    background: $surface;
+}
+ChoiceBox #modal > Horizontal {
+    align: center middle;
+}
+ChoiceBox #modal > Horizontal > Widget {
+    text-align: center;
+    width: auto;
+}
+
+SelectionBox {
+    align: center middle;
+}
+SelectionBox #modal {
+    align: center middle;
+    width: 60%;
+    height: 20%;
+    border: thick gray 80%;
+    background: $surface;
+}
+SelectionBox #modal > Horizontal {
+    align: center middle;
+}
+SelectionBox #modal > Horizontal > Widget {
     text-align: center;
     width: auto;
 }

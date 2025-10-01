@@ -1,5 +1,5 @@
 from omegaconf import OmegaConf
-from typing import Optional, List
+from typing import Callable, Optional, List, Tuple
 from pathlib import Path
 from contextlib import redirect_stdout, redirect_stderr
 from textual import work, on
@@ -27,7 +27,8 @@ from textual.widgets import (Checkbox,
                              TabbedContent,
                              TabPane,
                              RichLog,
-                             SelectionList)
+                             SelectionList,
+                             OptionList)
 from textual_fspicker import SelectDirectory
 
 from cheese3d.config import _DEFAULT_VIDEO_REGEX
@@ -61,8 +62,25 @@ Tab info:
 - [bold]"summary":[/bold] an overview of your project including detected videos (and ephys)
 - [bold]"select recordings":[/bold] select video recordings to include in project
 - [bold]"model":[/bold] model-related actions like labeling frames and training
-- [bold]"pose estimation":[/bold] analysis-related actions like camera
+- [bold]"pose tracking":[/bold] analysis-related actions like camera
     calibration, keypoint tracking, and triangulation
+- [bold]"visualization":[/bold] generate quality-control videos and
+    launch data visualizer tool
+"""
+
+_EXTRACTING_POPUP = """
+[bold]Extracting frames (may take a few seconds to load) ...
+close napari to dismiss.[/bold]
+"""
+
+_LABELING_POPUP = """
+[bold]Labeling frames (may take a few seconds to load) ...
+close napari to dismiss.[/bold]
+"""
+
+_VISUALIZATION_POPUP = """
+[bold]Visualizing results (may take a few seconds to load) ...
+close napari to dismiss.[/bold]
 """
 
 class RichConsole(RichLog):
@@ -215,6 +233,71 @@ class RegexInput(VerticalScroll):
             "_path_": self.query_one("#path").value,
             **dict(kv.pair for kv in self.fields.children)
         }
+
+class DialogBox(ModalScreen):
+    def __init__(self, message: str = "Completed step", button_text: str = "Continue", *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.message = message
+        self.button_text = button_text
+
+    @on(Button.Pressed, "#continue")
+    def close(self):
+        self.dismiss()
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="modal"):
+            yield Horizontal(Static(f"[bold]{self.message}[/bold]", id="msg"))
+            yield Horizontal(Button(self.button_text, id="continue", variant="success"))
+
+class ChoiceBox(ModalScreen):
+    def __init__(self, message: str, button_text: Tuple[str, str], *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.message = message
+        self.button_text = button_text
+
+    @on(Button.Pressed, "#choice_a")
+    def close_a(self):
+        self.dismiss(0)
+
+    @on(Button.Pressed, "#choice_b")
+    def close_b(self):
+        self.dismiss(1)
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="modal"):
+            yield Horizontal(Static(f"[bold]{self.message}[/bold]", id="msg"))
+            with Horizontal():
+                yield Horizontal(Button(self.button_text[0], id="choice_a", variant="primary"))
+                yield Horizontal(Button(self.button_text[1], id="choice_b", variant="primary"))
+
+class SelectionBox(ModalScreen):
+    def __init__(self, message: str, options: List[str], *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.message = message
+        self.options = options
+
+    @on(OptionList.OptionSelected, "#recording_list")
+    def close(self, msg: OptionList.OptionMessage):
+        self.dismiss(msg.option.prompt)
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="modal"):
+            yield Horizontal(Static(f"[bold]{self.message}[/bold]", id="msg"))
+            yield Horizontal(OptionList(*self.options, id="recording_list"))
+
+class BlockScreen(ModalScreen):
+    def __init__(self, launch_callback: Callable, message: str, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.launch_callback = launch_callback
+        self.message = message
+
+    def on_show(self) -> None:
+        self.launch_callback()
+        self.dismiss()
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="modal"):
+            yield Horizontal(Static(self.message))
 
 class ProjectWizard(VerticalGroup):
 
@@ -551,21 +634,6 @@ class StartMenu(Screen):
         if project_path is not None:
             self.app.push_screen(MainScreen(project_path))
 
-class DialogBox(ModalScreen):
-    def __init__(self, message: str = "Completed step", button_text: str = "Continue", *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.message = message
-        self.button_text = button_text
-
-    @on(Button.Pressed, "#continue")
-    def close(self):
-        self.dismiss()
-
-    def compose(self) -> ComposeResult:
-        with Vertical(id="modal"):
-            yield Horizontal(Static(f"[bold]{self.message}[/bold]", id="msg"))
-            yield Horizontal(Button(self.button_text, id="continue", variant="success"))
-
 class CreateWizardLoading(ModalScreen):
     def __init__(self, project_config, ephys_config, model_config, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -675,20 +743,12 @@ class CreateWizard(Screen):
     def watch_model_ready(self):
         self.check_ready()
 
-class LabelFramesScreen(ModalScreen):
-    def __init__(self, project: Ch3DProject, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.project = project
-
-    def on_show(self) -> None:
-        self.project.label_frames()
-        self.dismiss()
-
-    def compose(self) -> ComposeResult:
-        with Vertical(id="modal"):
-            yield Horizontal(Static("[bold]Labeling frames ... close napari to dismiss.[/bold]"))
-
 class MainScreen(Screen):
+    class ExtractionSelectionComplete(Message):
+        def __init__(self, selection):
+            super().__init__()
+            self.selection = selection
+
     def __init__(self, project_path: str | Path):
         self.project = Ch3DProject.from_path(project_path)
         super().__init__()
@@ -739,6 +799,16 @@ class MainScreen(Screen):
         for button in self.query_one("#pose_buttons").children:
             button.disabled = True
 
+    def _enable_visualize_done(self):
+        self.query_one("#all_tabs").query_one("ContentTabs").disabled = False
+        for button in self.query_one("#visualize_buttons").children:
+            button.disabled = False
+
+    def _disable_visualize_in_progress(self):
+        self.query_one("#all_tabs").query_one("ContentTabs").disabled = True
+        for button in self.query_one("#visualize_buttons").children:
+            button.disabled = True
+
     def compose(self) -> ComposeResult:
         yield Header()
         with Vertical():
@@ -759,15 +829,21 @@ class MainScreen(Screen):
                                 yield Button("Label frames", id="label")
                                 yield Button("Train network", id="train")
                         yield TextualStdout(id="model_log")
-                with TabPane(title="pose estimation", id="pose"):
+                with TabPane(title="pose tracking", id="pose"):
                     with Vertical():
                         with CenterMiddle(classes="buttons_group"):
                             with HorizontalGroup(id="pose_buttons"):
                                 yield Button("Calibrate", id="calibrate")
                                 yield Button("Track", id="track")
                                 yield Button("Triangulate", id="triangulate")
-                                yield Button("Visualize", id="visualize")
                         yield TextualStdout(id="pose_log")
+                with TabPane(title="visualization", id="visualization"):
+                    with Vertical():
+                        with CenterMiddle(classes="buttons_group"):
+                            with HorizontalGroup(id="visualize_buttons"):
+                                yield Button("Generate videos", id="generate_videos")
+                                yield Button("Visualize", id="visualize")
+                        yield TextualStdout(id="visualize_log")
         yield Footer()
 
     @on(TabbedContent.TabActivated)
@@ -794,20 +870,44 @@ class MainScreen(Screen):
         config.recordings = new_recordings # type: ignore
         OmegaConf.save(config, self.project.path / "config.yaml")
 
-    @on(Button.Pressed, "#extract")
     @work(thread=True)
-    def extract_frames(self):
-        self._disable_model_in_progress()
+    def _automatic_extraction(self):
         log = self.query_one("#model_log")
         log.clear() # type: ignore
         with redirect_stdout(log), redirect_stderr(log): # type: ignore
             self.project.extract_frames()
+
+    @on(Button.Pressed, "#extract")
+    @work
+    async def extract_frames(self):
+        self._disable_model_in_progress()
+        choice = await self.app.push_screen_wait(
+            ChoiceBox(message="How do you want to extract frames?",
+                      button_text=("Automatic", "Manual"))
+        )
+        if choice == 0:
+            await self._automatic_extraction().wait()
+        else:
+            options = {recording.name: recording
+                       for recording in self.project.recordings.keys()}
+            selection_name = await self.app.push_screen_wait(
+                SelectionBox(message="Select a recording to extract",
+                             options=list(options.keys()))
+            )
+            await self.app.push_screen_wait(
+                BlockScreen(lambda: self.project.extract_frames([options[selection_name]], manual=True),
+                            message=_EXTRACTING_POPUP)
+            )
         self._enable_model_done()
-        self.app.call_from_thread(self.app.push_screen, DialogBox("Frame extraction completed!"))
+        self.app.push_screen(DialogBox("Frame extraction completed!"))
 
     @on(Button.Pressed, "#label")
-    def label_frames(self):
-        self.app.push_screen(LabelFramesScreen(self.project))
+    @work
+    async def label_frames(self):
+        await self.app.push_screen_wait(
+            BlockScreen(lambda: self.project.label_frames(),
+                        message=_LABELING_POPUP)
+        )
 
     @on(Button.Pressed, "#train")
     @work(thread=True)
@@ -853,16 +953,33 @@ class MainScreen(Screen):
         self._enable_pose_done()
         self.app.call_from_thread(self.app.push_screen, DialogBox("3D triangulation completed!"))
 
-    @on(Button.Pressed, "#visualize")
+    @on(Button.Pressed, "#generate_videos")
     @work(thread=True)
-    def visualize(self):
-        self._disable_pose_in_progress()
+    def generate_videos(self):
+        self._disable_visualize_in_progress()
         log = self.query_one("#pose_log")
         log.clear() # type: ignore
         with redirect_stdout(log), redirect_stderr(log): # type: ignore
-            self.project.visualize()
-        self._enable_pose_done()
-        self.app.call_from_thread(self.app.push_screen, DialogBox("Visualization completed!"))
+            self.project.generate_videos()
+        self._enable_visualize_done()
+        self.app.call_from_thread(self.app.push_screen, DialogBox("Video generation completed!"))
+
+    @on(Button.Pressed, "#visualize")
+    @work
+    async def visualize(self):
+        self._disable_visualize_in_progress()
+        options = {recording.name: recording
+                   for recording in self.project.recordings.keys()}
+        selection = await self.app.push_screen_wait(
+            SelectionBox(message="Select a recording to visualize",
+                            options=list(options.keys()))
+        )
+        await self.app.push_screen_wait(
+            BlockScreen(lambda: self.project.visualize(options[selection]),
+                        message=_VISUALIZATION_POPUP)
+        )
+        self._enable_visualize_done()
+        self.app.push_screen(DialogBox("Visualization completed!"))
 
 class Cheese3dApp(App):
     """Interactive Cheese3D TUI via Textual."""
