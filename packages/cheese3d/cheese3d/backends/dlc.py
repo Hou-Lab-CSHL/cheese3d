@@ -33,9 +33,10 @@ class DLCBackend(Pose2dBackend):
 
         # Check if project already exists, if not create it
         if not self.project_path.exists():
-            self.create()
-            self.overwrite_config()
-            self.fix_video_symlinks()
+            if len(self.videos) > 0:
+                self.create()
+                self.overwrite_config()
+                self.fix_video_symlinks()
         else:
             self.overwrite_config()
             self.fix_video_symlinks()
@@ -87,6 +88,11 @@ class DLCBackend(Pose2dBackend):
 
     def create(self):
         import deeplabcut as dlc
+        if len(self.videos) == 0:
+            raise RuntimeError(
+                "Cannot create DLC project with no videos. "
+                "Please add videos to your Cheese3D project folder and config file."
+            )
         dlc.create_new_project(
             project=self.name,
             experimenter=self.experimenter,
