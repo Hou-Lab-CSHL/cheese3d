@@ -197,13 +197,14 @@ class RegexInput(VerticalScroll):
     def compose(self) -> ComposeResult:
         with Collapsible(classes="helpmenu", title="help", collapsed=True):
             yield Static(_REGEX_HELP_MSG)
-        yield LabeledInput(label="full string", id="path", value=self.init_regex, placeholder="Full regex string")
-        self.fields = HorizontalScroll()
-        with Horizontal():
-            with Vertical(id="buttons"):
-                yield Button("+", id="add_field", variant="success")
-                yield Button("-", id="remove_field", variant="error")
-            yield self.fields
+        with Collapsible(classes="helpmenu", title="expand controls", collapsed=True):
+            yield LabeledInput(label="full string", id="path", value=self.init_regex, placeholder="Full regex string")
+            self.fields = HorizontalScroll()
+            with Horizontal():
+                with Vertical(id="buttons"):
+                    yield Button("+", id="add_field", variant="success")
+                    yield Button("-", id="remove_field", variant="error")
+                yield self.fields
 
     def watch_disable_remove(self, disable: bool):
         button = self.query_one("#remove_field")
@@ -701,8 +702,8 @@ class CreateWizard(Screen):
         with VerticalScroll():
             yield Button("Continue", id="accept_config", variant="success", disabled=True)
             yield ProjectWizard()
-            yield EphysWizard()
             yield ModelWizard()
+            yield EphysWizard()
         yield Footer()
 
     @on(Button.Pressed, "#accept_config")

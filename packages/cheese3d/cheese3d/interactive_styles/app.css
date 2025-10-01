@@ -17,7 +17,8 @@ Button {
 
 RegexInput {
     border: round gray;
-    height: 12;
+    height: auto;
+    max-height: 12;
 }
 RegexInput #buttons {
     width: auto;
@@ -182,6 +183,7 @@ EphysWizard .ephys_params > Input {
 ModelWizard {
     border: heavy gray;
     min-height: 5;
+    height: auto;
 }
 ModelWizard Input {
     width: auto;
