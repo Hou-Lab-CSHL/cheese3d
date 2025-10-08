@@ -14,8 +14,8 @@ jobs:
       uses: prefix-dev/setup-pixi@v0.9.1
       with:
         pixi-version: v0.49.0
-        cache: true
-        cache-write: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
+        cache: false
+        # cache-write: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
         environments: docs
     - name: Sphinx build
       # Build HTML documentation from sources under `docs` to `build` folder.
