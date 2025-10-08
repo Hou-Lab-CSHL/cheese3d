@@ -1,3 +1,4 @@
+import re
 import hydra
 from omegaconf import MISSING, OmegaConf, DictConfig
 from dataclasses import dataclass, field
@@ -315,6 +316,9 @@ class ProjectConfig:
             for key, rstr in regex.items():
                 full_regex = full_regex.replace("{{" + key + "}}", # type: ignore
                                                 fr"(?P<{key}>{rstr})")
+            missing_groups = re.match("({{.*}})", full_regex)
+            if missing_groups:
+                raise RuntimeError(f"Regex is missing definitions for groups: {missing_groups.groups}")
 
             return full_regex
         else:
