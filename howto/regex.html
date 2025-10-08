@@ -1,0 +1,632 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Regex guide &#8212; Cheese3D</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="../_static/styles/bootstrap.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+
+  
+  <link href="../_static/vendor/fontawesome/6.5.2/css/all.min.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=eba8b062" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b" />
+  <script src="../_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+    <script src="../_static/documentation_options.js?v=a1637f0b"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/scripts/sphinx-book-theme.js?v=887ef09a"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'howto/regex';</script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Configuration file" href="../reference/configuration.html" />
+    <link rel="prev" title="Quick-start guide" href="../guides/quick-start.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-primary-sidebar-checkbox"/>
+  <label class="overlay overlay-primary" for="pst-primary-sidebar-checkbox"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-secondary-sidebar-checkbox"/>
+  <label class="overlay overlay-secondary" for="pst-secondary-sidebar-checkbox"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">Cheese3D</p>
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+ <script>
+ document.write(`
+   <button class="btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../guides/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/hardware.html">Hardware setup guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/quick-start.html">Quick-start guide</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">How-to examples</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Regex guide</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../reference/configuration.html">Configuration file</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+<a href="https://github.com/HouLabCSHL/cheese3d" target="_blank"
+   class="btn btn-sm btn-source-repository-button"
+   title="Source repository"
+   data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+
+</a>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../_sources/howto/regex.rst" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.rst</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"></i>
+  </button>
+`);
+</script>
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm pst-navbar-icon search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+  </button>
+`);
+</script>
+<button class="sidebar-toggle secondary-toggle btn btn-sm" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>Regex guide</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#what-is-a-regular-expression">What is a regular expression?</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#common-regex-patterns">Common regex patterns</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#named-groups-in-python-regex">Named groups in Python regex</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cheese3d-configuration-dictionary-format">Cheese3D configuration dictionary format</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dictionary-structure">Dictionary structure</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#using-regex-groups-in-cheese3d-configuration">Using regex groups in Cheese3D configuration</a></li>
+</ul>
+</li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="regex-guide">
+<h1>Regex guide<a class="headerlink" href="#regex-guide" title="Link to this heading">#</a></h1>
+<p>To identify source video data and ephys data, Cheese3D uses <a class="reference external" href="https://www.regular-expressions.info/quickstart.html">“regular expressions”</a>. These are data strings that specify a pattern to search for in filenames. Though powerful, they can be daunting for beginners. Cheese3D has several features to make this process easier.</p>
+<section id="what-is-a-regular-expression">
+<h2>What is a regular expression?<a class="headerlink" href="#what-is-a-regular-expression" title="Link to this heading">#</a></h2>
+<p>A <strong>regular expression</strong> (regex) is like a search pattern that can match multiple similar text strings. Think of it as a template that describes what your filenames look like.</p>
+<p>For example, if your video files are named like:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">mouse1_cal_TL_001.avi</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mouse1_behavior_TR_002.avi</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mouse2_cal_BC_001.avi</span></code></p></li>
+</ul>
+<p>You could describe this pattern as:</p>
+<ol class="arabic simple">
+<li><p>starts with anything: <code class="docutils literal notranslate"><span class="pre">.*</span></code>,</p></li>
+<li><p>then underscore: <code class="docutils literal notranslate"><span class="pre">_</span></code>,</p></li>
+<li><p>then type of video: <code class="docutils literal notranslate"><span class="pre">[behavior|cal]</span></code>,</p></li>
+<li><p>then underscore: <code class="docutils literal notranslate"><span class="pre">_</span></code>,</p></li>
+<li><p>then camera view: <code class="docutils literal notranslate"><span class="pre">[TL|TR|BC|TC|L|R]</span></code>,</p></li>
+<li><p>then underscore: <code class="docutils literal notranslate"><span class="pre">_</span></code>,</p></li>
+<li><p>then numbers: <code class="docutils literal notranslate"><span class="pre">\d+</span></code>,</p></li>
+<li><p>then “.avi”: <code class="docutils literal notranslate"><span class="pre">\.avi</span></code></p></li>
+</ol>
+<p>Putting it all together, we get the regex: <code class="docutils literal notranslate"><span class="pre">.*_[behavior|cal]_[TL|TR|BC|TC|L|R]_\d+\.avi</span></code>. For the rest of this guide, we will explain how to understand and build such expressions in more detail. For a more comprehesive explanation, see <a class="reference external" href="https://www.regular-expressions.info/quickstart.html">this guide</a>.</p>
+</section>
+<section id="common-regex-patterns">
+<h2>Common regex patterns<a class="headerlink" href="#common-regex-patterns" title="Link to this heading">#</a></h2>
+<p>Here are the most common regex symbols you’ll encounter:</p>
+<div class="pst-scrollable-table-container"><table class="table" id="id1">
+<caption><span class="caption-text">Regex pattern cheatsheet</span><a class="headerlink" href="#id1" title="Link to this table">#</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Pattern</p></th>
+<th class="head"><p>Meaning</p></th>
+<th class="head"><p>Example use</p></th>
+<th class="head"><p>Example matches</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">.</span></code></p></td>
+<td><p>Any single character</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">a.c</span></code></p></td>
+<td><p>abc, a1c, a-c</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">*</span></code></p></td>
+<td><p>Zero or more of previous pattern</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ab*c</span></code></p></td>
+<td><p>ac, abc, abbc</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">+</span></code></p></td>
+<td><p>One or more of previous pattern</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ab+c</span></code></p></td>
+<td><p>abc, abbc (not ac)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">[abc]</span></code></p></td>
+<td><p>Any of the characters a, b, or c</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">[TL]R</span></code></p></td>
+<td><p>TR, LR</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">[^abc]</span></code></p></td>
+<td><p>Any character except a, b, or c</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">[^_]+</span></code></p></td>
+<td><p>mouse1, cal (not _)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">|</span></code></p></td>
+<td><p>OR operator</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">TL|TR|BC</span></code></p></td>
+<td><p>TL, TR, or BC</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">\.</span></code></p></td>
+<td><p>Literal dot (escaped)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">file\.avi</span></code></p></td>
+<td><p>file.avi</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">\d</span></code></p></td>
+<td><p>Any digit 0-9</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">\d+</span></code></p></td>
+<td><p>1, 123, 007</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">\w</span></code></p></td>
+<td><p>Any word character (letter, digit, or underscore)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">\w+</span></code></p></td>
+<td><p>mouse1, cal, TL</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">.*</span></code></p></td>
+<td><p>Any characters (wildcard)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">.*\.avi</span></code></p></td>
+<td><p>anything ending in .avi</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="named-groups-in-python-regex">
+<h2>Named groups in Python regex<a class="headerlink" href="#named-groups-in-python-regex" title="Link to this heading">#</a></h2>
+<p>Python regex supports <strong>named groups</strong> which let you capture and reference specific parts of the match by name instead of position.</p>
+<p><strong>Syntax</strong>: <code class="docutils literal notranslate"><span class="pre">(?P&lt;name&gt;pattern)</span></code> creates a named group called “name”</p>
+<p><strong>Example:</strong>
+<code class="docutils literal notranslate"><span class="pre">(?P&lt;mouse&gt;mouse\d+)_(?P&lt;type&gt;\w+)_(?P&lt;view&gt;TL|TR|BC)_(?P&lt;session&gt;\d+)\.avi</span></code></p>
+<p>This would match <code class="docutils literal notranslate"><span class="pre">mouse1_cal_TL_001.avi</span></code> and capture:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Key</p></th>
+<th class="head"><p>Pattern</p></th>
+<th class="head"><p>Matched value</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">mouse</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">mouse\d+</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">mouse1</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">type</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">\w+</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">cal</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">view</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">TL|TR|BC</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">TL</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">session</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">\d+</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">001</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="cheese3d-configuration-dictionary-format">
+<h2>Cheese3D configuration dictionary format<a class="headerlink" href="#cheese3d-configuration-dictionary-format" title="Link to this heading">#</a></h2>
+<p>Cheese3D allows you to define regex patterns using a more readable dictionary format instead of writing complex regex strings directly.</p>
+<section id="dictionary-structure">
+<h3>Dictionary structure<a class="headerlink" href="#dictionary-structure" title="Link to this heading">#</a></h3>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">video_regex</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">_path_</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;.*_{{type}}_{{view}}_{{session}}.*</span><span class="err">\</span><span class="s">.avi&quot;</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;[^_]+&quot;</span>
+<span class="w">  </span><span class="nt">view</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;TL|TR|L|R|TC|BC&quot;</span>
+<span class="w">  </span><span class="nt">session</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;</span><span class="err">\</span><span class="s">d+&quot;</span>
+</pre></div>
+</div>
+<p><strong>Required Keys:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">_path_</span></code>: The main filename regex pattern with <code class="docutils literal notranslate"><span class="pre">{{placeholders}}</span></code> for groups</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">view</span></code>: Camera view pattern (required for multi-camera setups)</p></li>
+</ul>
+<p><strong>Optional Keys:</strong> any additional groups you want to capture (<code class="docutils literal notranslate"><span class="pre">type</span></code>, <code class="docutils literal notranslate"><span class="pre">session</span></code>, etc.)</p>
+<p>Internally, Cheese3D will build the corresponding regex string for you. For example, the transformation looks something like this:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Dictionary input:</span>
+<span class="p">{</span>
+  <span class="s2">&quot;_path_&quot;</span><span class="p">:</span> <span class="s2">&quot;.*_{{type}}_{{view}}.*\.avi&quot;</span><span class="p">,</span>
+  <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;[^_]+&quot;</span><span class="p">,</span>
+  <span class="s2">&quot;view&quot;</span><span class="p">:</span> <span class="s2">&quot;TL|TR|L|R|TC|BC&quot;</span>
+<span class="p">}</span>
+
+<span class="c1"># Becomes Python regex:</span>
+<span class="s2">&quot;.*_(?P&lt;type&gt;[^_]+)_(?P&lt;view&gt;TL|TR|L|R|TC|BC).*\.avi&quot;</span>
+</pre></div>
+</div>
+</section>
+<section id="using-regex-groups-in-cheese3d-configuration">
+<h3>Using regex groups in Cheese3D configuration<a class="headerlink" href="#using-regex-groups-in-cheese3d-configuration" title="Link to this heading">#</a></h3>
+<p>Once defined, the regex groups can be used throughout your configuration:</p>
+<p><strong>In sessions</strong> (see <span class="xref std std-ref">reference/configuration:Recording options</span>):</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">sessions</span><span class="p">:</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">session1</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">behavior</span><span class="w">  </span><span class="c1"># Filters files where type group = &quot;behavior&quot;</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">session2</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cal</span><span class="w">       </span><span class="c1"># Filters files where type group = &quot;cal&quot;</span>
+</pre></div>
+</div>
+<p><strong>In calibration</strong> (see <a class="reference internal" href="../reference/configuration.html#calibration-options"><span class="std std-ref">Calibration options</span></a>):</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">calibration</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cal</span><span class="w">  </span><span class="c1"># Uses files where type group = &quot;cal&quot;</span>
+</pre></div>
+</div>
+<p>This allows you to organize different types of videos (calibration vs. behavior) and different sessions within the same directory structure.</p>
+</section>
+</section>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="../guides/quick-start.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Quick-start guide</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="../reference/configuration.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Configuration file</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+  <div class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav class="bd-toc-nav page-toc">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#what-is-a-regular-expression">What is a regular expression?</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#common-regex-patterns">Common regex patterns</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#named-groups-in-python-regex">Named groups in Python regex</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cheese3d-configuration-dictionary-format">Cheese3D configuration dictionary format</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#dictionary-structure">Dictionary structure</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#using-regex-groups-in-cheese3d-configuration">Using regex groups in Cheese3D configuration</a></li>
+</ul>
+</li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Kyle Daruwalla & Hou Lab @ CSHL
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2025, Hou Lab @ CSHL.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b"></script>
+<script src="../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

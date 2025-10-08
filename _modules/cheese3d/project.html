@@ -1,0 +1,1061 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>cheese3d.project &#8212; Cheese3D</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="../../_static/styles/bootstrap.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+
+  
+  <link href="../../_static/vendor/fontawesome/6.5.2/css/all.min.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.5.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.5.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.5.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../_static/styles/sphinx-book-theme.css?v=eba8b062" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b" />
+  <script src="../../_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+    <script src="../../_static/documentation_options.js?v=a1637f0b"></script>
+    <script src="../../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/scripts/sphinx-book-theme.js?v=887ef09a"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/cheese3d/project';</script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-primary-sidebar-checkbox"/>
+  <label class="overlay overlay-primary" for="pst-primary-sidebar-checkbox"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-secondary-sidebar-checkbox"/>
+  <label class="overlay overlay-secondary" for="pst-secondary-sidebar-checkbox"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">Cheese3D</p>
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+ <script>
+ document.write(`
+   <button class="btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../guides/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../guides/hardware.html">Hardware setup guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../guides/quick-start.html">Quick-start guide</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">How-to examples</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../howto/regex.html">Regex guide</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../reference/configuration.html">Configuration file</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+<a href="https://github.com/HouLabCSHL/cheese3d" target="_blank"
+   class="btn btn-sm btn-source-repository-button"
+   title="Source repository"
+   data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+
+</a>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"></i>
+  </button>
+`);
+</script>
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm pst-navbar-icon search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+  </button>
+`);
+</script>
+
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1></h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <h1>Source code for cheese3d.project</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pydantic.v1.typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">AnnotatedTypeNames</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">toml</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">omegaconf</span><span class="w"> </span><span class="kn">import</span> <span class="n">OmegaConf</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">rich</span><span class="w"> </span><span class="kn">import</span> <span class="n">table</span><span class="p">,</span> <span class="n">console</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">rich</span><span class="w"> </span><span class="kn">import</span> <span class="nb">print</span> <span class="k">as</span> <span class="n">rprint</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Any</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">namedtuple</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">cheese3d.anatomy</span><span class="w"> </span><span class="kn">import</span> <span class="n">compute_anatomical_measurements</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cheese3d.config</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span><span class="n">MultiViewConfig</span><span class="p">,</span>
+                             <span class="n">KeypointConfig</span><span class="p">,</span>
+                             <span class="n">KeypointGroupConfig</span><span class="p">,</span>
+                             <span class="n">ModelConfig</span><span class="p">,</span>
+                             <span class="n">TriangulationConfig</span><span class="p">,</span>
+                             <span class="n">ProjectConfig</span><span class="p">,</span>
+                             <span class="n">keypoints_by_group</span><span class="p">,</span>
+                             <span class="n">_DEFAULT_KEYPOINTS</span><span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cheese3d.synchronize.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">SyncConfig</span><span class="p">,</span> <span class="n">SyncPipeline</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cheese3d.synchronize.readers</span><span class="w"> </span><span class="kn">import</span> <span class="n">VideoSyncReader</span><span class="p">,</span> <span class="n">get_ephys_reader</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cheese3d.backends.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pose2dBackend</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cheese3d.backends.dlc</span><span class="w"> </span><span class="kn">import</span> <span class="n">DLCBackend</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cheese3d.utils</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span><span class="n">dlc_folder_to_components</span><span class="p">,</span>
+                            <span class="n">read_3d_data</span><span class="p">,</span>
+                            <span class="n">reglob</span><span class="p">,</span>
+                            <span class="n">maybe</span><span class="p">,</span>
+                            <span class="n">get_group_pattern</span><span class="p">,</span>
+                            <span class="n">relative_path</span><span class="p">)</span>
+
+<div class="viewcode-block" id="RecordingKey">
+<a class="viewcode-back" href="../../api.html#cheese3d.project.RecordingKey">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">RecordingKey</span><span class="p">(</span><span class="n">namedtuple</span><span class="p">(</span><span class="s2">&quot;RecordingKey&quot;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;session&quot;</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="s2">&quot;attributes&quot;</span><span class="p">])):</span>
+    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span> <span class="c1"># prevent __dict__ creation since subclassing namedtuple</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">session</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">**</span><span class="n">attributes</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">session</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="nb">frozenset</span><span class="p">(</span><span class="n">attributes</span><span class="o">.</span><span class="n">items</span><span class="p">()))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">RecordingKey</span><span class="p">):</span>
+            <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">name</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">matches</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__hash__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># we assume that self.name contains all the info in self.attributes</span>
+        <span class="c1"># so it is never the case that two RecordingKeys with the same name</span>
+        <span class="c1"># but different attributes are equal (in practice, not theory)</span>
+        <span class="k">return</span> <span class="nb">hash</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
+
+<div class="viewcode-block" id="RecordingKey.as_str">
+<a class="viewcode-back" href="../../api.html#cheese3d.project.RecordingKey.as_str">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">as_str</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span><span class="s2">&quot;(session: &quot;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span> <span class="o">+</span> <span class="s2">&quot;, &quot;</span> <span class="o">+</span>
+                <span class="s2">&quot;name: &quot;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">+</span> <span class="s2">&quot;, &quot;</span> <span class="o">+</span>
+                <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">attributes</span><span class="p">])</span> <span class="o">+</span> <span class="s2">&quot;)&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="RecordingKey.matches">
+<a class="viewcode-back" href="../../api.html#cheese3d.project.RecordingKey.matches">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">matches</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="n">is_matched</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">session</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">session</span><span class="p">)</span>
+        <span class="n">other_attributes</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">other</span><span class="o">.</span><span class="n">attributes</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">attributes</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">other_attributes</span><span class="p">:</span>
+                <span class="n">is_matched</span> <span class="o">&amp;=</span> <span class="p">(</span><span class="n">v</span> <span class="o">==</span> <span class="n">other_attributes</span><span class="p">[</span><span class="n">k</span><span class="p">])</span>
+
+        <span class="k">return</span> <span class="n">is_matched</span></div>
+</div>
+
+
+<div class="viewcode-block" id="group_by_session">
+<a class="viewcode-back" href="../../api.html#cheese3d.project.group_by_session">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">group_by_session</span><span class="p">(</span><span class="n">recordings</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">RecordingKey</span><span class="p">,</span> <span class="n">Any</span><span class="p">]):</span>
+    <span class="n">sessions</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">session</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">recordings</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+
+    <span class="k">return</span> <span class="p">{</span><span class="n">session</span><span class="p">:</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">recordings</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span><span class="o">.</span><span class="n">session</span> <span class="o">==</span> <span class="n">session</span><span class="p">}</span>
+            <span class="k">for</span> <span class="n">session</span> <span class="ow">in</span> <span class="n">sessions</span><span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="find_videos">
+<a class="viewcode-back" href="../../api.html#cheese3d.project.find_videos">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">find_videos</span><span class="p">(</span><span class="nb">dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span>
+                <span class="n">recording_regex</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                <span class="n">calibration_keys</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+                <span class="n">sessions</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]],</span>
+                <span class="n">views</span><span class="p">:</span> <span class="n">MultiViewConfig</span><span class="p">):</span>
+    <span class="n">videos</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">calibration_videos</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">recording</span> <span class="ow">in</span> <span class="n">sessions</span><span class="p">:</span>
+        <span class="k">if</span> <span class="s2">&quot;name&quot;</span> <span class="ow">in</span> <span class="n">recording</span><span class="p">:</span>
+            <span class="n">session</span> <span class="o">=</span> <span class="n">recording</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Recording entries must contain the &#39;name&#39; key&quot;</span><span class="p">)</span>
+        <span class="n">grouped_videos</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">grouped_cal_videos</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">matches</span> <span class="o">=</span> <span class="p">[</span><span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">recording_regex</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+                   <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">reglob</span><span class="p">(</span><span class="n">recording_regex</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="nb">dir</span> <span class="o">/</span> <span class="n">session</span><span class="p">))]</span>
+        <span class="k">for</span> <span class="n">view</span><span class="p">,</span> <span class="n">video_cfg</span> <span class="ow">in</span> <span class="n">views</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">match</span> <span class="ow">in</span> <span class="n">matches</span><span class="p">:</span>
+                <span class="k">if</span> <span class="p">(</span><span class="n">match</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="s2">&quot;view&quot;</span><span class="p">)</span> <span class="o">!=</span> <span class="n">video_cfg</span><span class="o">.</span><span class="n">view</span><span class="p">):</span>
+                    <span class="k">continue</span>
+                <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="n">k</span><span class="p">)</span> <span class="o">==</span> <span class="n">v</span>
+                       <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">recording</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span> <span class="o">!=</span> <span class="s2">&quot;name&quot;</span><span class="p">):</span>
+                    <span class="n">view_start</span><span class="p">,</span> <span class="n">view_end</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">span</span><span class="p">(</span><span class="s2">&quot;view&quot;</span><span class="p">)</span>
+                    <span class="n">group_name</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+                    <span class="n">group_name</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">group_name</span><span class="p">[:</span><span class="n">view_start</span><span class="p">]</span> <span class="o">+</span> <span class="n">group_name</span><span class="p">[</span><span class="n">view_end</span><span class="p">:])</span><span class="o">.</span><span class="n">stem</span>
+                    <span class="n">group_key</span> <span class="o">=</span> <span class="n">RecordingKey</span><span class="p">(</span><span class="n">session</span><span class="p">,</span>
+                                             <span class="n">group_name</span><span class="p">,</span>
+                                             <span class="o">**</span><span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">match</span><span class="o">.</span><span class="n">groupdict</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                                                     <span class="k">if</span> <span class="n">k</span> <span class="o">!=</span> <span class="s2">&quot;view&quot;</span><span class="p">})</span>
+                    <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="n">k</span><span class="p">)</span> <span class="o">==</span> <span class="n">v</span>
+                           <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">calibration_keys</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
+                        <span class="n">group_dict</span> <span class="o">=</span> <span class="n">grouped_cal_videos</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">group_dict</span> <span class="o">=</span> <span class="n">grouped_videos</span>
+                    <span class="k">if</span> <span class="n">group_key</span> <span class="ow">in</span> <span class="n">group_dict</span><span class="p">:</span>
+                        <span class="n">group_dict</span><span class="p">[</span><span class="n">group_key</span><span class="p">][</span><span class="n">view</span><span class="p">]</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">group_dict</span><span class="p">[</span><span class="n">group_key</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="n">view</span><span class="p">:</span> <span class="n">Path</span><span class="p">(</span><span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">0</span><span class="p">))}</span>
+        <span class="n">videos</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">grouped_videos</span><span class="p">)</span>
+        <span class="n">calibration_videos</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">grouped_cal_videos</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">videos</span><span class="p">,</span> <span class="n">calibration_videos</span></div>
+
+
+<div class="viewcode-block" id="find_ephys">
+<a class="viewcode-back" href="../../api.html#cheese3d.project.find_ephys">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">find_ephys</span><span class="p">(</span><span class="nb">dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">ephys_regex</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">sessions</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">RecordingKey</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]]):</span>
+    <span class="n">ephys</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">grouped_sessions</span> <span class="o">=</span> <span class="n">group_by_session</span><span class="p">(</span><span class="n">sessions</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">session</span><span class="p">,</span> <span class="n">session_sessions</span> <span class="ow">in</span> <span class="n">grouped_sessions</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">matches</span> <span class="o">=</span> <span class="p">[</span><span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">ephys_regex</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+                   <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">reglob</span><span class="p">(</span><span class="n">ephys_regex</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="nb">dir</span> <span class="o">/</span> <span class="n">session</span><span class="p">))]</span>
+        <span class="n">ephys_keys</span> <span class="o">=</span> <span class="p">[</span><span class="n">RecordingKey</span><span class="p">(</span><span class="n">session</span><span class="p">,</span> <span class="n">m</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+                                   <span class="o">**</span><span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">m</span><span class="o">.</span><span class="n">groupdict</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">()})</span>
+                      <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">matches</span> <span class="k">if</span> <span class="n">m</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">]</span>
+        <span class="c1"># warn if there are duplicate keys</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">ephys_keys</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">ephys_keys</span><span class="p">)):</span>
+            <span class="n">rprint</span><span class="p">(</span><span class="s2">&quot;[bold red]WARNING:[/bold red] &quot;</span>
+                   <span class="sa">f</span><span class="s2">&quot;Duplicate matches found for ephys recordings in </span><span class="si">{</span><span class="n">session</span><span class="si">=}</span><span class="s2">.&quot;</span>
+                   <span class="s2">&quot;Ephys recordings will by matched to videos in alphabetical order.&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">recording</span> <span class="ow">in</span> <span class="n">session_sessions</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">ephys_keys</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">recording</span><span class="o">.</span><span class="n">matches</span><span class="p">(</span><span class="n">key</span><span class="p">):</span>
+                    <span class="c1"># pop key out of ephys_keys</span>
+                    <span class="n">ephys_key</span> <span class="o">=</span> <span class="n">ephys_keys</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">ephys_keys</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">key</span><span class="p">))</span>
+                    <span class="n">merged_key</span> <span class="o">=</span> <span class="n">RecordingKey</span><span class="p">(</span><span class="n">session</span><span class="p">,</span> <span class="n">recording</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="o">**</span><span class="nb">dict</span><span class="p">(</span><span class="n">ephys_key</span><span class="o">.</span><span class="n">attributes</span><span class="p">))</span>
+                    <span class="n">ephys</span><span class="p">[</span><span class="n">merged_key</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dir</span> <span class="o">/</span> <span class="n">session</span> <span class="o">/</span> <span class="n">ephys_key</span><span class="o">.</span><span class="n">name</span>
+                    <span class="k">break</span>
+
+    <span class="k">return</span> <span class="n">ephys</span></div>
+
+
+<div class="viewcode-block" id="build_model_backend">
+<a class="viewcode-back" href="../../api.html#cheese3d.project.build_model_backend">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">build_model_backend</span><span class="p">(</span><span class="n">cfg</span><span class="p">:</span> <span class="n">ModelConfig</span> <span class="o">|</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
+                        <span class="n">root</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span>
+                        <span class="n">sessions</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">RecordingKey</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]],</span>
+                        <span class="n">view_cfg</span><span class="p">:</span> <span class="n">MultiViewConfig</span><span class="p">,</span>
+                        <span class="n">keypoints</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">KeypointConfig</span><span class="p">]):</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cfg</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cfg</span><span class="p">,</span> <span class="n">Path</span><span class="p">):</span>
+        <span class="n">videos</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">crops</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">recording</span> <span class="ow">in</span> <span class="n">sessions</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">view</span><span class="p">,</span> <span class="n">video</span> <span class="ow">in</span> <span class="n">recording</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">videos</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">video</span><span class="p">)</span>
+                <span class="n">crops</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">view_cfg</span><span class="p">[</span><span class="n">view</span><span class="p">]</span><span class="o">.</span><span class="n">get_crop</span><span class="p">())</span>
+        <span class="n">existing_project</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">cfg</span><span class="p">)</span>
+        <span class="n">name</span><span class="p">,</span> <span class="o">*</span><span class="n">_</span> <span class="o">=</span> <span class="n">dlc_folder_to_components</span><span class="p">(</span><span class="n">existing_project</span><span class="p">)</span>
+        <span class="n">root</span> <span class="o">=</span> <span class="n">root</span> <span class="o">/</span> <span class="n">name</span> <span class="o">/</span> <span class="s2">&quot;backend&quot;</span>
+
+        <span class="k">return</span> <span class="n">DLCBackend</span><span class="o">.</span><span class="n">from_existing</span><span class="p">(</span><span class="n">existing_project</span><span class="p">,</span> <span class="n">root</span><span class="p">,</span> <span class="n">videos</span><span class="p">,</span> <span class="n">keypoints</span><span class="p">,</span> <span class="n">crops</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">cfg</span><span class="o">.</span><span class="n">backend_type</span> <span class="o">==</span> <span class="s2">&quot;dlc&quot;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="n">videos</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">crops</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">recording</span> <span class="ow">in</span> <span class="n">sessions</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">view</span><span class="p">,</span> <span class="n">video</span> <span class="ow">in</span> <span class="n">recording</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">videos</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">video</span><span class="p">)</span>
+                <span class="n">crops</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">view_cfg</span><span class="p">[</span><span class="n">view</span><span class="p">]</span><span class="o">.</span><span class="n">get_crop</span><span class="p">())</span>
+
+        <span class="k">return</span> <span class="n">DLCBackend</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">root_dir</span><span class="o">=</span><span class="n">root</span> <span class="o">/</span> <span class="n">cfg</span><span class="o">.</span><span class="n">name</span> <span class="o">/</span> <span class="s2">&quot;backend&quot;</span><span class="p">,</span>
+            <span class="n">videos</span><span class="o">=</span><span class="n">videos</span><span class="p">,</span>
+            <span class="n">keypoints</span><span class="o">=</span><span class="n">keypoints</span><span class="p">,</span>
+            <span class="n">experimenter</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">backend_options</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;experimenter&quot;</span><span class="p">,</span> <span class="s2">&quot;default&quot;</span><span class="p">),</span>
+            <span class="n">date</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">backend_options</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;date&quot;</span><span class="p">),</span>
+            <span class="n">crops</span><span class="o">=</span><span class="n">crops</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unrecognized model backend </span><span class="si">{</span><span class="n">cfg</span><span class="o">.</span><span class="n">backend_type</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Ch3DProject">
+<a class="viewcode-back" href="../../api.html#cheese3d.project.Ch3DProject">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Ch3DProject</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A Cheese3D project.</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">        - `name`: the name of the project</span>
+<span class="sd">        - `root`: root directory under which the project folder should be made</span>
+<span class="sd">        - `sessions`: a list of sessions where each entry is video files</span>
+<span class="sd">            organized by camera view</span>
+<span class="sd">        - `keypoints`: a list of `KeypointConfig`s to track in this project</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">root</span><span class="p">:</span> <span class="n">Path</span>
+    <span class="n">video_root</span><span class="p">:</span> <span class="n">Path</span>
+    <span class="n">model_root</span><span class="p">:</span> <span class="n">Path</span>
+    <span class="n">fps</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">sessions</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">RecordingKey</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]]</span>
+    <span class="n">calibrations</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">RecordingKey</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]]</span>
+    <span class="n">view_config</span><span class="p">:</span> <span class="n">MultiViewConfig</span>
+    <span class="n">view_regex</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">keypoints</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">KeypointConfig</span><span class="p">]</span>
+    <span class="n">keypoint_groups</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">KeypointGroupConfig</span><span class="p">]</span>
+    <span class="n">model</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Pose2dBackend</span><span class="p">]</span>
+    <span class="n">ephys_root</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">ephys_sessions</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="n">RecordingKey</span><span class="p">,</span> <span class="n">Path</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">ephys_param</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">sync</span><span class="p">:</span> <span class="n">SyncConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span>
+        <span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="n">SyncConfig</span><span class="p">([</span><span class="s2">&quot;crosscorr&quot;</span><span class="p">,</span> <span class="s2">&quot;regression&quot;</span><span class="p">,</span> <span class="s2">&quot;sample_rate&quot;</span><span class="p">])</span>
+    <span class="p">)</span>
+    <span class="n">triangulation</span><span class="p">:</span> <span class="n">TriangulationConfig</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">TriangulationConfig</span><span class="p">)</span>
+    <span class="n">ignore_keypoint_labels</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">path</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">root</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">model_path</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">path</span> <span class="o">/</span> <span class="n">relative_path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_root</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">recording_path</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">path</span> <span class="o">/</span> <span class="n">relative_path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">video_root</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">ephys_path</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ephys_root</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">path</span> <span class="o">/</span> <span class="n">relative_path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ephys_root</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">triangulation_path</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">path</span> <span class="o">/</span> <span class="s2">&quot;triangulation&quot;</span>
+
+<div class="viewcode-block" id="Ch3DProject.initialize">
+<a class="viewcode-back" href="../../api.html#cheese3d.project.Ch3DProject.initialize">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">initialize</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">root</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="n">skip_model</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+        <span class="n">location</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">root</span><span class="p">)</span> <span class="o">/</span> <span class="n">name</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">location</span> <span class="o">/</span> <span class="s2">&quot;config.yaml&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Project </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> already exists under </span><span class="si">{</span><span class="n">root</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="c1"># create project directory</span>
+        <span class="n">location</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="c1"># create a empty configuration file</span>
+        <span class="n">cfg</span> <span class="o">=</span> <span class="n">ProjectConfig</span><span class="o">.</span><span class="n">default</span><span class="p">(</span><span class="n">skip_model</span><span class="o">=</span><span class="n">skip_model</span><span class="p">)</span>
+        <span class="n">cfg</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="k">with</span> <span class="n">location</span> <span class="o">/</span> <span class="s2">&quot;config.yaml&quot;</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">OmegaConf</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">cfg</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Ch3DProject.from_cfg">
+<a class="viewcode-back" href="../../api.html#cheese3d.project.Ch3DProject.from_cfg">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_cfg</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">cfg</span><span class="p">:</span> <span class="n">ProjectConfig</span><span class="p">,</span> <span class="n">root</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="n">model_import</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="n">root</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">root</span><span class="p">)</span>
+        <span class="n">sessions</span><span class="p">,</span> <span class="n">calibrations</span> <span class="o">=</span> <span class="n">find_videos</span><span class="p">(</span>
+            <span class="nb">dir</span><span class="o">=</span><span class="n">root</span> <span class="o">/</span> <span class="n">cfg</span><span class="o">.</span><span class="n">name</span> <span class="o">/</span> <span class="n">relative_path</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">video_root</span><span class="p">,</span> <span class="n">root</span> <span class="o">/</span> <span class="n">cfg</span><span class="o">.</span><span class="n">name</span><span class="p">),</span>
+            <span class="n">recording_regex</span><span class="o">=</span><span class="n">ProjectConfig</span><span class="o">.</span><span class="n">build_regex</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">video_regex</span><span class="p">),</span>
+            <span class="n">calibration_keys</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">calibration</span><span class="p">,</span>
+            <span class="n">sessions</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">sessions</span><span class="p">,</span>
+            <span class="n">views</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">views</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">ephys_regex</span> <span class="ow">and</span> <span class="n">cfg</span><span class="o">.</span><span class="n">ephys_root</span> <span class="ow">and</span> <span class="n">cfg</span><span class="o">.</span><span class="n">ephys_param</span><span class="p">:</span>
+            <span class="n">ephys</span> <span class="o">=</span> <span class="n">find_ephys</span><span class="p">(</span>
+                <span class="nb">dir</span><span class="o">=</span><span class="n">root</span> <span class="o">/</span> <span class="n">cfg</span><span class="o">.</span><span class="n">name</span> <span class="o">/</span> <span class="n">relative_path</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">ephys_root</span><span class="p">,</span> <span class="n">root</span> <span class="o">/</span> <span class="n">cfg</span><span class="o">.</span><span class="n">name</span><span class="p">),</span>
+                <span class="n">ephys_regex</span><span class="o">=</span><span class="n">ProjectConfig</span><span class="o">.</span><span class="n">build_regex</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">ephys_regex</span><span class="p">),</span>
+                <span class="n">sessions</span><span class="o">=</span><span class="n">sessions</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="n">cfg</span><span class="o">.</span><span class="n">ephys_regex</span> <span class="ow">or</span> <span class="n">cfg</span><span class="o">.</span><span class="n">ephys_root</span> <span class="ow">or</span> <span class="n">cfg</span><span class="o">.</span><span class="n">ephys_param</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                <span class="s2">&quot;At least one of `ephys_regex`, `ephys_root`, or `ephys_param` is set, &quot;</span>
+                <span class="s2">&quot;but not all of them. Please set all three to use ephys recordings.</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">cfg</span><span class="o">.</span><span class="n">ephys_root</span><span class="si">=}</span><span class="se">\n</span><span class="si">{</span><span class="n">cfg</span><span class="o">.</span><span class="n">ephys_regex</span><span class="si">=}</span><span class="se">\n</span><span class="si">{</span><span class="n">cfg</span><span class="o">.</span><span class="n">ephys_param</span><span class="si">=}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">ephys</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">model_cfg</span> <span class="o">=</span> <span class="n">maybe</span><span class="p">(</span><span class="n">model_import</span><span class="p">,</span> <span class="n">cfg</span><span class="o">.</span><span class="n">model</span><span class="p">)</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">build_model_backend</span><span class="p">(</span><span class="n">model_cfg</span><span class="p">,</span>
+                                    <span class="n">root</span><span class="o">=</span><span class="p">(</span><span class="n">root</span> <span class="o">/</span> <span class="n">cfg</span><span class="o">.</span><span class="n">name</span> <span class="o">/</span>
+                                          <span class="n">relative_path</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">model_root</span><span class="p">,</span> <span class="n">root</span> <span class="o">/</span> <span class="n">cfg</span><span class="o">.</span><span class="n">name</span><span class="p">)),</span>
+                                    <span class="n">sessions</span><span class="o">=</span><span class="n">sessions</span><span class="p">,</span>
+                                    <span class="n">view_cfg</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">views</span><span class="p">,</span>
+                                    <span class="n">keypoints</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">keypoints</span><span class="p">)</span>
+        <span class="n">view_regex</span> <span class="o">=</span> <span class="n">get_group_pattern</span><span class="p">(</span><span class="n">ProjectConfig</span><span class="o">.</span><span class="n">build_regex</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">video_regex</span><span class="p">),</span> <span class="s2">&quot;view&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                   <span class="n">root</span><span class="o">=</span><span class="n">root</span><span class="p">,</span>
+                   <span class="n">video_root</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">video_root</span><span class="p">),</span>
+                   <span class="n">ephys_root</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">ephys_root</span><span class="p">)</span> <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">ephys_root</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+                   <span class="n">model_root</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">model_root</span><span class="p">),</span>
+                   <span class="n">fps</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">fps</span><span class="p">,</span>
+                   <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
+                   <span class="n">sessions</span><span class="o">=</span><span class="n">sessions</span><span class="p">,</span>
+                   <span class="n">calibrations</span><span class="o">=</span><span class="n">calibrations</span><span class="p">,</span>
+                   <span class="n">view_config</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">views</span><span class="p">,</span>
+                   <span class="n">view_regex</span><span class="o">=</span><span class="n">view_regex</span><span class="p">,</span>
+                   <span class="n">keypoints</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">keypoints</span><span class="p">,</span>
+                   <span class="n">keypoint_groups</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">keypoint_groups</span><span class="p">,</span>
+                   <span class="n">ephys_sessions</span><span class="o">=</span><span class="n">ephys</span><span class="p">,</span>
+                   <span class="n">ephys_param</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">ephys_param</span><span class="p">,</span>
+                   <span class="n">sync</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">sync</span><span class="p">,</span>
+                   <span class="n">triangulation</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">triangulation</span><span class="p">,</span>
+                   <span class="n">ignore_keypoint_labels</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">ignore_keypoint_labels</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Ch3DProject.from_path">
+<a class="viewcode-back" href="../../api.html#cheese3d.project.Ch3DProject.from_path">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_path</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
+                  <span class="n">cfg_dir</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">overrides</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">model_import</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+        <span class="n">cfg_file</span> <span class="o">=</span> <span class="n">path</span> <span class="o">/</span> <span class="s2">&quot;config.yaml&quot;</span>
+        <span class="n">cfg</span> <span class="o">=</span> <span class="n">ProjectConfig</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">cfg_file</span><span class="p">,</span> <span class="n">cfg_dir</span><span class="p">,</span> <span class="n">overrides</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">from_cfg</span><span class="p">(</span><span class="n">cfg</span><span class="p">,</span> <span class="n">path</span><span class="o">.</span><span class="n">parent</span><span class="p">,</span> <span class="n">model_import</span><span class="o">=</span><span class="n">model_import</span><span class="p">)</span> <span class="c1"># type: ignore</span></div>
+
+
+<div class="viewcode-block" id="Ch3DProject.summarize">
+<a class="viewcode-back" href="../../api.html#cheese3d.project.Ch3DProject.summarize">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">summarize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pty</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="n">pty</span> <span class="o">=</span> <span class="n">maybe</span><span class="p">(</span><span class="n">pty</span><span class="p">,</span> <span class="n">console</span><span class="o">.</span><span class="n">Console</span><span class="p">())</span>
+        <span class="c1"># print basic info</span>
+        <span class="n">tab</span> <span class="o">=</span> <span class="n">table</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">&quot;Cheese3D project info&quot;</span><span class="p">)</span>
+        <span class="n">tab</span><span class="o">.</span><span class="n">add_column</span><span class="p">(</span><span class="s2">&quot;Key&quot;</span><span class="p">)</span>
+        <span class="n">tab</span><span class="o">.</span><span class="n">add_column</span><span class="p">(</span><span class="s2">&quot;Value&quot;</span><span class="p">)</span>
+        <span class="n">tab</span><span class="o">.</span><span class="n">add_row</span><span class="p">(</span><span class="s2">&quot;Name&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="n">tab</span><span class="o">.</span><span class="n">add_row</span><span class="p">(</span><span class="s2">&quot;Root Path&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="p">))</span>
+        <span class="n">tab</span><span class="o">.</span><span class="n">add_row</span><span class="p">(</span><span class="s2">&quot;Video Path&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">recording_path</span><span class="p">))</span>
+        <span class="n">tab</span><span class="o">.</span><span class="n">add_row</span><span class="p">(</span><span class="s2">&quot;Model Path&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">))</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ephys_param</span><span class="p">:</span>
+            <span class="n">tab</span><span class="o">.</span><span class="n">add_row</span><span class="p">(</span><span class="s2">&quot;Ephys Path&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ephys_path</span><span class="p">))</span>
+            <span class="n">tab</span><span class="o">.</span><span class="n">add_row</span><span class="p">(</span>
+                <span class="s2">&quot;Ephys Params&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ephys_param</span><span class="o">.</span><span class="n">items</span><span class="p">()])</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">tab</span><span class="o">.</span><span class="n">add_row</span><span class="p">(</span><span class="s2">&quot;Ephys Path&quot;</span><span class="p">,</span> <span class="s2">&quot;N/A&quot;</span><span class="p">)</span>
+            <span class="n">tab</span><span class="o">.</span><span class="n">add_row</span><span class="p">(</span><span class="s2">&quot;Ephys Params&quot;</span><span class="p">,</span> <span class="s2">&quot;N/A&quot;</span><span class="p">)</span>
+        <span class="n">pty</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="n">tab</span><span class="p">)</span>
+        <span class="c1"># print keypoint info</span>
+        <span class="n">tab</span> <span class="o">=</span> <span class="n">table</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span><span class="s2">&quot;Label&quot;</span><span class="p">,</span> <span class="s2">&quot;Group(s)&quot;</span><span class="p">,</span> <span class="s2">&quot;View(s)&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Project keypoints&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">pt</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">keypoints</span><span class="p">:</span>
+            <span class="n">tab</span><span class="o">.</span><span class="n">add_row</span><span class="p">(</span><span class="n">pt</span><span class="o">.</span><span class="n">label</span><span class="p">,</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">pt</span><span class="o">.</span><span class="n">groups</span><span class="p">),</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">pt</span><span class="o">.</span><span class="n">views</span><span class="p">))</span>
+        <span class="n">pty</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="n">tab</span><span class="p">)</span>
+        <span class="c1"># print recording info</span>
+        <span class="n">tab</span> <span class="o">=</span> <span class="n">table</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span><span class="s2">&quot;Session&quot;</span><span class="p">,</span> <span class="s2">&quot;Files (relative to Video Path)&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Project sessions&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">group</span><span class="p">,</span> <span class="n">files</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">sessions</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">tab</span><span class="o">.</span><span class="n">add_row</span><span class="p">(</span><span class="n">group</span><span class="o">.</span><span class="n">as_str</span><span class="p">(),</span>
+                        <span class="s2">&quot;,</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">view</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">file</span><span class="o">.</span><span class="n">relative_to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">recording_path</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+                                    <span class="k">for</span> <span class="n">view</span><span class="p">,</span> <span class="n">file</span> <span class="ow">in</span> <span class="n">files</span><span class="o">.</span><span class="n">items</span><span class="p">()]))</span>
+        <span class="n">pty</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="n">tab</span><span class="p">)</span>
+        <span class="c1"># print ephys info</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ephys_param</span><span class="p">:</span>
+            <span class="n">tab</span> <span class="o">=</span> <span class="n">table</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span><span class="s2">&quot;Session&quot;</span><span class="p">,</span> <span class="s2">&quot;Files (relative to Ephys Path)&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Project ephys sessions&quot;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">group</span><span class="p">,</span> <span class="n">file</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ephys_sessions</span><span class="o">.</span><span class="n">items</span><span class="p">():</span> <span class="c1"># type: ignore</span>
+                <span class="n">tab</span><span class="o">.</span><span class="n">add_row</span><span class="p">(</span><span class="n">group</span><span class="o">.</span><span class="n">as_str</span><span class="p">(),</span> <span class="nb">str</span><span class="p">(</span><span class="n">file</span><span class="o">.</span><span class="n">relative_to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">recording_path</span><span class="p">)))</span>
+            <span class="n">pty</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="n">tab</span><span class="p">)</span>
+        <span class="c1"># print calibration info</span>
+        <span class="n">tab</span> <span class="o">=</span> <span class="n">table</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span><span class="s2">&quot;Session&quot;</span><span class="p">,</span> <span class="s2">&quot;Files (relative to Recording Path)&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Project calibrations&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">group</span><span class="p">,</span> <span class="n">files</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">calibrations</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">tab</span><span class="o">.</span><span class="n">add_row</span><span class="p">(</span><span class="n">group</span><span class="o">.</span><span class="n">as_str</span><span class="p">(),</span>
+                        <span class="s2">&quot;,</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">view</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">file</span><span class="o">.</span><span class="n">relative_to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">recording_path</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+                                    <span class="k">for</span> <span class="n">view</span><span class="p">,</span> <span class="n">file</span> <span class="ow">in</span> <span class="n">files</span><span class="o">.</span><span class="n">items</span><span class="p">()]))</span>
+        <span class="n">pty</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="n">tab</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Ch3DProject.synchronize">
+<a class="viewcode-back" href="../../api.html#cheese3d.project.Ch3DProject.synchronize">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">synchronize</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># run video synchronization first</span>
+        <span class="k">for</span> <span class="n">recording</span><span class="p">,</span> <span class="n">views</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">sessions</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">rprint</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[bold green]Synchronizing recording videos:[/bold green] </span><span class="si">{</span><span class="n">recording</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">ref_video</span> <span class="o">=</span> <span class="n">views</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">sync</span><span class="o">.</span><span class="n">ref_view</span><span class="p">]</span>
+            <span class="n">ref_crop</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">view_config</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">sync</span><span class="o">.</span><span class="n">ref_view</span><span class="p">]</span><span class="o">.</span><span class="n">get_crop</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sync</span><span class="o">.</span><span class="n">ref_crop</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">view</span><span class="p">,</span> <span class="n">video</span> <span class="ow">in</span> <span class="n">views</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">view</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">sync</span><span class="o">.</span><span class="n">ref_view</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="n">crop</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">view_config</span><span class="p">[</span><span class="n">view</span><span class="p">]</span><span class="o">.</span><span class="n">get_crop</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sync</span><span class="o">.</span><span class="n">ref_crop</span><span class="p">)</span>
+                <span class="n">ref_reader</span> <span class="o">=</span> <span class="n">VideoSyncReader</span><span class="p">(</span><span class="n">source</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">path</span> <span class="o">/</span> <span class="n">ref_video</span><span class="p">,</span>
+                                             <span class="n">sample_rate</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">fps</span><span class="p">,</span>
+                                             <span class="n">threshold</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">sync</span><span class="o">.</span><span class="n">led_threshold</span><span class="p">,</span>
+                                             <span class="n">crop</span><span class="o">=</span><span class="n">ref_crop</span><span class="p">)</span>
+                <span class="n">target_reader</span> <span class="o">=</span> <span class="n">VideoSyncReader</span><span class="p">(</span><span class="n">source</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">path</span> <span class="o">/</span> <span class="n">video</span><span class="p">,</span>
+                                                <span class="n">sample_rate</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">fps</span><span class="p">,</span>
+                                                <span class="n">threshold</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">sync</span><span class="o">.</span><span class="n">led_threshold</span><span class="p">,</span>
+                                                <span class="n">crop</span><span class="o">=</span><span class="n">crop</span><span class="p">)</span>
+                <span class="n">pipeline</span> <span class="o">=</span> <span class="n">SyncPipeline</span><span class="o">.</span><span class="n">from_cfg</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sync</span><span class="p">,</span> <span class="n">ref_reader</span><span class="p">,</span> <span class="n">target_reader</span><span class="p">)</span>
+                <span class="n">align_params</span> <span class="o">=</span> <span class="n">pipeline</span><span class="o">.</span><span class="n">align_recording</span><span class="p">()</span>
+                <span class="n">pipeline</span><span class="o">.</span><span class="n">write_json</span><span class="p">(</span><span class="n">align_params</span><span class="p">)</span>
+        <span class="c1"># run ephys synchronization if available</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ephys_sessions</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">ephys_param</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">recording</span><span class="p">,</span> <span class="n">ephys_file</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ephys_sessions</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">rprint</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[bold green]Synchronizing recording ephys:[/bold green] </span><span class="si">{</span><span class="n">recording</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">ref_video</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sessions</span><span class="p">[</span><span class="n">recording</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">sync</span><span class="o">.</span><span class="n">ref_view</span><span class="p">]</span>
+                <span class="n">crop</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">view_config</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">sync</span><span class="o">.</span><span class="n">ref_view</span><span class="p">]</span><span class="o">.</span><span class="n">get_crop</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sync</span><span class="o">.</span><span class="n">ref_crop</span><span class="p">)</span>
+                <span class="n">video_reader</span> <span class="o">=</span> <span class="n">VideoSyncReader</span><span class="p">(</span><span class="n">source</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">path</span> <span class="o">/</span> <span class="n">ref_video</span><span class="p">,</span>
+                                               <span class="n">sample_rate</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">fps</span><span class="p">,</span>
+                                               <span class="n">threshold</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">sync</span><span class="o">.</span><span class="n">led_threshold</span><span class="p">,</span>
+                                               <span class="n">crop</span><span class="o">=</span><span class="n">crop</span><span class="p">)</span>
+                <span class="n">ephys_reader</span> <span class="o">=</span> <span class="n">get_ephys_reader</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">path</span> <span class="o">/</span> <span class="n">ephys_file</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ephys_param</span><span class="p">)</span>
+                <span class="n">pipeline</span> <span class="o">=</span> <span class="n">SyncPipeline</span><span class="o">.</span><span class="n">from_cfg</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sync</span><span class="p">,</span> <span class="n">video_reader</span><span class="p">,</span> <span class="n">ephys_reader</span><span class="p">)</span>
+                <span class="n">align_params</span> <span class="o">=</span> <span class="n">pipeline</span><span class="o">.</span><span class="n">align_recording</span><span class="p">()</span>
+                <span class="n">pipeline</span><span class="o">.</span><span class="n">write_json</span><span class="p">(</span><span class="n">align_params</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_create_labels</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Cannot create labels when pose model does not exist &quot;</span>
+                               <span class="s2">&quot;(hint: maybe you forgot to set `model.name` in the config?&quot;</span><span class="p">)</span>
+        <span class="c1"># create label root if it doesn&#39;t exist</span>
+        <span class="n">label_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_path</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">name</span> <span class="o">/</span> <span class="s2">&quot;labels&quot;</span>
+        <span class="n">label_path</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="c1"># create label folders for each video</span>
+        <span class="k">for</span> <span class="n">recording</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">sessions</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">video</span> <span class="ow">in</span> <span class="n">recording</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+                <span class="n">label_folder</span> <span class="o">=</span> <span class="n">label_path</span> <span class="o">/</span> <span class="n">video</span><span class="o">.</span><span class="n">stem</span>
+                <span class="n">label_folder</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_label_folder_paths</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Cannot find labels when pose model does not exist &quot;</span>
+                               <span class="s2">&quot;(hint: maybe you forgot to set `model.name` in the config?&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="n">p</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">p</span>
+            <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">map</span><span class="p">(</span><span class="n">Path</span><span class="p">,</span> <span class="n">reglob</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;.*&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">name</span> <span class="o">/</span> <span class="s2">&quot;labels&quot;</span><span class="p">)))</span>
+        <span class="p">}</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_import_labels</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Cannot import labels when pose model does not exist &quot;</span>
+                               <span class="s2">&quot;(hint: maybe you forgot to set `model.name` in the config?&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_create_labels</span><span class="p">()</span>
+        <span class="n">label_paths</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_label_folder_paths</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">import_c3d_labels</span><span class="p">(</span><span class="n">label_paths</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_export_labels</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Cannot export labels when pose model does not exist &quot;</span>
+                               <span class="s2">&quot;(hint: maybe you forgot to set `model.name` in the config?&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_create_labels</span><span class="p">()</span>
+        <span class="n">label_paths</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_label_folder_paths</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">export_c3d_labels</span><span class="p">(</span><span class="n">label_paths</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Ch3DProject.extract_frames">
+<a class="viewcode-back" href="../../api.html#cheese3d.project.Ch3DProject.extract_frames">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">extract_frames</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sessions</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">RecordingKey</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">manual</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_import_labels</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Cannot extract frames when pose model does not exist &quot;</span>
+                               <span class="s2">&quot;(hint: maybe you forgot to set `model.name` in the config?&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">manual</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">sessions</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;A list of sessions must be specified in manual extraction mode.&quot;</span><span class="p">)</span>
+
+            <span class="kn">import</span><span class="w"> </span><span class="nn">napari</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">cheese3d_annotator.widget</span><span class="w"> </span><span class="kn">import</span> <span class="n">FramePickerWidget</span>
+
+            <span class="k">for</span> <span class="n">recording</span> <span class="ow">in</span> <span class="n">sessions</span><span class="p">:</span>
+                <span class="n">rprint</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Extracting </span><span class="si">{</span><span class="n">recording</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> ... close Napari window when complete.&quot;</span><span class="p">)</span>
+                <span class="n">viewer</span> <span class="o">=</span> <span class="n">napari</span><span class="o">.</span><span class="n">Viewer</span><span class="p">()</span>
+                <span class="n">picker</span> <span class="o">=</span> <span class="n">FramePickerWidget</span><span class="p">(</span><span class="n">viewer</span><span class="p">)</span>
+                <span class="n">viewer</span><span class="o">.</span><span class="n">window</span><span class="o">.</span><span class="n">add_dock_widget</span><span class="p">(</span><span class="n">picker</span><span class="p">)</span>
+                <span class="n">picker</span><span class="o">.</span><span class="n">set_videos</span><span class="p">([</span><span class="n">v</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">sessions</span><span class="p">[</span><span class="n">recording</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">()])</span>
+                <span class="n">picker</span><span class="o">.</span><span class="n">set_save_directory</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">name</span> <span class="o">/</span> <span class="s2">&quot;labels&quot;</span><span class="p">)</span>
+                <span class="n">viewer</span><span class="o">.</span><span class="n">show</span><span class="p">(</span><span class="n">block</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">extract_frames</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_export_labels</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="Ch3DProject.label_frames">
+<a class="viewcode-back" href="../../api.html#cheese3d.project.Ch3DProject.label_frames">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">label_frames</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Cannot label frames when pose model does not exist &quot;</span>
+                               <span class="s2">&quot;(hint: maybe you forgot to set `model.name` in the config?&quot;</span><span class="p">)</span>
+
+        <span class="kn">import</span><span class="w"> </span><span class="nn">napari</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">cheese3d_annotator.widget</span><span class="w"> </span><span class="kn">import</span> <span class="n">FrameAnnotatorWidget</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_export_labels</span><span class="p">()</span>
+        <span class="n">viewer</span> <span class="o">=</span> <span class="n">napari</span><span class="o">.</span><span class="n">Viewer</span><span class="p">()</span>
+        <span class="n">annotator</span> <span class="o">=</span> <span class="n">FrameAnnotatorWidget</span><span class="p">(</span><span class="n">viewer</span><span class="p">)</span>
+        <span class="n">viewer</span><span class="o">.</span><span class="n">window</span><span class="o">.</span><span class="n">add_dock_widget</span><span class="p">(</span><span class="n">annotator</span><span class="p">)</span>
+        <span class="n">annotator</span><span class="o">.</span><span class="n">set_file_dialogs</span><span class="p">(</span><span class="n">img_folder</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">name</span> <span class="o">/</span> <span class="s2">&quot;labels&quot;</span><span class="p">),</span>
+                                   <span class="n">config_file</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">path</span> <span class="o">/</span> <span class="s2">&quot;config.yaml&quot;</span><span class="p">))</span>
+        <span class="n">viewer</span><span class="o">.</span><span class="n">show</span><span class="p">(</span><span class="n">block</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_import_labels</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="Ch3DProject.train">
+<a class="viewcode-back" href="../../api.html#cheese3d.project.Ch3DProject.train">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">train</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gpu</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_import_labels</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Cannot train model when pose model does not exist &quot;</span>
+                               <span class="s2">&quot;(hint: maybe you forgot to set `model.name` in the config?&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">train</span><span class="p">(</span><span class="n">gpu</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_setup_anipose</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Cannot setup triangulation when pose model does not exist &quot;</span>
+                               <span class="s2">&quot;(hint: maybe you forgot to set `model.name` in the config?&quot;</span><span class="p">)</span>
+        <span class="c1"># make anipose project folder</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">triangulation_path</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="c1"># create session subfolders</span>
+        <span class="k">for</span> <span class="n">recording</span><span class="p">,</span> <span class="n">videos</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">sessions</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">session_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">triangulation_path</span> <span class="o">/</span> <span class="n">recording</span><span class="o">.</span><span class="n">name</span>
+            <span class="n">session_path</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="c1"># add raw videos</span>
+            <span class="n">videos_path</span> <span class="o">=</span> <span class="n">session_path</span> <span class="o">/</span> <span class="s2">&quot;videos-raw&quot;</span>
+            <span class="n">videos_path</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">video</span> <span class="ow">in</span> <span class="n">videos</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+                <span class="n">src</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">path</span> <span class="o">/</span> <span class="n">video</span><span class="p">)</span>
+                <span class="n">dst</span> <span class="o">=</span> <span class="n">videos_path</span> <span class="o">/</span> <span class="n">src</span><span class="o">.</span><span class="n">name</span>
+                <span class="n">relpath</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">relpath</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">videos_path</span><span class="p">))</span>
+                <span class="k">if</span> <span class="n">dst</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+                    <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">dst</span><span class="p">)</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">symlink</span><span class="p">(</span><span class="n">relpath</span><span class="p">,</span> <span class="n">dst</span><span class="p">)</span>
+            <span class="c1"># add calibration</span>
+            <span class="n">calibration_path</span> <span class="o">=</span> <span class="n">session_path</span> <span class="o">/</span> <span class="s2">&quot;calibration&quot;</span>
+            <span class="n">calibration_path</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="c1"># add calibration files</span>
+            <span class="n">cal_key</span> <span class="o">=</span> <span class="n">RecordingKey</span><span class="p">(</span><span class="n">recording</span><span class="o">.</span><span class="n">session</span><span class="p">,</span> <span class="n">recording</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+            <span class="n">matches</span> <span class="o">=</span> <span class="p">[</span><span class="n">k</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">calibrations</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="k">if</span> <span class="n">cal_key</span><span class="o">.</span><span class="n">matches</span><span class="p">(</span><span class="n">k</span><span class="p">)]</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">matches</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No calibration found for </span><span class="si">{</span><span class="n">recording</span><span class="si">}</span><span class="s2"> when setting up triangulation&quot;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">match</span> <span class="ow">in</span> <span class="n">matches</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">video</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">calibrations</span><span class="p">[</span><span class="n">match</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+                    <span class="n">src</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">path</span> <span class="o">/</span> <span class="n">video</span><span class="p">)</span>
+                    <span class="n">dst</span> <span class="o">=</span> <span class="n">calibration_path</span> <span class="o">/</span> <span class="n">src</span><span class="o">.</span><span class="n">name</span>
+                    <span class="n">relpath</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">relpath</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">calibration_path</span><span class="p">))</span>
+                    <span class="k">if</span> <span class="n">dst</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+                        <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">dst</span><span class="p">)</span>
+                    <span class="n">os</span><span class="o">.</span><span class="n">symlink</span><span class="p">(</span><span class="n">relpath</span><span class="p">,</span> <span class="n">dst</span><span class="p">)</span>
+        <span class="c1"># create anipose config file</span>
+        <span class="n">kp_schema</span> <span class="o">=</span> <span class="n">keypoints_by_group</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">keypoints</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">group</span><span class="p">,</span> <span class="n">kps</span> <span class="ow">in</span> <span class="n">kp_schema</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">kps</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="n">kp_schema</span><span class="p">[</span><span class="n">group</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">kps</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">config</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;project&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="s2">&quot;model_folder&quot;</span><span class="p">:</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">relpath</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">project_path</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">()),</span>
+            <span class="s2">&quot;nesting&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+            <span class="s2">&quot;pipeline&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;videos-raw&quot;</span><span class="p">:</span> <span class="s2">&quot;videos-raw&quot;</span><span class="p">,},</span>
+            <span class="s2">&quot;labeling&quot;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s2">&quot;scheme&quot;</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="n">kp_schema</span><span class="o">.</span><span class="n">values</span><span class="p">()),</span>
+                <span class="s2">&quot;ignore&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">ignore_keypoint_labels</span>
+            <span class="p">},</span>
+            <span class="s2">&quot;filter&quot;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s2">&quot;enabled&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">triangulation</span><span class="o">.</span><span class="n">filter2d</span><span class="p">,</span>
+                <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;medfilt&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;medfilt&quot;</span><span class="p">:</span> <span class="mi">13</span><span class="p">,</span> <span class="c1"># length of median filter</span>
+                <span class="s2">&quot;offset_threshold&quot;</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span> <span class="c1"># offset from median filter to count as jump</span>
+                <span class="s2">&quot;score_threshold&quot;</span><span class="p">:</span> <span class="mf">0.8</span><span class="p">,</span> <span class="c1"># score below which to count as bad</span>
+                <span class="s2">&quot;spline&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span> <span class="c1"># interpolate using linearly instead of cubic spline</span>
+            <span class="p">},</span>
+            <span class="s2">&quot;calibration&quot;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s2">&quot;board_type&quot;</span><span class="p">:</span> <span class="s2">&quot;charuco&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;board_size&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">7</span><span class="p">,</span> <span class="mi">7</span><span class="p">],</span>
+                <span class="s2">&quot;board_marker_bits&quot;</span><span class="p">:</span> <span class="mi">4</span><span class="p">,</span>
+                <span class="s2">&quot;board_marker_dict_number&quot;</span><span class="p">:</span> <span class="mi">50</span><span class="p">,</span>
+                <span class="s2">&quot;board_marker_length&quot;</span><span class="p">:</span> <span class="mf">4.5</span><span class="p">,</span> <span class="c1"># mm</span>
+                <span class="s2">&quot;board_square_side_length&quot;</span><span class="p">:</span> <span class="mi">6</span> <span class="c1"># mm</span>
+            <span class="p">},</span>
+            <span class="s2">&quot;triangulation&quot;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s2">&quot;triangulate&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+                <span class="s2">&quot;cam_regex&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">view_regex</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;manually_verify&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+                <span class="s2">&quot;axes&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">triangulation</span><span class="o">.</span><span class="n">axes</span><span class="p">,</span>
+                <span class="s2">&quot;reference_point&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">triangulation</span><span class="o">.</span><span class="n">ref_point</span><span class="p">,</span>
+                <span class="s2">&quot;optim&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+                <span class="s2">&quot;score_threshold&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">triangulation</span><span class="o">.</span><span class="n">score_threshold</span><span class="p">,</span>
+                <span class="s2">&quot;scale_smooth&quot;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
+            <span class="p">}</span>
+        <span class="p">}</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">triangulation_path</span> <span class="o">/</span> <span class="s2">&quot;config.toml&quot;</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">toml</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_load_anipose_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">anipose.anipose</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_config</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_setup_anipose</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">load_config</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">triangulation_path</span> <span class="o">/</span> <span class="s2">&quot;config.toml&quot;</span><span class="p">))</span>
+
+<div class="viewcode-block" id="Ch3DProject.calibrate">
+<a class="viewcode-back" href="../../api.html#cheese3d.project.Ch3DProject.calibrate">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">calibrate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">anipose.calibrate</span><span class="w"> </span><span class="kn">import</span> <span class="n">calibrate_all</span>
+        <span class="n">calibrate_all</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_load_anipose_cfg</span><span class="p">())</span></div>
+
+
+<div class="viewcode-block" id="Ch3DProject.track">
+<a class="viewcode-back" href="../../api.html#cheese3d.project.Ch3DProject.track">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">track</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">anipose.pose_videos</span><span class="w"> </span><span class="kn">import</span> <span class="n">pose_videos_all</span>
+        <span class="n">pose_videos_all</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_load_anipose_cfg</span><span class="p">())</span></div>
+
+
+<div class="viewcode-block" id="Ch3DProject.triangulate">
+<a class="viewcode-back" href="../../api.html#cheese3d.project.Ch3DProject.triangulate">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">triangulate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># first triangulate points using Anipose</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">anipose.triangulate</span><span class="w"> </span><span class="kn">import</span> <span class="n">triangulate_all</span>
+        <span class="n">triangulate_all</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_load_anipose_cfg</span><span class="p">())</span>
+        <span class="c1"># now compute cheese3d features</span>
+        <span class="n">exclude_kps</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">kp</span><span class="o">.</span><span class="n">label</span> <span class="k">for</span> <span class="n">kp</span> <span class="ow">in</span> <span class="n">_DEFAULT_KEYPOINTS</span><span class="p">)</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">kp</span><span class="o">.</span><span class="n">label</span> <span class="k">for</span> <span class="n">kp</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">keypoints</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">exclude_kps</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">rprint</span><span class="p">(</span><span class="s2">&quot;[bold red]Keypoint configuration does not match default Cheese3D keypoints. &quot;</span>
+                   <span class="s2">&quot;Some Cheese3D features may not be computed![/bold red]&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">session</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">triangulation_path</span><span class="o">.</span><span class="n">iterdir</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">session</span><span class="o">.</span><span class="n">is_dir</span><span class="p">():</span>
+                <span class="n">landmarks</span> <span class="o">=</span> <span class="n">read_3d_data</span><span class="p">(</span><span class="n">session</span><span class="p">)</span>
+                <span class="n">c3d_features</span> <span class="o">=</span> <span class="n">compute_anatomical_measurements</span><span class="p">(</span><span class="n">landmarks</span><span class="p">,</span> <span class="n">exclude_kps</span><span class="p">)</span>
+                <span class="c1"># write features to csv</span>
+                <span class="n">c3d_features_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+                    <span class="n">k</span><span class="p">:</span> <span class="n">v</span>
+                    <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">features</span> <span class="ow">in</span> <span class="n">c3d_features</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">features</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                <span class="p">})</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">c3d_features_df</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">rprint</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[bold red]No features constructed for </span><span class="si">{</span><span class="n">session</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">, skipping![/bold red]&quot;</span><span class="p">)</span>
+                    <span class="k">continue</span>
+                <span class="n">csv_output</span> <span class="o">=</span> <span class="p">(</span><span class="n">session</span> <span class="o">/</span> <span class="s2">&quot;cheese3d&quot;</span><span class="p">)</span>
+                <span class="n">csv_output</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="n">csv_output</span> <span class="o">=</span> <span class="n">csv_output</span> <span class="o">/</span> <span class="s2">&quot;cheese3d_features.csv&quot;</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">csv_output</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+                    <span class="n">c3d_features_df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">csv_output</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">index_label</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Ch3DProject.generate_videos">
+<a class="viewcode-back" href="../../api.html#cheese3d.project.Ch3DProject.generate_videos">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">generate_videos</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">anipose.label_videos</span><span class="w"> </span><span class="kn">import</span> <span class="n">label_videos_all</span><span class="p">,</span> <span class="n">label_videos_filtered_all</span>
+        <span class="n">anipose_cfg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_anipose_cfg</span><span class="p">()</span>
+        <span class="n">rprint</span><span class="p">(</span><span class="s2">&quot;Labeling videos in 2D...&quot;</span><span class="p">)</span>
+        <span class="n">label_videos_all</span><span class="p">(</span><span class="n">anipose_cfg</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">anipose_cfg</span><span class="p">[</span><span class="s2">&quot;filter&quot;</span><span class="p">][</span><span class="s2">&quot;enabled&quot;</span><span class="p">]:</span>
+            <span class="n">rprint</span><span class="p">(</span><span class="s2">&quot;Labeling filtered videos in 2D...&quot;</span><span class="p">)</span>
+            <span class="n">label_videos_filtered_all</span><span class="p">(</span><span class="n">anipose_cfg</span><span class="p">)</span>
+
+        <span class="kn">from</span><span class="w"> </span><span class="nn">anipose.label_videos_proj</span><span class="w"> </span><span class="kn">import</span> <span class="n">label_proj_all</span>
+        <span class="n">rprint</span><span class="p">(</span><span class="s2">&quot;Labeling reprojected 3D points in 2D...&quot;</span><span class="p">)</span>
+        <span class="n">label_proj_all</span><span class="p">(</span><span class="n">anipose_cfg</span><span class="p">)</span>
+
+        <span class="kn">from</span><span class="w"> </span><span class="nn">anipose.label_filter_compare</span><span class="w"> </span><span class="kn">import</span> <span class="n">label_filter_compare_all</span>
+        <span class="n">rprint</span><span class="p">(</span><span class="s2">&quot;Stitching labeled videos together...&quot;</span><span class="p">)</span>
+        <span class="n">label_filter_compare_all</span><span class="p">(</span><span class="n">anipose_cfg</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Ch3DProject.visualize">
+<a class="viewcode-back" href="../../api.html#cheese3d.project.Ch3DProject.visualize">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">visualize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">recording</span><span class="p">:</span> <span class="n">RecordingKey</span><span class="p">):</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">napari</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">cheese3d_annotator.data_visualizer.qc_video</span><span class="w"> </span><span class="kn">import</span> <span class="n">QCReprojApp</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">cheese3d_annotator.data_visualizer.rig_view</span><span class="w"> </span><span class="kn">import</span> <span class="n">RigViewer</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">cheese3d_annotator.data_visualizer.widget</span><span class="w"> </span><span class="kn">import</span> <span class="n">_SyncController</span>
+
+        <span class="n">videos</span> <span class="o">=</span> <span class="p">{</span><span class="n">recording</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="p">{</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">view_config</span><span class="p">[</span><span class="n">view</span><span class="p">]</span><span class="o">.</span><span class="n">view</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">view</span><span class="p">,</span> <span class="n">path</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">sessions</span><span class="p">[</span><span class="n">recording</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="p">}}</span>
+        <span class="n">anipose_folder</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">triangulation_path</span> <span class="o">/</span> <span class="n">recording</span><span class="o">.</span><span class="n">name</span>
+        <span class="n">calibration</span> <span class="o">=</span> <span class="n">anipose_folder</span> <span class="o">/</span> <span class="s2">&quot;calibration&quot;</span> <span class="o">/</span> <span class="s2">&quot;calibration.toml&quot;</span>
+        <span class="n">pose3d</span> <span class="o">=</span> <span class="n">anipose_folder</span> <span class="o">/</span> <span class="s2">&quot;pose-3d&quot;</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">recording</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">.csv&quot;</span>
+        <span class="n">c3d_features</span> <span class="o">=</span> <span class="n">anipose_folder</span> <span class="o">/</span> <span class="s2">&quot;cheese3d&quot;</span> <span class="o">/</span> <span class="s2">&quot;cheese3d_features.csv&quot;</span>
+        <span class="n">view_names</span> <span class="o">=</span> <span class="p">{</span><span class="n">cfg</span><span class="o">.</span><span class="n">view</span><span class="p">:</span> <span class="n">view</span> <span class="k">for</span> <span class="n">view</span><span class="p">,</span> <span class="n">cfg</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">view_config</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+        <span class="n">skeleton</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">group</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">keypoint_groups</span><span class="p">:</span>
+            <span class="n">skeleton</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">group</span><span class="o">.</span><span class="n">skeleton</span><span class="p">)</span>
+        <span class="n">qc</span> <span class="o">=</span> <span class="n">QCReprojApp</span><span class="p">(</span><span class="n">videos_by_group</span><span class="o">=</span><span class="n">videos</span><span class="p">,</span>
+                         <span class="n">calibration_path</span><span class="o">=</span><span class="n">calibration</span><span class="p">,</span>
+                         <span class="n">pose3d_csv</span><span class="o">=</span><span class="n">pose3d</span><span class="p">,</span>
+                         <span class="n">view_code_to_name</span><span class="o">=</span><span class="n">view_names</span><span class="p">,</span>
+                         <span class="n">skeleton_config</span><span class="o">=</span><span class="n">skeleton</span><span class="p">)</span>
+        <span class="n">rig</span> <span class="o">=</span> <span class="n">RigViewer</span><span class="p">(</span><span class="n">calibration_path</span><span class="o">=</span><span class="n">calibration</span><span class="p">,</span>
+                        <span class="n">features_csv</span><span class="o">=</span><span class="n">c3d_features</span><span class="p">,</span>
+                        <span class="n">annotation_path</span><span class="o">=</span><span class="n">pose3d</span><span class="p">,</span>
+                        <span class="n">skeleton_config</span><span class="o">=</span><span class="n">skeleton</span><span class="p">)</span>
+        <span class="n">_SyncController</span><span class="p">(</span><span class="n">rig</span><span class="p">,</span> <span class="n">qc</span><span class="p">)</span>
+        <span class="n">napari</span><span class="o">.</span><span class="n">run</span><span class="p">()</span></div>
+</div>
+
+</pre></div>
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Kyle Daruwalla & Hou Lab @ CSHL
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2025, Hou Lab @ CSHL.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b"></script>
+<script src="../../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

@@ -1,0 +1,842 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Hardware setup guide &#8212; Cheese3D</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="../_static/styles/bootstrap.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+
+  
+  <link href="../_static/vendor/fontawesome/6.5.2/css/all.min.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=eba8b062" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b" />
+  <script src="../_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+    <script src="../_static/documentation_options.js?v=a1637f0b"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/scripts/sphinx-book-theme.js?v=887ef09a"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'guides/hardware';</script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Quick-start guide" href="quick-start.html" />
+    <link rel="prev" title="Installation" href="installation.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-primary-sidebar-checkbox"/>
+  <label class="overlay overlay-primary" for="pst-primary-sidebar-checkbox"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-secondary-sidebar-checkbox"/>
+  <label class="overlay overlay-secondary" for="pst-secondary-sidebar-checkbox"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">Cheese3D</p>
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+ <script>
+ document.write(`
+   <button class="btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Hardware setup guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quick-start.html">Quick-start guide</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">How-to examples</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../howto/regex.html">Regex guide</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../reference/configuration.html">Configuration file</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+<a href="https://github.com/HouLabCSHL/cheese3d" target="_blank"
+   class="btn btn-sm btn-source-repository-button"
+   title="Source repository"
+   data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+
+</a>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../_sources/guides/hardware.rst" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.rst</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"></i>
+  </button>
+`);
+</script>
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm pst-navbar-icon search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+  </button>
+`);
+</script>
+<button class="sidebar-toggle secondary-toggle btn btn-sm" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>Hardware setup guide</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cheese3d-rig-part-list">Cheese3D rig part list</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#synchronization">Synchronization</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#head-fixation">Head-fixation</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#recording-protocol">Recording protocol</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#organization">Organization</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#preparation">Preparation</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#run-the-behavior-script">Run the behavior script</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#behavior-script-flags">Behavior script flags</a></li>
+</ul>
+</li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="hardware-setup-guide">
+<h1>Hardware setup guide<a class="headerlink" href="#hardware-setup-guide" title="Link to this heading">#</a></h1>
+<p>This guide contains information about:</p>
+<nav class="contents local" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="#cheese3d-rig-part-list" id="id2">Cheese3D rig part list</a></p></li>
+<li><p><a class="reference internal" href="#synchronization" id="id3">Synchronization</a></p></li>
+<li><p><a class="reference internal" href="#head-fixation" id="id4">Head-fixation</a></p></li>
+<li><p><a class="reference internal" href="#recording-protocol" id="id5">Recording protocol</a></p></li>
+</ul>
+</nav>
+<section id="cheese3d-rig-part-list">
+<h2>Cheese3D rig part list<a class="headerlink" href="#cheese3d-rig-part-list" title="Link to this heading">#</a></h2>
+<p>Six high-speed monochrome cameras were used to record the video data at <code class="docutils literal notranslate"><span class="pre">100</span> <span class="pre">fps</span></code>. See the table below for the part list of a Cheese3D camera set-up:</p>
+<div class="pst-scrollable-table-container"><span id="parts-list"></span><table class="table" id="id1">
+<caption><span class="caption-text">Cheese3D Hardware Parts List</span><a class="headerlink" href="#id1" title="Link to this table">#</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Part</p></th>
+<th class="head"><p>Quantity</p></th>
+<th class="head"><p>Buyer (Part #)</p></th>
+<th class="head"><p>Notes</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Chameleon®3 Monochrome Camera</p></td>
+<td><p>6</p></td>
+<td><p>Edmund Optics (33-162)</p></td>
+<td><p>Camera locations should be selected such that each keypoint is visible by at least 2 cameras.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Camera Lens (8 mm)</p></td>
+<td><p>4</p></td>
+<td><p>Thorlabs (MVL8M23)</p></td>
+<td><p>For the LEFT, RIGHT, TOP LEFT and TOP RIGHT views.</p></td>
+</tr>
+<tr class="row-even"><td><p>Camera Lens (12 mm)</p></td>
+<td><p>2</p></td>
+<td><p>Thorlabs (MVL12M23)</p></td>
+<td><p>For the TOP CENTER and BOTTOM CENTER views.</p></td>
+</tr>
+<tr class="row-odd"><td><p>CS to C-mount Lens Adaptor</p></td>
+<td><p>6</p></td>
+<td><p>Edmund Optics (03-618)</p></td>
+<td><p>To mount the lens on the camera.</p></td>
+</tr>
+<tr class="row-even"><td><p>Spacer ring</p></td>
+<td><p>6</p></td>
+<td><p>Lab-custom 3D-printed</p></td>
+<td><p>Inspired on Edmund Optics (03-633). Thickness may vary depending on camera location.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Blackfly S Tripod Adapter</p></td>
+<td><p>6</p></td>
+<td><p>Edmund Optics (88-210)</p></td>
+<td><p>To mount the cameras.</p></td>
+</tr>
+<tr class="row-even"><td><p>Type-A to Micro-B Cable</p></td>
+<td><p>6</p></td>
+<td><p>Edmund Optics (86-770)</p></td>
+<td><p>To connect the camera to the computer.</p></td>
+</tr>
+<tr class="row-odd"><td><p>IR30 WideAngle IR Illuminator</p></td>
+<td><p>3</p></td>
+<td><p>Amazon (B001P2E4U4)</p></td>
+<td><p>To light the rig.</p></td>
+</tr>
+<tr class="row-even"><td><p>Infrared Emitter LED</p></td>
+<td><p>1</p></td>
+<td><p>Mouser (SML-S15R2TT86)</p></td>
+<td><p>To temporally synchronize the cameras.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Arduino MEGA Rev3</p></td>
+<td><p>2</p></td>
+<td><p>Arduino (A000067)</p></td>
+<td><p>One board is used to send the sync pulse to the infrared LED. The other board is used to send the signal that starts the video-recording.</p></td>
+</tr>
+<tr class="row-even"><td><p>Push button</p></td>
+<td><p>1</p></td>
+<td><p>Amazon (B01E38OS7K)</p></td>
+<td><p>To trigger the start of the recording.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Breadboard</p></td>
+<td><p>1</p></td>
+<td><p>Amazon (B00Q9G8MQS)</p></td>
+<td><p>To connect electronic componenets (e.g., push button)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Placing the cameras at the recommended locations will result in the following keypoints visible by each camera view. See <strong>Supplementary Table 1</strong> from manuscript below:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Facial keypoint</p></th>
+<th class="head"><p>Left</p></th>
+<th class="head"><p>Right</p></th>
+<th class="head"><p>Top Left</p></th>
+<th class="head"><p>Top Right</p></th>
+<th class="head"><p>Top Center</p></th>
+<th class="head"><p>Bottom Center</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>nose(bottom)</p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td></td>
+<td></td>
+<td></td>
+<td><p>✅</p></td>
+</tr>
+<tr class="row-odd"><td><p>nose(tip)</p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+</tr>
+<tr class="row-even"><td><p>nose(top)</p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+</tr>
+<tr class="row-odd"><td><p>pad(top)(left)</p></td>
+<td><p>✅</p></td>
+<td></td>
+<td><p>✅</p></td>
+<td></td>
+<td></td>
+<td><p>✅</p></td>
+</tr>
+<tr class="row-even"><td><p>pad(side)(left)</p></td>
+<td><p>✅</p></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td><p>✅</p></td>
+</tr>
+<tr class="row-odd"><td><p>pad(top)(right)</p></td>
+<td></td>
+<td><p>✅</p></td>
+<td></td>
+<td><p>✅</p></td>
+<td></td>
+<td><p>✅</p></td>
+</tr>
+<tr class="row-even"><td><p>pad(side)(right)</p></td>
+<td></td>
+<td><p>✅</p></td>
+<td></td>
+<td></td>
+<td></td>
+<td><p>✅</p></td>
+</tr>
+<tr class="row-odd"><td><p>pad(center)</p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td></td>
+<td></td>
+<td></td>
+<td><p>✅</p></td>
+</tr>
+<tr class="row-even"><td><p>lowerlip</p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td></td>
+<td></td>
+<td></td>
+<td><p>✅</p></td>
+</tr>
+<tr class="row-odd"><td><p>upperlip(left)</p></td>
+<td><p>✅</p></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td><p>✅</p></td>
+</tr>
+<tr class="row-even"><td><p>upperlip(right)</p></td>
+<td></td>
+<td><p>✅</p></td>
+<td></td>
+<td></td>
+<td></td>
+<td><p>✅</p></td>
+</tr>
+<tr class="row-odd"><td><p>eye(front)(left)</p></td>
+<td><p>✅</p></td>
+<td></td>
+<td><p>✅</p></td>
+<td></td>
+<td><p>✅</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>eye(top)(left)</p></td>
+<td><p>✅</p></td>
+<td></td>
+<td><p>✅</p></td>
+<td></td>
+<td><p>✅</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>eye(back)(left)</p></td>
+<td><p>✅</p></td>
+<td></td>
+<td><p>✅</p></td>
+<td></td>
+<td><p>✅</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>eye(bottom)(left)</p></td>
+<td><p>✅</p></td>
+<td></td>
+<td><p>✅</p></td>
+<td></td>
+<td><p>✅</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>eye(front)(right)</p></td>
+<td></td>
+<td><p>✅</p></td>
+<td></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>eye(top)(right)</p></td>
+<td></td>
+<td><p>✅</p></td>
+<td></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>eye(back)(right)</p></td>
+<td></td>
+<td><p>✅</p></td>
+<td></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>eye(bottom)(right)</p></td>
+<td></td>
+<td><p>✅</p></td>
+<td></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>ear(base)(left)</p></td>
+<td><p>✅</p></td>
+<td></td>
+<td><p>✅</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>ear(top)(left)</p></td>
+<td><p>✅</p></td>
+<td></td>
+<td><p>✅</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>ear(tip)(left)</p></td>
+<td><p>✅</p></td>
+<td></td>
+<td><p>✅</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>ear(bottom)(left)</p></td>
+<td><p>✅</p></td>
+<td></td>
+<td><p>✅</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>ear(base)(right)</p></td>
+<td></td>
+<td><p>✅</p></td>
+<td></td>
+<td><p>✅</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>ear(top)(right)</p></td>
+<td></td>
+<td><p>✅</p></td>
+<td></td>
+<td><p>✅</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>ear(tip)(right)</p></td>
+<td></td>
+<td><p>✅</p></td>
+<td></td>
+<td><p>✅</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>ear(bottom)(right)</p></td>
+<td></td>
+<td><p>✅</p></td>
+<td></td>
+<td><p>✅</p></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="synchronization">
+<h2>Synchronization<a class="headerlink" href="#synchronization" title="Link to this heading">#</a></h2>
+<p>Cameras are temporally synchronized with an infrarred LED that is visible from the six views. The LED (see <a class="reference internal" href="#parts-list"><span class="std std-ref">Cheese3D Hardware Parts List</span></a>) turns on for <code class="docutils literal notranslate"><span class="pre">20</span> <span class="pre">ms</span></code> every <code class="docutils literal notranslate"><span class="pre">10</span> <span class="pre">±</span> <span class="pre">0.5</span> <span class="pre">s</span></code>. The pulse is detected on each view post-hoc through our pipeline (refer to the Methods section <strong>Video capture, synchronization, and 3D calibration system</strong> in our manuscript for more information).</p>
+<p>Spatial synchronization is achieved with a manufactured calibration board with a standard <a class="reference external" href="https://github.com/dogod621/OpenCVMarkerPrinter">ChArUco template</a> imprinted on its surface. We used <code class="docutils literal notranslate"><span class="pre">7</span> <span class="pre">×</span> <span class="pre">7</span></code> ChArUco board (<code class="docutils literal notranslate"><span class="pre">4.5</span> <span class="pre">mm</span></code> marker length, <code class="docutils literal notranslate"><span class="pre">6</span> <span class="pre">mm</span></code> square side length, ArUco dictionary DICT_4x4_50). Before and after each experimental recording, the ChaRuCo board is placed inside the rig by the experimenter, while rotating over the camera views and making sure it stays on focus.</p>
+</section>
+<section id="head-fixation">
+<h2>Head-fixation<a class="headerlink" href="#head-fixation" title="Link to this heading">#</a></h2>
+<p>To acquire high-resolution facial video while maintaining comfort for natural behavior, mice are acclimated to sitting in a tunnel with the head secured using a lightweight headpost, custom-designed to allow unobstructed viewing of all facial areas.</p>
+<p>See below the <a class="reference external" href="hardware/final_headpost_design.stl">headpost</a> and <a class="reference external" href="hardware/mouse_tunnel_tube_mark21_v2.stl">tunnel</a> models (note the parts are not to scale, we recommend referring to the manuscript or the .STL files in this folder for the true measurements).</p>
+<img alt="../_images/headpost-and-tunnel.png" src="../_images/headpost-and-tunnel.png" />
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Fix STL links!!!</p>
+</div>
+</section>
+<section id="recording-protocol">
+<h2>Recording protocol<a class="headerlink" href="#recording-protocol" title="Link to this heading">#</a></h2>
+<p>The following code was optimized to run on Windows and the following programs should be installed:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://www.arduino.cc/en/software">Arduino IDE</a> (version 2.1.0)</p></li>
+<li><p><a class="reference external" href="https://bonsai-rx.org/">Bonsai</a> (version 2.8.1)</p></li>
+<li><p><a class="reference external" href="https://www.teledynevisionsolutions.com/products/spinnaker-sdk/?model=Spinnaker%20SDK&amp;vertical=machine%20vision&amp;segment=iis">Spinview</a> (version 1.29.0.5)</p></li>
+<li><p><a class="reference external" href="https://ffmpeg.org/download.html">FFMPEG</a> (version 6.0)</p></li>
+</ul>
+<section id="organization">
+<h3>Organization<a class="headerlink" href="#organization" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><a class="reference external" href="hardware/run-behavior.ps1">run-behavior.ps1</a>: The main script used to start recording</p></li>
+<li><p><a class="reference external" href="hardware/Bonsai-config/20230928_Bonsai_Behavior_6cam_hd.bonsai">20230928_Bonsai_Behavior_6cam_hd.bonsai</a>: Bonsai program that records from six cameras to Windows pipes and outputs serial port metadata from Arduino to <code class="docutils literal notranslate"><span class="pre">stdout</span></code>. Note you will need to change the serial number associated to the cameras and Arduino nodes.</p></li>
+<li><p><a class="reference external" href="hardware/ffmpeg_filter.txt">ffmpeg_filter.txt</a>: An FFMPEG “complex filter graph” specification used by <code class="docutils literal notranslate"><span class="pre">run-behavior.ps1</span></code> to post-process pipe output from Bonsai to video file</p></li>
+<li><p><a class="reference external" href="hardware/Arduino/manual_recording/manual_recording.ino">manual_recording.ino</a>: This code should be uploaded to the Arduino that will trigger the start of the recording. Note this board should be connected to the computer.</p></li>
+<li><p><a class="reference external" href="hardware/Arduino/simple_LED_blink/simple_LED_blink.ino">simple_LED_blink.ino</a>: This code should be uploaded to the Arduino that will send the pulse to the synchronizing LED. Note this board does not need to be connected to the computer, but to a power source.</p></li>
+</ul>
+</section>
+<section id="preparation">
+<h3>Preparation<a class="headerlink" href="#preparation" title="Link to this heading">#</a></h3>
+<p>Open a Powershell prompt by going to the “Start Menu &gt; Terminal”. Change directories to the location of this folder (typically <code class="docutils literal notranslate"><span class="pre">C:\\Users\...\hardware</span></code>).</p>
+<p>First, make sure the Arduino script <code class="docutils literal notranslate"><span class="pre">manual_recording</span></code> is uploaded, reset and running. Perform any actions to trigger recording on the Arduino. The Arduino script should be configured to send a “start” message on across the serial port after some delay or when a button is pressed.</p>
+</section>
+<section id="run-the-behavior-script">
+<h3>Run the behavior script<a class="headerlink" href="#run-the-behavior-script" title="Link to this heading">#</a></h3>
+<div class="highlight-powershell notranslate"><div class="highlight"><pre><span></span><span class="p">.\</span><span class="n">run-behavior</span><span class="p">.</span><span class="n">ps1</span> <span class="n">-EXP</span> <span class="s2">&quot;chewing&quot;</span> <span class="n">-EXPERIMENTER</span> <span class="s2">&quot;you&quot;</span> <span class="n">-SESSION</span><span class="p">=</span><span class="s2">&quot;mice&quot;</span> <span class="n">-MOUSE</span> <span class="s2">&quot;1&quot;</span> <span class="n">-COND</span> <span class="s2">&quot;baseline&quot;</span>
+</pre></div>
+</div>
+<p>This will run the Bonsai program, which should start recording as soon as the “start” message is delivered over the serial port. It will also start FFMPEG after a 4 second delay (to ensure that the Bonsai program has finised creating the Windows pipes). As recording progresses, FFMPEG will print out the length of the video file written to disk and the speed of writing to disk (which should be around 0.9-1.0x).</p>
+<p>To stop recording, go to the bottom right corner of the taskbar in Windows (where volume, etc. is located). Find the Bonsai logo and right-click, then select “Stop”. This will close the currently running Bonsai process and FFMPEG will stop printing in the Terminal window. The script should finish by itself. To ensure that no data is lost, add some buffer time to the end of recording before stopping Bonsai.</p>
+</section>
+<section id="behavior-script-flags">
+<h3>Behavior script flags<a class="headerlink" href="#behavior-script-flags" title="Link to this heading">#</a></h3>
+<p>There are a number of flags/parameters passed to the behavior script.</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">MOUSE</span></code> (required): the name of the mouse currently on the rig</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">EXP</span></code> (required): the name of the experiment</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">COND</span></code> (required): the name of the condition (sub-variant) of the experiment</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">EXPERIMENTER</span></code> (required): the name of the person recording</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">SESSION</span></code>: the identifier all the mice in the session (defaults to <code class="docutils literal notranslate"><span class="pre">MOUSE</span></code>)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ID</span></code>: a unique identifier to separate repetitions of the same condition and mouse (defaults to “000”; <em>do not use this to repeat a failed trial</em>)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">GRID</span></code>: set to 1 to upload the experiment folder to the grid on completion (defaults to 0)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">RIG</span></code>: the rig identifier (defaults to “2”)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">NCAMS</span></code>: the number of cameras on the rig (defaults to 6)</p></li>
+</ul>
+</section>
+</section>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="installation.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Installation</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="quick-start.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Quick-start guide</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+  <div class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav class="bd-toc-nav page-toc">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cheese3d-rig-part-list">Cheese3D rig part list</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#synchronization">Synchronization</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#head-fixation">Head-fixation</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#recording-protocol">Recording protocol</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#organization">Organization</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#preparation">Preparation</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#run-the-behavior-script">Run the behavior script</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#behavior-script-flags">Behavior script flags</a></li>
+</ul>
+</li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Kyle Daruwalla & Hou Lab @ CSHL
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2025, Hou Lab @ CSHL.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b"></script>
+<script src="../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>
