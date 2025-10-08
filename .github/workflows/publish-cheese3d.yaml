@@ -1,0 +1,33 @@
+name: Publish to PyPi
+on:
+  push:
+    tags:
+      # Publish on any tag starting with a `v`, e.g., v0.1.0
+      - cheese3d/v*
+jobs:
+  pypi-publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+    - uses: actions/checkout@v4
+    - name: Validate version matches tag
+      run: |
+        TAG_VERSION="${GITHUB_REF#refs/tags/cheese3d/v}"
+        TOML_VERSION=$(grep '^version' packages/cheese3d/pyproject.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
+        if [ "$TAG_VERSION" != "$TOML_VERSION" ]; then
+          echo "Tag version ($TAG_VERSION) does not match pyproject.toml ($TOML_VERSION)"
+          exit 1
+        fi
+    - name: Install dependencies
+      uses: prefix-dev/setup-pixi@v0.9.5
+      with:
+        pixi-version: v0.66.0
+        cache: false
+        # cache-write: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
+        environments: default
+    - name: Publish to PyPi
+      run: pixi run publish-ci cheese3d

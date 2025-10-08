@@ -3,7 +3,7 @@ name = "cheese3d"
 version = "0.1.0"
 description = "Sensitive detection and analysis of whole-face movement in mice."
 authors = [{ name = "Hou Lab CSHL", email = "the.hou.lab@gmail.com" }]
-readme = "../../README.md"
+readme = "README.md"
 requires-python = ">=3.10"
 scripts = { cheese3d = "cheese3d.cli:cli" }
 dependencies = [
@@ -47,11 +47,21 @@ dependencies = [
 ]
 
 [build-system]
-build-backend = "hatchling.build"
-requires = ["hatchling"]
+requires = ["uv_build>=0.11.11,<0.12"]
+build-backend = "uv_build"
 
-[tool.hatch.metadata]
-allow-direct-references = true
+[tool.uv.build-backend]
+module-root = "."
+
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple"
+publish-url = "https://upload.pypi.org/legacy/"
+
+[[tool.uv.index]]
+name = "test-pypi"
+url = "https://test.pypi.org/simple"
+publish-url = "https://test.pypi.org/legacy/"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

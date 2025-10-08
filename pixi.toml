@@ -7,13 +7,41 @@ platforms = ["linux-64", "osx-arm64"]
 docs = { features = ["docs"] }
 dev = { features = ["dev"] }
 
-[tasks]
-docs = "cd docs && pixi run -e docs sphinx-build -b html source _build/html"
-docs-serve = "cd docs && pixi run -e docs sphinx-autobuild --port 8090 -b html source _build/html"
-test = "cd packages/cheese3d && pixi run -e dev pytest"
-test-unit = "cd packages/cheese3d && pixi run -e dev pytest -m unit"
-test-integration = "cd packages/cheese3d && pixi run -e dev pytest -m integration"
-test-cov = "cd packages/cheese3d && pixi run -e dev pytest --cov=cheese3d --cov-report=html"
+[tasks.build]
+args = [ "name" ]
+cmd = "pixi run uv build packages/{{ name }}"
+
+[tasks.build-all]
+depends-on = [
+    { task = "build", args = ["cheese3d-annotator"] },
+    { task = "build", args = ["cheese3d"] }
+]
+
+[tasks.publish]
+args = [ "name", "token", { arg = "index", default = "pypi" }]
+cmd = "cd packages/{{ name }} && pixi run uv publish --index {{ index }} --token {{ token }}"
+depends-on = [{ task = "build", args = ["{{ name }}"]}]
+
+[tasks.publish-ci]
+args = [ "name", { arg = "index", default = "pypi" }]
+cmd = "cd packages/{{ name }} && pixi run uv publish --index {{ index }}"
+depends-on = [{ task = "build", args = ["{{ name }}"]}]
+
+[tasks.docs]
+cmd = "cd docs && pixi run -e docs sphinx-build -b html source _build/html"
+
+[tasks.docs-serve]
+cmd = "cd docs && pixi run -e docs sphinx-autobuild --port 8090 -b html source _build/html"
+
+[tasks.test]
+cmd = "cd packages/cheese3d && pixi run -e dev pytest"
+
+[tasks.test-subset]
+args = ["group"]
+cmd = "cd packages/cheese3d && pixi run -e dev pytest -m {{ group }}"
+
+[tasks.test-cov]
+cmd = "cd packages/cheese3d && pixi run -e dev pytest --cov=cheese3d --cov-report=html"
 
 [activation.env]
 LD_LIBRARY_PATH = "$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
@@ -21,6 +49,7 @@ PYTHONNOUSERSITE = "1"
 
 [dependencies]
 python = "3.11.*"
+uv = ">=0.11.11,<0.12"
 c-compiler = "*"
 cxx-compiler = "*"
 ffmpeg = ">=5.1.2"
