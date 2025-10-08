@@ -72,11 +72,11 @@ def group_by_session(recordings: Dict[RecordingKey, Any]):
 def find_videos(dir: Path,
                 recording_regex: str,
                 calibration_keys: Dict[str, str],
-                recordings: List[Dict[str, str]],
+                sessions: List[Dict[str, str]],
                 views: MultiViewConfig):
     videos = {}
     calibration_videos = {}
-    for recording in recordings:
+    for recording in sessions:
         if "name" in recording:
             session = recording["name"]
         else:
@@ -112,11 +112,11 @@ def find_videos(dir: Path,
 
     return videos, calibration_videos
 
-def find_ephys(dir: Path, ephys_regex: str, recordings: Dict[RecordingKey, Dict[str, Path]]):
+def find_ephys(dir: Path, ephys_regex: str, sessions: Dict[RecordingKey, Dict[str, Path]]):
     ephys = {}
-    grouped_recordings = group_by_session(recordings)
+    grouped_sessions = group_by_session(sessions)
 
-    for session, session_recordings in grouped_recordings.items():
+    for session, session_sessions in grouped_sessions.items():
         matches = [re.match(ephys_regex, f)
                    for f in reglob(ephys_regex, path=str(dir / session))]
         ephys_keys = [RecordingKey(session, m.group(0),
@@ -127,7 +127,7 @@ def find_ephys(dir: Path, ephys_regex: str, recordings: Dict[RecordingKey, Dict[
             rprint("[bold red]WARNING:[/bold red] "
                    f"Duplicate matches found for ephys recordings in {session=}."
                    "Ephys recordings will by matched to videos in alphabetical order.")
-        for recording in session_recordings.keys():
+        for recording in session_sessions.keys():
             for key in ephys_keys:
                 if recording.matches(key):
                     # pop key out of ephys_keys
@@ -140,13 +140,13 @@ def find_ephys(dir: Path, ephys_regex: str, recordings: Dict[RecordingKey, Dict[
 
 def build_model_backend(cfg: ModelConfig | str | Path,
                         root: Path,
-                        recordings: Dict[RecordingKey, Dict[str, Path]],
+                        sessions: Dict[RecordingKey, Dict[str, Path]],
                         view_cfg: MultiViewConfig,
                         keypoints: List[KeypointConfig]):
     if isinstance(cfg, str) or isinstance(cfg, Path):
         videos = []
         crops = []
-        for recording in recordings.values():
+        for recording in sessions.values():
             for view, video in recording.items():
                 videos.append(video)
                 crops.append(view_cfg[view].get_crop())
@@ -161,7 +161,7 @@ def build_model_backend(cfg: ModelConfig | str | Path,
 
         videos = []
         crops = []
-        for recording in recordings.values():
+        for recording in sessions.values():
             for view, video in recording.items():
                 videos.append(video)
                 crops.append(view_cfg[view].get_crop())
@@ -186,16 +186,16 @@ class Ch3DProject:
     Arguments:
         - `name`: the name of the project
         - `root`: root directory under which the project folder should be made
-        - `recordings`: a list of recordings where each entry is video files
+        - `sessions`: a list of sessions where each entry is video files
             organized by camera view
         - `keypoints`: a list of `KeypointConfig`s to track in this project
     """
     name: str
     root: Path
-    recording_root: Path
+    video_root: Path
     model_root: Path
     fps: int
-    recordings: Dict[RecordingKey, Dict[str, Path]]
+    sessions: Dict[RecordingKey, Dict[str, Path]]
     calibrations: Dict[RecordingKey, Dict[str, Path]]
     view_config: MultiViewConfig
     view_regex: str
@@ -203,7 +203,7 @@ class Ch3DProject:
     keypoint_groups: List[KeypointGroupConfig]
     model: Optional[Pose2dBackend]
     ephys_root: Optional[Path] = None
-    ephys_recordings: Optional[Dict[RecordingKey, Path]] = None
+    ephys_sessions: Optional[Dict[RecordingKey, Path]] = None
     ephys_param: Optional[Dict[str, Any]] = None
     sync: SyncConfig = field(
         default_factory=lambda: SyncConfig(["crosscorr", "regression", "sample_rate"])
@@ -221,7 +221,7 @@ class Ch3DProject:
 
     @property
     def recording_path(self):
-        return self.path / relative_path(self.recording_root, self.path)
+        return self.path / relative_path(self.video_root, self.path)
 
     @property
     def ephys_path(self):
@@ -250,18 +250,18 @@ class Ch3DProject:
     @classmethod
     def from_cfg(cls, cfg: ProjectConfig, root: str | Path, model_import = None):
         root = Path(root)
-        recordings, calibrations = find_videos(
-            dir=root / cfg.name / relative_path(cfg.recording_root, root / cfg.name),
+        sessions, calibrations = find_videos(
+            dir=root / cfg.name / relative_path(cfg.video_root, root / cfg.name),
             recording_regex=ProjectConfig.build_regex(cfg.video_regex),
             calibration_keys=cfg.calibration,
-            recordings=cfg.recordings,
+            sessions=cfg.sessions,
             views=cfg.views
         )
         if cfg.ephys_regex and cfg.ephys_root and cfg.ephys_param:
             ephys = find_ephys(
                 dir=root / cfg.name / relative_path(cfg.ephys_root, root / cfg.name),
                 ephys_regex=ProjectConfig.build_regex(cfg.ephys_regex),
-                recordings=recordings
+                sessions=sessions
             )
         elif cfg.ephys_regex or cfg.ephys_root or cfg.ephys_param:
             raise RuntimeError(
@@ -275,25 +275,25 @@ class Ch3DProject:
         model = build_model_backend(model_cfg,
                                     root=(root / cfg.name /
                                           relative_path(cfg.model_root, root / cfg.name)),
-                                    recordings=recordings,
+                                    sessions=sessions,
                                     view_cfg=cfg.views,
                                     keypoints=cfg.keypoints)
         view_regex = get_group_pattern(ProjectConfig.build_regex(cfg.video_regex), "view")
 
         return cls(name=cfg.name,
                    root=root,
-                   recording_root=Path(cfg.recording_root),
+                   video_root=Path(cfg.video_root),
                    ephys_root=Path(cfg.ephys_root) if cfg.ephys_root else None,
                    model_root=Path(cfg.model_root),
                    fps=cfg.fps,
                    model=model,
-                   recordings=recordings,
+                   sessions=sessions,
                    calibrations=calibrations,
                    view_config=cfg.views,
                    view_regex=view_regex,
                    keypoints=cfg.keypoints,
                    keypoint_groups=cfg.keypoint_groups,
-                   ephys_recordings=ephys,
+                   ephys_sessions=ephys,
                    ephys_param=cfg.ephys_param,
                    sync=cfg.sync,
                    triangulation=cfg.triangulation,
@@ -316,7 +316,7 @@ class Ch3DProject:
         tab.add_column("Value")
         tab.add_row("Name", self.name)
         tab.add_row("Root Path", str(self.root))
-        tab.add_row("Recording Path", str(self.recording_path))
+        tab.add_row("Video Path", str(self.recording_path))
         tab.add_row("Model Path", str(self.model_path))
         if self.ephys_param:
             tab.add_row("Ephys Path", str(self.ephys_path))
@@ -334,20 +334,20 @@ class Ch3DProject:
             tab.add_row(pt.label, ", ".join(pt.groups), ", ".join(pt.views))
         pty.print(tab)
         # print recording info
-        tab = table.Table("Recording", "Files (relative to Recording Path)", title="Project recordings")
-        for group, files in self.recordings.items():
+        tab = table.Table("Session", "Files (relative to Video Path)", title="Project sessions")
+        for group, files in self.sessions.items():
             tab.add_row(group.as_str(),
                         ",\n".join([f"{view}: {file.relative_to(self.recording_path)}"
                                     for view, file in files.items()]))
         pty.print(tab)
         # print ephys info
         if self.ephys_param:
-            tab = table.Table("Recording", "Files (relative to Ephys Path)", title="Project ephys recordings")
-            for group, file in self.ephys_recordings.items(): # type: ignore
+            tab = table.Table("Session", "Files (relative to Ephys Path)", title="Project ephys sessions")
+            for group, file in self.ephys_sessions.items(): # type: ignore
                 tab.add_row(group.as_str(), str(file.relative_to(self.recording_path)))
             pty.print(tab)
         # print calibration info
-        tab = table.Table("Recording", "Files (relative to Recording Path)", title="Project calibrations")
+        tab = table.Table("Session", "Files (relative to Recording Path)", title="Project calibrations")
         for group, files in self.calibrations.items():
             tab.add_row(group.as_str(),
                         ",\n".join([f"{view}: {file.relative_to(self.recording_path)}"
@@ -356,7 +356,7 @@ class Ch3DProject:
 
     def synchronize(self):
         # run video synchronization first
-        for recording, views in self.recordings.items():
+        for recording, views in self.sessions.items():
             rprint(f"[bold green]Synchronizing recording videos:[/bold green] {recording.name}")
             ref_video = views[self.sync.ref_view]
             ref_crop = self.view_config[self.sync.ref_view].get_crop(self.sync.ref_crop)
@@ -376,10 +376,10 @@ class Ch3DProject:
                 align_params = pipeline.align_recording()
                 pipeline.write_json(align_params)
         # run ephys synchronization if available
-        if self.ephys_recordings and self.ephys_param:
-            for recording, ephys_file in self.ephys_recordings.items():
+        if self.ephys_sessions and self.ephys_param:
+            for recording, ephys_file in self.ephys_sessions.items():
                 rprint(f"[bold green]Synchronizing recording ephys:[/bold green] {recording.name}")
-                ref_video = self.recordings[recording][self.sync.ref_view]
+                ref_video = self.sessions[recording][self.sync.ref_view]
                 crop = self.view_config[self.sync.ref_view].get_crop(self.sync.ref_crop)
                 video_reader = VideoSyncReader(source=self.path / ref_video,
                                                sample_rate=self.fps,
@@ -398,7 +398,7 @@ class Ch3DProject:
         label_path = self.model_path / self.model.name / "labels"
         label_path.mkdir(exist_ok=True)
         # create label folders for each video
-        for recording in self.recordings.values():
+        for recording in self.sessions.values():
             for video in recording.values():
                 label_folder = label_path / video.stem
                 label_folder.mkdir(exist_ok=True)
@@ -429,25 +429,25 @@ class Ch3DProject:
         label_paths = self._label_folder_paths()
         self.model.export_c3d_labels(label_paths)
 
-    def extract_frames(self, recordings: Optional[List[RecordingKey]] = None, manual = False):
+    def extract_frames(self, sessions: Optional[List[RecordingKey]] = None, manual = False):
         self._import_labels()
         if self.model is None:
             raise RuntimeError("Cannot extract frames when pose model does not exist "
                                "(hint: maybe you forgot to set `model.name` in the config?")
 
         if manual:
-            if not recordings:
-                raise ValueError("A list of recordings must be specified in manual extraction mode.")
+            if not sessions:
+                raise ValueError("A list of sessions must be specified in manual extraction mode.")
 
             import napari
             from cheese3d_annotator.widget import FramePickerWidget
 
-            for recording in recordings:
+            for recording in sessions:
                 rprint(f"Extracting {recording.name} ... close Napari window when complete.")
                 viewer = napari.Viewer()
                 picker = FramePickerWidget(viewer)
                 viewer.window.add_dock_widget(picker)
-                picker.set_videos([v for v in self.recordings[recording].values()])
+                picker.set_videos([v for v in self.sessions[recording].values()])
                 picker.set_save_directory(self.model_path / self.model.name / "labels")
                 viewer.show(block=True)
         else:
@@ -485,7 +485,7 @@ class Ch3DProject:
         # make anipose project folder
         self.triangulation_path.mkdir(exist_ok=True)
         # create session subfolders
-        for recording, videos in self.recordings.items():
+        for recording, videos in self.sessions.items():
             session_path = self.triangulation_path / recording.name
             session_path.mkdir(exist_ok=True)
             # add raw videos
@@ -626,7 +626,7 @@ class Ch3DProject:
 
         videos = {recording.name: {
             self.view_config[view].view: str(path)
-            for view, path in self.recordings[recording].items()
+            for view, path in self.sessions[recording].items()
         }}
         anipose_folder = self.triangulation_path / recording.name
         calibration = anipose_folder / "calibration" / "calibration.toml"

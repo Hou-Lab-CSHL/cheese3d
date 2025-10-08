@@ -46,10 +46,10 @@ StartMenu Button {
 MainScreen {
     align: left top;
 }
-MainScreen #recordings_list {
+MainScreen #sessions_list {
     margin: 0 1;
 }
-MainScreen #recordings_list > Static {
+MainScreen #sessions_list > Static {
     margin: 1 0;
 }
 MainScreen .buttons_group {

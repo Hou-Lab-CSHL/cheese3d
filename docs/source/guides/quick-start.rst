@@ -97,14 +97,14 @@ Let's fix that by **copying the** ``cheese3d_demo_data/20231031_chew`` **folder 
 .. note::
     Cheese3D is looking under ``cheese3d_demo_project/videos`` because that was the chosen "recording root" sub-directory when we created our project. You can always edit ``cheese3d_demo_project/config.yaml`` to adjust these settings in the future.
 
-Next, **go back to the GUI and click on the "select recordings" tab at the top menu**. We see a list of recordings found in the ``cheese3d_demo_project/videos`` folder. **Select the only available recording session by marking the checkbox**.
+Next, **go back to the GUI and click on the "select sessions" tab at the top menu**. We see a list of sessions found in the ``cheese3d_demo_project/videos`` folder. **Select the only available recording session by marking the checkbox**.
 
-.. image:: /_static/demo-images/select-recordings.png
+.. image:: /_static/demo-images/select-sessions.png
 
 .. note::
-    Every time you choose a new set of recordings, the project ``config.yaml`` file will be overwritten with the new selections automatically.
+    Every time you choose a new set of sessions, the project ``config.yaml`` file will be overwritten with the new selections automatically.
 
-**Returning to the project "summary" tab**, we see that the project has been reloaded from disk automatically. And we have multiple recordings listed in the "Project recordings" section of the summary.
+    **Returning to the project "summary" tab**, we see that the project has been reloaded from disk automatically. And we have multiple sessions listed in the "Project sessions" section of the summary.
 
 .. image:: /_static/demo-images/project-summary-after.png
 

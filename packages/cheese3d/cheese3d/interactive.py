@@ -60,7 +60,7 @@ Project is live-loaded from disk whenever you switch tabs (so you can edit your 
 
 Tab info:
 - [bold]"summary":[/bold] an overview of your project including detected videos (and ephys)
-- [bold]"select recordings":[/bold] select video recordings to include in project
+- [bold]"select sessions":[/bold] select video/ephys recordings to include in project
 - [bold]"model":[/bold] model-related actions like labeling frames and training
 - [bold]"pose tracking":[/bold] analysis-related actions like camera
     calibration, keypoint tracking, and triangulation
@@ -345,7 +345,7 @@ class ProjectWizard(VerticalGroup):
     def get_config(self):
         return {
             "name": self.query_one("#project_name").value,
-            "recording_root": self.query_one("#video_dir").value,
+            "video_root": self.query_one("#video_dir").value,
             "fps": int(self.query_one("#fps").value),
             "video_regex": self.query_one("RegexInput").get_regex()
         }
@@ -759,7 +759,7 @@ class MainScreen(Screen):
 
     def _check_in_sessions(self, session: str):
         k = RecordingKey(session, "")
-        return any(k2.matches(k) for k2 in self.project.recordings.keys())
+        return any(k2.matches(k) for k2 in self.project.sessions.keys())
 
     def _refresh_summary(self):
         summary_log = self.query_one("#summary_log")
@@ -768,17 +768,17 @@ class MainScreen(Screen):
 
     def _refresh_recording_list(self):
         config = ProjectConfig.load(self.project.path / "config.yaml")
-        recording_root = str(self.project.path / config.recording_root) # type: ignore
+        video_root = str(self.project.path / config.video_root) # type: ignore
         self.query_one("#recording_path").update(
-            f"[bold]Available recordings under:[/bold] {recording_root}"
+            f"[bold]Available sessions under:[/bold] {video_root}"
         )
-        recordings = reglob(".*", path=recording_root)
-        recordings = [Path(p) for p in recordings]
-        in_project = [self._check_in_sessions(p.name) for p in recordings]
-        select_list = self.query_one("#select_recordings")
+        sessions = reglob(".*", path=video_root)
+        sessions = [Path(p) for p in sessions]
+        in_project = [self._check_in_sessions(p.name) for p in sessions]
+        select_list = self.query_one("#select_sessions")
         select_list.clear_options()
         select_list.add_options([(path.name, path, select)
-                                 for path, select in zip(recordings, in_project)])
+                                 for path, select in zip(sessions, in_project)])
 
     def _enable_model_done(self):
         self.query_one("#all_tabs").query_one("ContentTabs").disabled = False
@@ -818,10 +818,10 @@ class MainScreen(Screen):
             with TabbedContent(initial="summary", id="all_tabs"):
                 with TabPane(title="summary", id="summary"):
                     yield RichConsole(id="summary_log")
-                with TabPane(title="select recordings", id="recordings"):
-                    with Vertical(id="recordings_list"):
+                with TabPane(title="select sessions", id="sessions"):
+                    with Vertical(id="sessions_list"):
                         yield Static("", id="recording_path")
-                        yield SelectionList[str](id="select_recordings")
+                        yield SelectionList[str](id="select_sessions")
                 with TabPane(title="model", id="model"):
                     with Vertical():
                         with CenterMiddle(classes="buttons_group"):
@@ -842,8 +842,8 @@ class MainScreen(Screen):
                     with Vertical():
                         with CenterMiddle(classes="buttons_group"):
                             with HorizontalGroup(id="visualize_buttons"):
+                                yield Button("Visualize (interactive)", id="visualize")
                                 yield Button("Generate videos", id="generate_videos")
-                                yield Button("Visualize", id="visualize")
                         yield TextualStdout(id="visualize_log")
         yield Footer()
 
@@ -852,23 +852,23 @@ class MainScreen(Screen):
         self.project = Ch3DProject.from_path(self.project.path)
         if msg.pane.id == "summary":
             self._refresh_summary()
-        elif msg.pane.id == "recordings":
+        elif msg.pane.id == "sessions":
             self._refresh_recording_list()
 
-    @on(SelectionList.SelectedChanged, "#select_recordings")
-    def update_selected_recordings(self, msg: SelectionList.SelectedChanged):
+    @on(SelectionList.SelectedChanged, "#select_sessions")
+    def update_selected_sessions(self, msg: SelectionList.SelectedChanged):
         config = ProjectConfig.load(self.project.path / "config.yaml")
-        current = set(recording["name"] for recording in config.recordings) # type: ignore
+        current = set(recording["name"] for recording in config.sessions) # type: ignore
         selections = [selection.name for selection in msg.selection_list.selected]
-        new_recordings = []
-        for recording in config.recordings: # type: ignore
+        new_sessions = []
+        for recording in config.sessions: # type: ignore
             name = recording.get("name", "")
             if name in selections:
-                new_recordings.append(recording)
+                new_sessions.append(recording)
         for selection in selections:
             if selection not in current:
-                new_recordings.append({"name": selection}) # type: ignore
-        config.recordings = new_recordings # type: ignore
+                new_sessions.append({"name": selection}) # type: ignore
+        config.sessions = new_sessions # type: ignore
         OmegaConf.save(config, self.project.path / "config.yaml")
 
     @work(thread=True)
@@ -890,7 +890,7 @@ class MainScreen(Screen):
             await self._automatic_extraction().wait()
         else:
             options = {recording.name: recording
-                       for recording in self.project.recordings.keys()}
+                       for recording in self.project.sessions.keys()}
             selection_name = await self.app.push_screen_wait(
                 SelectionBox(message="Select a recording to extract",
                              options=list(options.keys()))
@@ -970,7 +970,7 @@ class MainScreen(Screen):
     async def visualize(self):
         self._disable_visualize_in_progress()
         options = {recording.name: recording
-                   for recording in self.project.recordings.keys()}
+                   for recording in self.project.sessions.keys()}
         selection = await self.app.push_screen_wait(
             SelectionBox(message="Select a recording to visualize",
                             options=list(options.keys()))

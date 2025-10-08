@@ -266,7 +266,7 @@ _DEFAULT_TRIANGULATION_REF = "ref(head-post)"
 @dataclass
 class ProjectConfig:
     name: str = MISSING
-    recording_root: str = "videos"
+    video_root: str = "videos"
     ephys_root: Optional[str] = None
     model_root: str = "model"
     video_regex: Any = MISSING
@@ -275,7 +275,7 @@ class ProjectConfig:
     ephys_param: Optional[Dict[str, Any]] = None
     fps: int = 100
     sync: SyncConfig = MISSING
-    recordings: List[Dict[str, str]] = MISSING
+    sessions: List[Dict[str, str]] = MISSING
     triangulation: TriangulationConfig = MISSING
     views: MultiViewConfig = MISSING
     calibration: Dict[str, str] = MISSING
@@ -289,7 +289,7 @@ class ProjectConfig:
         cfg.video_regex = _DEFAULT_VIDEO_REGEX
         cfg.views = SixCamViewConfig()
         cfg.calibration = {"type": "cal"}
-        cfg.recordings = []
+        cfg.sessions = []
         cfg.triangulation = TriangulationConfig(axes=_DEFAULT_TRIANGULATION_AXES,
                                                 ref_point=_DEFAULT_TRIANGULATION_REF)
         cfg.keypoints = _DEFAULT_KEYPOINTS

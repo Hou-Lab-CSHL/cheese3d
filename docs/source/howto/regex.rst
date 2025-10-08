@@ -153,11 +153,11 @@ Using regex groups in Cheese3D configuration
 
 Once defined, the regex groups can be used throughout your configuration:
 
-**In recordings** (see :ref:`reference/configuration:Recording options`):
+**In sessions** (see :ref:`reference/configuration:Recording options`):
 
 .. code-block:: yaml
 
-   recordings:
+   sessions:
    - name: session1
      type: behavior  # Filters files where type group = "behavior"
    - name: session2

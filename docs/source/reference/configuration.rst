@@ -20,7 +20,7 @@ Below is a description of all the options available in the configuration file.
       - ``str``
       - N/A
       - The name of your project which should match the project folder name exactly.
-    * - ``recording_root``
+    * - ``video_root``
       - ``str``
       - ``videos``
       - The path relative to the project folder where video data should be found.
@@ -59,8 +59,8 @@ Below is a description of all the options available in the configuration file.
       - :ref:`reference/configuration:Sync options`
       - :ref:`reference/configuration:Sync options`
       - Options for temporally synchronizing video (and ephys) data sources.
-    * - ``recordings``
-      - ``List[Dict[str, str]]`` (see :ref:`reference/configuration:Recording options`)
+    * - ``sessions``
+      - ``List[Dict[str, str]]`` (see :ref:`reference/configuration:Recording session options`)
       - ``[]``
       - List of recording sessions to process. Each entry must contain a ``name`` key.
     * - ``triangulation``
@@ -220,12 +220,12 @@ Cheese3D will temporally synchronize video data across all cameras (and optional
       - ``"default"``
       - Crop region to use from the reference view. Use ``"default"`` for main crop or specify an ``extra_crops`` key (see :ref:`reference/configuration:View options`.
 
-Recording options
------------------
+Recording session options
+-------------------------
 
-The ``recordings`` section in the :ref:`main_config_ref` defines the video recordings to process. Each recording has the following options:
+The ``sessions`` section in the :ref:`main_config_ref` defines the video recordings to process. Each recording has the following options:
 
-.. list-table:: Recordings configuration
+.. list-table:: Sessions configuration
     :header-rows: 1
 
     * - Key
@@ -233,26 +233,26 @@ The ``recordings`` section in the :ref:`main_config_ref` defines the video recor
       - Description
     * - ``name``
       - ``str``
-      - The name of the folder in ``recording_root`` that matches this video recording.
+      - The name of the folder in ``video_root`` that matches this video recording.
     * - ``<regex_group>``
       - ``<value>``
-      - Additional identifiers corresponding to regex groups in ``video_regex`` that can further filter the list of videos in ``<recording_root>/<name>`` to the videos that match a single session.
+      - Additional identifiers corresponding to regex groups in ``video_regex`` that can further filter the list of videos in ``<video_root>/<name>`` to the videos that match a single session.
 
 Example:
 
 .. code-block:: yaml
 
-   recordings:
+   sessions:
    - name: 20250522_B1_ephys-record_rig1
    - name: 20250523_B1_ephys-record_rig1
      type: control
 
-In the example, the ``<recording_root>/20250523_B1_ephys-record_rig1`` folder contains multiple recordings, so we filter the potential matches to the files where the ``type`` group has a value of ``control``. See :doc:`/howto/regex` for more information on regex groups and how to use them.
+In the example, the ``<video_root>/20250523_B1_ephys-record_rig1`` folder contains multiple sessions, so we filter the potential matches to the files where the ``type`` group has a value of ``control``. See :doc:`/howto/regex` for more information on regex groups and how to use them.
 
 Calibration options
 ^^^^^^^^^^^^^^^^^^^
 
-The ``calibration`` key allows you to filter a matched list of videos for a recording into calibration recordings and normal video recordings. Its value is similar to an entry in ``recordings`` but excludes the ``name`` key (i.e. it is just a list of regex groups to filter the matched files).
+The ``calibration`` key allows you to filter a matched list of videos for a recording into calibration recordings and normal video recordings. Its value is similar to an entry in ``sessions`` but excludes the ``name`` key (i.e. it is just a list of regex groups to filter the matched files).
 
 Example:
 

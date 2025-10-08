@@ -93,7 +93,7 @@ def extract(
     if manual:
         choices = [questionary.Choice(title=f"session: {k.session}, name: {k.name}",
                                       value=k)
-                   for k in project.recordings.keys()]
+                   for k in project.sessions.keys()]
         choices.append(questionary.Choice(title="exit (q)", value="exit", shortcut_key="q"))
         while True:
             chosen = questionary.select("Which recording would you like to extract frames for?",
@@ -101,7 +101,7 @@ def extract(
             if (chosen == "exit") or (chosen is None):
                 break
             else:
-                project.extract_frames(recordings=[chosen], manual=True)
+                project.extract_frames(sessions=[chosen], manual=True)
     else:
         project.extract_frames(manual=False)
     rich.print("Frames extracted! :white_check_mark:")
@@ -240,7 +240,7 @@ def visualize(
     project = _build_project(path, name, configs, config_overrides)
     choices = [questionary.Choice(title=f"session: {k.session}, name: {k.name}",
                                   value=k)
-               for k in project.recordings.keys()]
+               for k in project.sessions.keys()]
     choices.append(questionary.Choice(title="exit (q)", value="exit", shortcut_key="q"))
     while True:
         chosen = questionary.select("Which recording would you like to visualize?",
