@@ -3,6 +3,8 @@ on:
   push:
     # Build docs when pushing to `main` branch.
     branches: [ main ]
+permissions:
+  contents: write
 jobs:
   build:
     runs-on: ubuntu-latest
