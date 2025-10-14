@@ -22,11 +22,34 @@ You should notice the following new folders:
 
 .. image:: /_static/Cheese3DFlowchart.png
 
+|
+**Table of contents:**
+
+.. contents::
+    :local:
+    :depth: 2
+    :backlinks: none
+
 .. _organizing_projects:
 Organizing Cheese3D projects
 ----------------------------
 
-A Cheese3D project (by default) is self-contained in a folder with the same name as the project.
+A Cheese3D project (by default) is self-contained in a folder with the same name as the project. A typical organization looks like this:
+
+.. code-block:: text
+
+    <project folder (choose this name)>
+    |__ config.yaml
+    |__ <video recording folder (defaults to "videos")>
+    |__ <optional ephys recording folder (defaults to "ephys")>
+    |__ model
+    |  |__ backend <contains the DLC project>
+    |  |__ labels
+    |__triangulation <contains Anipose project; created automatically on 3D stage>
+
+.. tip::
+
+    Store all your Cheese3D projects in a single directory to keep them organized in one place!
 
 .. _create_new_project:
 Creating a new project
@@ -75,6 +98,11 @@ Adding video data to the project
 
 After clicking "Done" in the dialog, you will be taken to the project interface. To start, you'll be greated by a summary of your project. Here, we find information like the name of the project, the keypoints being tracked on the mouse face, and a list of videos. You should also **find a new** ``cheese3d_demo_project`` **folder in your current working directory** (where you launched the GUI).
 
+.. image:: /_static/demo-images/project-summary.png
+   :width: 49%
+.. image:: /_static/demo-images/project-summary-initial.png
+   :width: 49%
+
 .. note::
 
     From now on, we will refer to files in the ``cheese3d_demo_project`` folder. This always corresponds to the folder you just created using the GUI.
@@ -82,13 +110,6 @@ After clicking "Done" in the dialog, you will be taken to the project interface.
 .. tip::
 
     Now that your project has been created, you can always return to this screen by running ``cheese3d interactive`` then selecting "Load existing project". Go ahead, try it by pressing ``q`` to quit the app.
-
-.. image:: /_static/demo-images/project-summary.png
-   :width: 49%
-.. image:: /_static/demo-images/project-summary-initial.png
-   :width: 49%
-
-|
 
 A keen-eyed user will notice that there are no videos added to the project!
 
@@ -104,7 +125,7 @@ Next, **go back to the GUI and click on the "select sessions" tab at the top men
 .. note::
     Every time you choose a new set of sessions, the project ``config.yaml`` file will be overwritten with the new selections automatically.
 
-    **Returning to the project "summary" tab**, we see that the project has been reloaded from disk automatically. And we have multiple sessions listed in the "Project sessions" section of the summary.
+**Returning to the project "summary" tab**, we see that the project has been reloaded from disk automatically. And we have multiple sessions listed in the "Project sessions" section of the summary.
 
 .. image:: /_static/demo-images/project-summary-after.png
 
