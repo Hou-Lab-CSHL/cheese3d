@@ -31,15 +31,15 @@ If you use Cheese3D, please cite our preprint:
 .. code-block:: bibtex
 
     @article {Daruwalla2024.05.07.593051,
-        author = {Daruwalla, Kyle and Martin, Irene Nozal and Frankel, Andrew and Nagli{\v c}, Diana and Ahmad, Zainab and Hou, Xun Helen},
-        title = {A 3D whole-face movement analysis system to uncover underlying physiology in mice},
-        elocation-id = {2024.05.07.593051},
-        year = {2024},
-        doi = {10.1101/2024.05.07.593051},
-        publisher = {Cold Spring Harbor Laboratory},
-        URL = {https://www.biorxiv.org/content/early/2024/05/08/2024.05.07.593051},
-        eprint = {https://www.biorxiv.org/content/early/2024/05/08/2024.05.07.593051.full.pdf},
-        journal = {bioRxiv}
+    	author = {Daruwalla, Kyle and Martin, Irene Nozal and Zhang, Linghua and Nagli{\v c}, Diana and Frankel, Andrew and Rasgaitis, Catherine and Zhang, Xinyan and Ahmad, Zainab and Borniger, Jeremy C. and Hou, Xun Helen},
+    	title = {Cheese3D: Sensitive Detection and Analysis of Whole-Face Movement in Mice},
+    	elocation-id = {2024.05.07.593051},
+    	year = {2025},
+    	doi = {10.1101/2024.05.07.593051},
+    	publisher = {Cold Spring Harbor Laboratory},
+    	URL = {https://www.biorxiv.org/content/early/2025/03/01/2024.05.07.593051},
+    	eprint = {https://www.biorxiv.org/content/early/2025/03/01/2024.05.07.593051.full.pdf},
+    	journal = {bioRxiv}
     }
 
 .. toctree::
