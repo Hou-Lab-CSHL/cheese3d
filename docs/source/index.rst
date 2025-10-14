@@ -21,6 +21,8 @@ Cheese3D output can be visualized interactively.
 |
 Using a combination of hardware synchronization signals and a multi-stage pipeline, we are able to precisely synchronize video and electrophysiology data. This allows us to relate spikes recorded in the brainstem to various facial movements (here, we highlight two example units correlated with ipsilateral ear movements).
 
+.. image:: /_static/Cheese3DFlowchart.png
+|
 .. image:: /_static/Cheese3DSync.png
 
 |
