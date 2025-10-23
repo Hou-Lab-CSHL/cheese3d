@@ -12,8 +12,8 @@ Cheese3D is a pipeline for tracking mouse facial movements built on top of exist
 Cheese3D output can be visualized interactively.
 
 <p align="center">
-   <img src="docs/source/_static/Cheese3DVisualizer.gif" alt="Animation of Cheese3D visualizer", width=50%>
-   <img src="docs/source/_static/Cheese3DVisualizerStatic.png" alt="Animation of Cheese3D visualizer", width=50.2%>
+   <img src="docs/source/_static/Cheese3DVisualizer.gif" alt="Animation of Cheese3D visualizer", width=49%>
+   <img src="docs/source/_static/Cheese3DVisualizerStatic.png" alt="Animation of Cheese3D visualizer", width=49%>
 </p>
 
 Using a combination of hardware synchronization signals and a multi-stage pipeline, we are able to precisely synchronize video and electrophysiology data. This allows us to relate spikes recorded in the brainstem to various facial movements (here, we highlight two example units correlated with ipsilateral ear movements).
