@@ -13,11 +13,15 @@ Cheese3D is a Python package with a few external dependencies. Our environment i
 Setup
 -----
 
+.. warning::
+
+    We are currently upstreaming changes in order to publish Cheese3D on PyPi. Until then, follow the instructions below to install Cheese3D directly from Github.
+
 Clone the Cheese3D repository:
 
 .. code-block:: bash
 
-    git clone https://github.com/HouLabCSHL/cheese3d.git
+    git clone https://github.com/Hou-Lab-CSHL/cheese3d.git
 
 Setup the environment then activate it. Any future commands require activating the environment first.
 
