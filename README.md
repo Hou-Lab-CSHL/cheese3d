@@ -42,3 +42,5 @@ Using a combination of hardware synchronization signals and a multi-stage pipeli
 ## System Requirements
 
 Cheese3D is supported on most Linux and macOS systems (including GPU support for CUDA and Apple Silicon). Partial support is available on Windows. For details, please refer to [our documentation](https://hou-lab-cshl.github.io/cheese3d/guides/installation.html#platform-specific-support).
+
+Software dependencies are listed in the [pixi.toml](/pixi.toml), [`cheese3d` pyproject.toml](/packages/cheese3d/pyproject.toml), and [`cheese3d-annotator` pyproject.toml](/packages/cheese3d-annotator/pyproject.toml) files. Hardware specifications can be found in [our hardware guide](https://hou-lab-cshl.github.io/cheese3d/guides/hardware.html).

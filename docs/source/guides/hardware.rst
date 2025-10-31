@@ -284,13 +284,9 @@ Head-fixation
 
 To acquire high-resolution facial video while maintaining comfort for natural behavior, mice are acclimated to sitting in a tunnel with the head secured using a lightweight headpost, custom-designed to allow unobstructed viewing of all facial areas.
 
-See below the `headpost <hardware/final_headpost_design.stl>`_ and `tunnel <hardware/mouse_tunnel_tube_mark21_v2.stl>`_ models (note the parts are not to scale, we recommend referring to the manuscript or the .STL files in this folder for the true measurements).
+See below the headpost and tunnel models (note the parts are not to scale, we recommend referring to the manuscript or the .STL files in `this folder <https://github.com/Hou-Lab-CSHL/cheese3d/tree/main/hardware>`__ for the true measurements).
 
 .. image:: /_static/headpost-and-tunnel.png
-
-.. warning::
-
-    Fix STL links!!!
 
 Recording protocol
 ------------------
