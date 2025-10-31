@@ -16,3 +16,4 @@ The following notebooks contain the code required to reproduce the figures in ou
 | <img src="Fig4-2Example.png" width=200> | `fig4-part2-consummatory-behavior.ipynb` | Changes in consummatory behavior measured by Cheese3D features |
 | <img src="Fig5-1Example.png" width=200> | `fig5-part1-cheese3d-stimulation-triggered-movement.ipynb` | Stimulation triggered facial movements in anesthetized mice |
 | <img src="Fig5-2Example.png" width=200> | `fig5-part2-cheese3d-synchronized-electrophysiology.ipynb` | Synchronized Cheese3D with electrophysiology relates motor control activity to subtle facial movements |
+| <img src="Fig5-3Example.png" width=200> | `fig5-part3-prediction-of-neural-activity-from-cheese3d.ipynb` | Predicting neural activity of brainstem units from single facial features |
