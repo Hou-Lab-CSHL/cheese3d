@@ -38,3 +38,7 @@ Using a combination of hardware synchronization signals and a multi-stage pipeli
  	journal = {bioRxiv}
 }
 ```
+
+## System Requirements
+
+Cheese3D is supported on most Linux and macOS systems (including GPU support for CUDA and Apple Silicon). Partial support is available on Windows. For details, please refer to [our documentation](https://hou-lab-cshl.github.io/cheese3d/guides/installation.html#platform-specific-support).

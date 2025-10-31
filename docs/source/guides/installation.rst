@@ -30,6 +30,8 @@ Setup the environment then activate it. Any future commands require activating t
     cd cheese3d
     pixi shell
 
+Installation should take a few minutes for each step to complete. If any step is taking too long, please [open an issue](https://github.com/Hou-Lab-CSHL/cheese3d/issues).
+
 Platform-specific support
 -------------------------
 
