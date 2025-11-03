@@ -39,7 +39,21 @@ Using a combination of hardware synchronization signals and a multi-stage pipeli
 }
 ```
 
-Please see the [`paper/`](/paper/) subdirectory to reproduce analysis in this manuscript.
+## Reproducing Cheese3D paper figures
+
+The following notebooks contain the code required to reproduce the figures in our paper. They also serve as a showcase of the type of analysis enabled by Cheese3D's output. You can find the complete collection under the [`paper/`](/paper/) directory.
+
+| Example figure panel | Notebook | Description |
+|:--------------------:|:---------|:------------|
+| <img src="paper/Fig1Example.png" width=200> | `paper/fig1-cheese3d-accuracy.ipynb` | Framework and validation of capturing face-wide movement as 3D geometric features in mice |
+| <img src="paper/Fig2Example.png" width=200> | `paper/fig2-cheese3d-jitter-analysis.ipynb` | Reduction in keypoint tracking jitter due to 3D triangulation of data from six camera views |
+| <img src="paper/Fig3-1Example.png" width=200> | `paper/fig3-part1-cheese3d-general-anesthesia-eeg.ipynb` | Distinct facial patterns track time during induction and recovery from ketamine-induced anesthesia |
+| <img src="paper/Fig3-2Example.png" width=200> | `paper/fig3-part2-prediction-of-eeg-from-facial-features.ipynb` | Predicting EEG frequency band power from facial features |
+| <img src="paper/Fig4-1Example.png" width=200> | `paper/fig4-part1-chewing-whole-face-kinematics.ipynb` | Chewing kinematics in mouth and surrounding facial areas |
+| <img src="paper/Fig4-2Example.png" width=200> | `paper/fig4-part2-consummatory-behavior.ipynb` | Changes in consummatory behavior measured by Cheese3D features |
+| <img src="paper/Fig5-1Example.png" width=200> | `paper/fig5-part1-cheese3d-stimulation-triggered-movement.ipynb` | Stimulation triggered facial movements in anesthetized mice |
+| <img src="paper/Fig5-2Example.png" width=200> | `paper/fig5-part2-cheese3d-synchronized-electrophysiology.ipynb` | Synchronized Cheese3D with electrophysiology relates motor control activity to subtle facial movements |
+| <img src="Fig5-3Example.png" width=200> | `paper/fig5-part3-prediction-of-neural-activity-from-cheese3d.ipynb` | Predicting neural activity of brainstem units from single facial features |
 
 ## System Requirements
 
