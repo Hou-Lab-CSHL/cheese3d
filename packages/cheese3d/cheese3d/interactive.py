@@ -650,6 +650,10 @@ class CreateWizardLoading(ModalScreen):
         Ch3DProject.initialize(config["name"], root=".")
         # read in config to overwrite
         yaml_config = ProjectConfig.load(Path(".") / config["name"] / "config.yaml")
+        # overwrite project parameters
+        yaml_config.video_root = config["video_root"]
+        yaml_config.fps = config["fps"]
+        yaml_config.video_regex = config["video_regex"]
         # overwrite ephys
         if ephys_config is not None:
             yaml_config.ephys_root = ephys_config["ephys_root"]

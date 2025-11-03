@@ -344,3 +344,6 @@ class ProjectConfig:
         cfg = OmegaConf.to_object(cfg)
 
         return cfg
+
+    def as_dict(self):
+        return OmegaConf.to_container(self)
