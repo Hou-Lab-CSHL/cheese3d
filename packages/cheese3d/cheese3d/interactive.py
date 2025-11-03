@@ -219,7 +219,9 @@ class RegexInput(VerticalScroll):
 
     @on(Button.Pressed, "#add_field")
     def add_field(self):
+        nchildren = len(self.fields.children)
         self.fields.mount(KeyValuePair())
+        self.disable_remove = ((nchildren + 1) <= len(self.required))
 
     @on(Button.Pressed, "#remove_field")
     def remove_field(self):
