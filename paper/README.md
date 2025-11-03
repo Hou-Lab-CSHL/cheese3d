@@ -12,6 +12,7 @@ The following notebooks contain the code required to reproduce the figures in ou
 | <img src="Fig2Example.png" width=200> | `fig2-cheese3d-jitter-analysis.ipynb` | Reduction in keypoint tracking jitter due to 3D triangulation of data from six camera views |
 | <img src="Fig3-1Example.png" width=200> | `fig3-part1-cheese3d-general-anesthesia-eeg.ipynb` | Distinct facial patterns track time during induction and recovery from ketamine-induced anesthesia |
 | <img src="Fig3-2Example.png" width=200> | `fig3-part2-prediction-of-eeg-from-facial-features.ipynb` | Predicting EEG frequency band power from facial features |
+| <img src="Fig3-3Example.png" width=200> | `fig3-part3-cheese3d-redose-facial-features.ipynb` | Detecting differences in total anesthetic dosage from facial features |
 | <img src="Fig4-1Example.png" width=200> | `fig4-part1-chewing-whole-face-kinematics.ipynb` | Chewing kinematics in mouth and surrounding facial areas |
 | <img src="Fig4-2Example.png" width=200> | `fig4-part2-consummatory-behavior.ipynb` | Changes in consummatory behavior measured by Cheese3D features |
 | <img src="Fig5-1Example.png" width=200> | `fig5-part1-cheese3d-stimulation-triggered-movement.ipynb` | Stimulation triggered facial movements in anesthetized mice |
