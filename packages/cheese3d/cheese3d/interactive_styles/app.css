@@ -18,7 +18,7 @@ Button {
 RegexInput {
     border: round gray;
     height: auto;
-    max-height: 12;
+    max-height: 15;
 }
 RegexInput #buttons {
     width: auto;
@@ -88,6 +88,8 @@ BlockScreen #modal > Horizontal > Widget {
 ProjectWizard {
     border: heavy gray;
     min-height: 10;
+    max-height: 26;
+    height: auto;
 }
 
 DialogBox {
