@@ -25,7 +25,7 @@ dependencies = [
     "opencv-contrib-python == 4.7.*",
     "pims == 0.6.*",
     "seaborn",
-    "open-ephys-python-tools",
+    "open-ephys-python-tools == 0.1.12",
     "typer-slim[standard]>=0.15.3,<0.16",
     "questionary",
     "textual",
