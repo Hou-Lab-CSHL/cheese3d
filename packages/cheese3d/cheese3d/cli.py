@@ -9,6 +9,9 @@ from cheese3d.interactive import run_interative
 from cheese3d.project import Ch3DProject
 from cheese3d.utils import maybe
 
+DEFAULT_CONFIG_PATH = "configs"
+DEFAULT_PATH = os.getcwd()
+
 cli = typer.Typer(no_args_is_help=True)
 
 def _build_project(path, name, configs, overrides, **kwargs):
@@ -20,7 +23,7 @@ def _build_project(path, name, configs, overrides, **kwargs):
                                  overrides=overrides, **kwargs)
 
 @cli.command()
-def setup(name: str, path = os.getcwd()):
+def setup(name: str, path = DEFAULT_PATH):
     """Setup a new Cheese3D project called NAME under --path."""
     Ch3DProject.initialize(name=name, root=Path(path))
     rich.print(f"Successfully initialized {name} :tada:")
@@ -32,10 +35,10 @@ def import_model(
     model_type: Annotated[str, typer.Option(
         help="Type of project to import (only 'dlc' is valid for now)."
     )] = "dlc",
-    path: Annotated[str, typer.Option(help="Path to project directory")] = os.getcwd(),
+    path: Annotated[str, typer.Option(help="Path to project directory")] = DEFAULT_PATH,
     configs: Annotated[str, typer.Option(
         help="Path to additional configs (relative to project)"
-    )] = "configs",
+    )] = DEFAULT_CONFIG_PATH,
     config_overrides: Annotated[Optional[List[str]], typer.Argument(
         help="Config overrides passed to Hydra (https://hydra.cc/docs/intro/)"
     )] = None
@@ -48,10 +51,10 @@ def import_model(
 @cli.command()
 def summarize(
     name: Annotated[str, typer.Argument(help="Name of project")] = ".",
-    path: Annotated[str, typer.Option(help="Path to project directory")] = os.getcwd(),
+    path: Annotated[str, typer.Option(help="Path to project directory")] = DEFAULT_PATH,
     configs: Annotated[str, typer.Option(
         help="Path to additional configs (relative to project)"
-    )] = "configs",
+    )] = DEFAULT_CONFIG_PATH,
     config_overrides: Annotated[Optional[List[str]], typer.Argument(
         help="Config overrides passed to Hydra (https://hydra.cc/docs/intro/)"
     )] = None
@@ -63,10 +66,10 @@ def summarize(
 @cli.command()
 def sync(
     name: Annotated[str, typer.Argument(help="Name of project")] = ".",
-    path: Annotated[str, typer.Option(help="Path to project directory")] = os.getcwd(),
+    path: Annotated[str, typer.Option(help="Path to project directory")] = DEFAULT_PATH,
     configs: Annotated[str, typer.Option(
         help="Path to additional configs (relative to project)"
-    )] = "configs",
+    )] = DEFAULT_CONFIG_PATH,
     config_overrides: Annotated[Optional[List[str]], typer.Argument(
         help="Config overrides passed to Hydra (https://hydra.cc/docs/intro/)"
     )] = None
@@ -79,10 +82,10 @@ def sync(
 @cli.command()
 def extract(
     name: Annotated[str, typer.Argument(help="Name of project")] = ".",
-    path: Annotated[str, typer.Option(help="Path to project directory")] = os.getcwd(),
+    path: Annotated[str, typer.Option(help="Path to project directory")] = DEFAULT_PATH,
     configs: Annotated[str, typer.Option(
         help="Path to additional configs (relative to project)"
-    )] = "configs",
+    )] = DEFAULT_CONFIG_PATH,
     config_overrides: Annotated[Optional[List[str]], typer.Argument(
         help="Config overrides passed to Hydra (https://hydra.cc/docs/intro/)"
     )] = None,
@@ -109,10 +112,10 @@ def extract(
 @cli.command()
 def label(
     name: Annotated[str, typer.Argument(help="Name of project")] = ".",
-    path: Annotated[str, typer.Option(help="Path to project directory")] = os.getcwd(),
+    path: Annotated[str, typer.Option(help="Path to project directory")] = DEFAULT_PATH,
     configs: Annotated[str, typer.Option(
         help="Path to additional configs (relative to project)"
-    )] = "configs",
+    )] = DEFAULT_CONFIG_PATH,
     config_overrides: Annotated[Optional[List[str]], typer.Argument(
         help="Config overrides passed to Hydra (https://hydra.cc/docs/intro/)"
     )] = None
@@ -125,11 +128,11 @@ def label(
 @cli.command()
 def train(
     name: Annotated[str, typer.Argument(help="Name of project")] = ".",
-    path: Annotated[str, typer.Option(help="Path to project directory")] = os.getcwd(),
+    path: Annotated[str, typer.Option(help="Path to project directory")] = DEFAULT_PATH,
     gpu: Annotated[int, typer.Option(help="GPU ID(s) to use")] = 0,
     configs: Annotated[str, typer.Option(
         help="Path to additional configs (relative to project)"
-    )] = "configs",
+    )] = DEFAULT_CONFIG_PATH,
     config_overrides: Annotated[Optional[List[str]], typer.Argument(
         help="Config overrides passed to Hydra (https://hydra.cc/docs/intro/)"
     )] = None
@@ -142,10 +145,10 @@ def train(
 @cli.command()
 def calibrate(
     name: Annotated[str, typer.Argument(help="Name of project")] = ".",
-    path: Annotated[str, typer.Option(help="Path to project directory")] = os.getcwd(),
+    path: Annotated[str, typer.Option(help="Path to project directory")] = DEFAULT_PATH,
     configs: Annotated[str, typer.Option(
         help="Path to additional configs (relative to project)"
-    )] = "configs",
+    )] = DEFAULT_CONFIG_PATH,
     config_overrides: Annotated[Optional[List[str]], typer.Argument(
         help="Config overrides passed to Hydra (https://hydra.cc/docs/intro/)"
     )] = None
@@ -159,10 +162,10 @@ def calibrate(
 @cli.command()
 def track(
     name: Annotated[str, typer.Argument(help="Name of project")] = ".",
-    path: Annotated[str, typer.Option(help="Path to project directory")] = os.getcwd(),
+    path: Annotated[str, typer.Option(help="Path to project directory")] = DEFAULT_PATH,
     configs: Annotated[str, typer.Option(
         help="Path to additional configs (relative to project)"
-    )] = "configs",
+    )] = DEFAULT_CONFIG_PATH,
     config_overrides: Annotated[Optional[List[str]], typer.Argument(
         help="Config overrides passed to Hydra (https://hydra.cc/docs/intro/)"
     )] = None
@@ -176,10 +179,10 @@ def track(
 @cli.command()
 def triangulate(
     name: Annotated[str, typer.Argument(help="Name of project")] = ".",
-    path: Annotated[str, typer.Option(help="Path to project directory")] = os.getcwd(),
+    path: Annotated[str, typer.Option(help="Path to project directory")] = DEFAULT_PATH,
     configs: Annotated[str, typer.Option(
         help="Path to additional configs (relative to project)"
-    )] = "configs",
+    )] = DEFAULT_CONFIG_PATH,
     config_overrides: Annotated[Optional[List[str]], typer.Argument(
         help="Config overrides passed to Hydra (https://hydra.cc/docs/intro/)"
     )] = None
@@ -193,10 +196,10 @@ def triangulate(
 @cli.command()
 def analyze(
     name: Annotated[str, typer.Argument(help="Name of project")] = ".",
-    path: Annotated[str, typer.Option(help="Path to project directory")] = os.getcwd(),
+    path: Annotated[str, typer.Option(help="Path to project directory")] = DEFAULT_PATH,
     configs: Annotated[str, typer.Option(
         help="Path to additional configs (relative to project)"
-    )] = "configs",
+    )] = DEFAULT_CONFIG_PATH,
     config_overrides: Annotated[Optional[List[str]], typer.Argument(
         help="Config overrides passed to Hydra (https://hydra.cc/docs/intro/)"
     )] = None
@@ -213,10 +216,10 @@ def analyze(
 @cli.command()
 def generate_videos(
     name: Annotated[str, typer.Argument(help="Name of project")] = ".",
-    path: Annotated[str, typer.Option(help="Path to project directory")] = os.getcwd(),
+    path: Annotated[str, typer.Option(help="Path to project directory")] = DEFAULT_PATH,
     configs: Annotated[str, typer.Option(
         help="Path to additional configs (relative to project)"
-    )] = "configs",
+    )] = DEFAULT_CONFIG_PATH,
     config_overrides: Annotated[Optional[List[str]], typer.Argument(
         help="Config overrides passed to Hydra (https://hydra.cc/docs/intro/)"
     )] = None
@@ -228,10 +231,10 @@ def generate_videos(
 @cli.command()
 def visualize(
     name: Annotated[str, typer.Argument(help="Name of project")] = ".",
-    path: Annotated[str, typer.Option(help="Path to project directory")] = os.getcwd(),
+    path: Annotated[str, typer.Option(help="Path to project directory")] = DEFAULT_PATH,
     configs: Annotated[str, typer.Option(
         help="Path to additional configs (relative to project)"
-    )] = "configs",
+    )] = DEFAULT_CONFIG_PATH,
     config_overrides: Annotated[Optional[List[str]], typer.Argument(
         help="Config overrides passed to Hydra (https://hydra.cc/docs/intro/)"
     )] = None
