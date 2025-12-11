@@ -15,8 +15,8 @@ dependencies = [
     "tables == 3.7.*",
     "pandas == 2.1.*",
     "configobj == 5.0.8",
-    "hydra-core",
-    "joblib",
+    "hydra-core == 1.3.*",
+    "joblib == 1.5.*",
     "torch <= 1.12.0",
     "aniposelib @ git+https://github.com/Hou-Lab-CSHL/aniposelib.git@50c5b9d",
     "anipose @ git+https://github.com/Hou-Lab-CSHL/anipose.git",
@@ -28,9 +28,9 @@ dependencies = [
     "open-ephys-python-tools == 0.1.12",
     "typer-slim[standard]>=0.15.3,<0.16",
     "questionary",
-    "textual",
-    "textual-fspicker",
-    "textual_serve",
+    "textual == 6.8.*",
+    "textual-fspicker == 0.6.*",
+    "textual_serve == 1.1.*",
     "cheese3d_annotator == 0.1.0",
 
     # Linux-specific deps

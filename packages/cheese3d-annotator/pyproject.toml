@@ -10,17 +10,17 @@ authors = [
 readme = "README.md"
 requires-python = "==3.10.*"
 dependencies = [
-    "tables",
-    "pandas",
-    "napari",
-    "napari-video",
-    "magicgui",
-    "numpy",
-    "scikit-image",
-    "imageio",
-    "qtpy",
-    "PyQt5",
-    "pyqtgraph"
+    "tables>=3.7.0",
+    "pandas>=2.1.4",
+    "napari==0.5.*",
+    "napari-video==0.2.*",
+    "magicgui==0.10.*",
+    "numpy>=1.23.2",
+    "scikit-image>=0.24.0",
+    "imageio>=2.37.2",
+    "qtpy==2.4.*",
+    "PyQt5==5.15.*",
+    "pyqtgraph==0.13.*"
 ]
 
 [project.entry-points."napari.manifest"]
