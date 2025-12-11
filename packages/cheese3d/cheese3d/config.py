@@ -2,10 +2,12 @@ import re
 import hydra
 from omegaconf import MISSING, OmegaConf, DictConfig
 from dataclasses import dataclass, field
-from typing import Optional, Dict, List, Any, Literal
+from typing import Optional, Dict, List, Any
 from pathlib import Path
+from hydra.plugins.search_path_plugin import SearchPathPlugin
+from hydra.core.plugins import Plugins
 
-from cheese3d.utils import maybe, BoundingBox, RGB
+from cheese3d.utils import maybe, BoundingBox
 from cheese3d.synchronize.core import SyncConfig
 
 @dataclass
@@ -264,6 +266,8 @@ _DEFAULT_TRIANGULATION_AXES = [
 ]
 _DEFAULT_TRIANGULATION_REF = "ref(head-post)"
 
+
+
 @dataclass
 class ProjectConfig:
     name: str = MISSING
@@ -335,8 +339,17 @@ class ProjectConfig:
             raise FileNotFoundError(f"Config file at path {cfg_file} does not exist.")
         if cfg_dir is not None:
             cfg_dir = Path(cfg_dir)
-            overrides.append(f"++hydra.searchpath=[file://{str(cfg_dir.absolute())}]")
-        with hydra.initialize_config_dir(str(cfg_file.parent.absolute()),
+            class CustomCheese3DConfigs(SearchPathPlugin):
+                def manipulate_search_path(self, search_path) -> None:
+                    # Appends the search path for this plugin to the end of the search path
+                    search_path.append(provider="cheese3d-custom-configs",
+                                       path=f"file://{str(cfg_dir.resolve())}")
+        else:
+            class CustomCheese3DConfigs(SearchPathPlugin):
+                def manipulate_search_path(self, search_path) -> None:
+                    pass
+        Plugins.instance().register(CustomCheese3DConfigs)
+        with hydra.initialize_config_dir(str(cfg_file.parent.resolve()),
                                          version_base=None):
             cfg = hydra.compose(cfg_file.name, overrides=overrides)
         schema = OmegaConf.structured(cls)
