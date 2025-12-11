@@ -15,10 +15,8 @@ docs-serve = "cd docs && pixi run -e docs sphinx-autobuild --port 8090 -b html s
 LD_LIBRARY_PATH = "$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
 PYTHONNOUSERSITE = "1"
 
-[host-dependencies]
-python = "3.10.*"
-
 [dependencies]
+python = "3.10.*"
 c-compiler = "*"
 cxx-compiler = "*"
 ffmpeg = "==4.4.1"
