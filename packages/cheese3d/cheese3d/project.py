@@ -503,9 +503,9 @@ class Ch3DProject:
             videos_path = session_path / "videos-raw"
             videos_path.mkdir(exist_ok=True)
             for video in videos.values():
-                src = Path(self.path / video)
+                src = Path(video).resolve()
                 dst = videos_path / src.name
-                relpath = Path(os.path.relpath(src, videos_path))
+                relpath = Path(os.path.relpath(src, videos_path.resolve()))
                 if dst.exists():
                     os.remove(dst)
                 os.symlink(relpath, dst)
@@ -519,9 +519,9 @@ class Ch3DProject:
                 raise RuntimeError(f"No calibration found for {recording} when setting up triangulation")
             for match in matches:
                 for video in self.calibrations[match].values():
-                    src = Path(self.path / video)
+                    src = Path(video).resolve()
                     dst = calibration_path / src.name
-                    relpath = Path(os.path.relpath(src, calibration_path))
+                    relpath = Path(os.path.relpath(src, calibration_path.resolve()))
                     if dst.exists():
                         os.remove(dst)
                     os.symlink(relpath, dst)
