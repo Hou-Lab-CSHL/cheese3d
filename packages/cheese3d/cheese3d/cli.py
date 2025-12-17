@@ -14,7 +14,7 @@ DEFAULT_PATH = os.getcwd()
 
 cli = typer.Typer(no_args_is_help=True)
 
-def _build_project(path, name, configs, overrides, **kwargs):
+def _build_project(path, name, configs, overrides, **kwargs) -> Ch3DProject:
     full_path = Path(path) / name
     config_dir = Path(path) / configs
     overrides = maybe(overrides, [])
@@ -257,3 +257,26 @@ def interactive(
 ):
     """Run interactive GUI."""
     run_interative(web_mode=web)
+
+@cli.command()
+def checkpoint(
+    ctx: typer.Context,
+    name: Annotated[str, typer.Argument(help="Name of project")] = ".",
+    skip_source: Annotated[bool, typer.Option(
+        "--skip-source",
+        help="Skip recording directory when creating archive."
+    )] = False,
+    portable: Annotated[bool, typer.Option(
+        "--portable",
+        help="Resolve all links or relative paths, ensuring that data is copied into the archive."
+    )] = False,
+    config_overrides: Annotated[Optional[List[str]], typer.Argument(
+        help="Config overrides passed to Hydra (https://hydra.cc/docs/intro/)"
+    )] = None
+):
+    """Create a checkpoint of this project."""
+    path = ctx.obj["path"]
+    configs = ctx.obj["configs"]
+    project = _build_project(path, name, configs, config_overrides)
+    project.checkpoint(skip_source, portable)
+    rich.print("Checkpoint created :white_check_mark:")

@@ -101,12 +101,21 @@ def unzip(iter):
 def maybe(this, that):
     return that if this is None else this
 
-def relative_path(path: str | Path, start: str | Path):
+def relative_path(path: str | Path, start: str | Path) -> Path:
+    """If a `path` is absolute, make it relative to `start`.
+    Otherwise, assume it is already relative and return as-is."""
     path = Path(path)
     if path.is_absolute():
         return Path(os.path.relpath(path, start))
     else:
         return path
+
+def is_subpath(path: str | Path, start: str | Path) -> bool:
+    try:
+        _ = Path(path).resolve().relative_to(start)
+        return True
+    except ValueError:
+        return False
 
 def reglob(pattern, path = None, recursive = False):
     """

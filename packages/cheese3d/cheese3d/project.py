@@ -1,14 +1,17 @@
 import re
 import os
+import io
 import toml
+import tarfile
 import pandas as pd
 from pathlib import Path
 from dataclasses import dataclass, field
-from omegaconf import OmegaConf
+from omegaconf import OmegaConf, DictConfig
 from rich import table, console
 from rich import print as rprint
 from typing import List, Dict, Optional, Any
 from collections import namedtuple
+from datetime import datetime
 
 from cheese3d.anatomy import compute_anatomical_measurements
 from cheese3d.config import (MultiViewConfig,
@@ -29,7 +32,8 @@ from cheese3d.utils import (dlc_folder_to_components,
                             reglob,
                             maybe,
                             get_group_pattern,
-                            relative_path)
+                            relative_path,
+                            is_subpath)
 
 class RecordingKey(namedtuple("RecordingKey", ["session", "name", "attributes"])):
     __slots__ = () # prevent __dict__ creation since subclassing namedtuple
@@ -212,27 +216,31 @@ class Ch3DProject:
     ignore_keypoint_labels: List[str] = field(default_factory=list)
 
     @property
-    def path(self):
+    def path(self) -> Path:
         return self.root / self.name
 
     @property
-    def model_path(self):
+    def model_path(self) -> Path:
         return self.path / relative_path(self.model_root, self.path)
 
     @property
-    def recording_path(self):
+    def recording_path(self) -> Path:
         return self.path / relative_path(self.video_root, self.path)
 
     @property
-    def ephys_path(self):
+    def ephys_path(self) -> Optional[Path]:
         if self.ephys_root:
             return self.path / relative_path(self.ephys_root, self.path)
         else:
             return None
 
     @property
-    def triangulation_path(self):
+    def triangulation_path(self) -> Path:
         return self.path / "triangulation"
+
+    @property
+    def checkpoint_path(self) -> Path:
+        return self.path / "checkpoints"
 
     @staticmethod
     def initialize(name: str, root: str | Path, skip_model = False):
@@ -658,3 +666,73 @@ class Ch3DProject:
                         skeleton_config=skeleton)
         _SyncController(rig, qc)
         napari.run()
+
+    def checkpoint(self, skip_source = False, portable = False):
+        rprint("Creating archive of project (this make take several minutes) ... ")
+        timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+        self.checkpoint_path.mkdir(exist_ok=True)
+        with tarfile.open(self.checkpoint_path / f"{self.name}_{timestamp}.tar.xz", "x:xz") as tar:
+            # add project folder, skipping potential relative paths
+            def _filter(x: tarfile.TarInfo):
+                if (x.name.startswith(str(self.recording_path)) or
+                    x.name.startswith(str(self.model_path)) or
+                    (self.ephys_path and x.name.startswith(str(self.ephys_path))) or
+                    x.name.startswith(str(self.checkpoint_path)) or
+                    x.name.startswith(str(self.path / "config.yaml"))):
+                    return None
+                else:
+                    return x
+            tar.add(self.path, filter=_filter)
+            config = OmegaConf.load(self.path / "config.yaml")
+            def _resolve_symlinks(x: tarfile.TarInfo):
+                if x.islnk():
+                    # Create new TarInfo from real file
+                    full_path = Path(x.name).resolve()
+                    new_info = tarfile.TarInfo(name=x.name)
+                    new_info.size = os.path.getsize(full_path)
+                    new_info.mode = os.stat(full_path).st_mode
+
+                    return new_info
+                else:
+                    return x
+            def _replace_root(x: tarfile.TarInfo, root: Path):
+                x.name = str(root / Path(x.name).name)
+                return x
+            if not skip_source and is_subpath(self.recording_path, start=self.path):
+                if portable:
+                    tar.add(self.recording_path, filter=_resolve_symlinks)
+                else:
+                    tar.add(self.recording_path)
+            elif not skip_source and portable:
+                config["video_root"] = "videos" # type: ignore
+                for session in self.sessions.values():
+                    for recording in session.values():
+                        new_root = self.path / "videos" / recording.parent.name
+                        tar.add(recording, filter=(lambda x: _replace_root(x, new_root)))
+                for session in self.calibrations.values():
+                    for recording in session.values():
+                        new_root = self.path / "videos" / recording.parent.name
+                        tar.add(recording, filter=(lambda x: _replace_root(x, new_root)))
+            if is_subpath(self.model_path, start=self.path):
+                tar.add(self.model_path)
+            elif portable:
+                config["model_root"] = "models" # type: ignore
+                new_root = self.path / "models"
+                for path in self.model_path.iterdir():
+                    tar.add(path, filter=(lambda x: _replace_root(x, new_root)))
+            if self.ephys_path:
+                if not skip_source and is_subpath(self.ephys_path, start=self.path):
+                    if portable:
+                        tar.add(self.ephys_path, filter=_resolve_symlinks)
+                    else:
+                        tar.add(self.ephys_path)
+                elif not skip_source and portable:
+                    config["ephys_root"] = "ephys" # type: ignore
+                    for recording in self.ephys_sessions.values(): # type: ignore
+                        new_root = self.path / "ephys" / recording.parent.name
+                        tar.add(recording, filter=(lambda x: _replace_root(x, new_root)))
+            yaml_str = OmegaConf.to_yaml(config)
+            yaml_bytes = yaml_str.encode("utf-8")
+            tarinfo = tarfile.TarInfo(str(self.path / "config.yaml"))
+            tarinfo.size = len(yaml_bytes)
+            tar.addfile(tarinfo, fileobj=io.BytesIO(yaml_bytes))
