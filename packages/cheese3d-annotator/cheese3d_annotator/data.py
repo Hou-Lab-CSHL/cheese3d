@@ -78,6 +78,8 @@ def write_annotations(df: pd.DataFrame, yaml_path: str | Path):
                 annotations[kp][filename] = [[x, y]]
         else:
             annotations[kp] = {filename: [[x, y]]}
+    with open(yaml_path, "w") as f:
+        yaml.safe_dump(annotations, f)
 
 def find_keypoint_conflicts(df: pd.DataFrame, config_keypoints: List[str]) -> List[str]:
     """Find body parts that exist in df but not in config."""
