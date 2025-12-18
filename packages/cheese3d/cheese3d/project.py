@@ -6,7 +6,7 @@ import tarfile
 import pandas as pd
 from pathlib import Path
 from dataclasses import dataclass, field
-from omegaconf import OmegaConf, DictConfig
+from omegaconf import OmegaConf
 from rich import table, console
 from rich import print as rprint
 from typing import List, Dict, Optional, Any
@@ -22,12 +22,10 @@ from cheese3d.config import (MultiViewConfig,
                              ProjectConfig,
                              keypoints_by_group,
                              _DEFAULT_KEYPOINTS)
-from cheese3d.synchronize.core import SyncConfig, SyncPipeline
-from cheese3d.synchronize.readers import VideoSyncReader, get_ephys_reader
+from cheese3d.synchronize.core import SyncConfig, synchronize_videos, synchronize_ephys
 from cheese3d.backends.core import Pose2dBackend
 from cheese3d.backends.dlc import DLCBackend
 from cheese3d.utils import (dlc_folder_to_components,
-                            downsample_video_data,
                             read_3d_data,
                             reglob,
                             maybe,
@@ -366,49 +364,23 @@ class Ch3DProject:
         # run video synchronization first
         for recording, views in self.sessions.items():
             rprint(f"[bold green]Synchronizing recording videos:[/bold green] {recording.name}")
-            ref_video = views[self.sync.ref_view]
+            ref_video = self.path / views[self.sync.ref_view]
             ref_crop = self.view_config[self.sync.ref_view].get_crop(self.sync.ref_crop)
-            align_params = {}
+            sync_targets = {}
             for view, video in views.items():
                 if view == self.sync.ref_view:
-                    align_params[view] = {(video, 0, self.fps)}
                     continue
                 crop = self.view_config[view].get_crop(self.sync.ref_crop)
-                ref_reader = VideoSyncReader(source=self.path / ref_video,
-                                             sample_rate=self.fps,
-                                             threshold=self.sync.led_threshold,
-                                             crop=ref_crop)
-                target_reader = VideoSyncReader(source=self.path / video,
-                                                sample_rate=self.fps,
-                                                threshold=self.sync.led_threshold,
-                                                crop=crop)
-                pipeline = SyncPipeline.from_cfg(self.sync, ref_reader, target_reader)
-                align_param = pipeline.align_recording()
-                pipeline.write_json(align_param)
-                align_params[view] = (video,
-                                      int(round(align_param.lag, 2) * align_param.sample_rate), # type: ignore
-                                      align_param.sample_rate)
-            ref_lag = min(-lag for _, lag, _ in align_params.values())
-            for video, lag, fps in align_params.values():
-                shift = -lag - ref_lag
-                if fps != self.fps:
-                    downsample_video_data([str(self.path / video)], start_offset=shift, fps=fps)
-                else:
-                    downsample_video_data([str(self.path / video)], start_offset=shift)
+                sync_targets[view] = (self.path / video, crop)
+            synchronize_videos(self.sync, (ref_video, ref_crop), sync_targets, fps=self.fps)
         # run ephys synchronization if available
         if self.ephys_sessions and self.ephys_param:
             for recording, ephys_file in self.ephys_sessions.items():
                 rprint(f"[bold green]Synchronizing recording ephys:[/bold green] {recording.name}")
-                ref_video = self.sessions[recording][self.sync.ref_view]
-                crop = self.view_config[self.sync.ref_view].get_crop(self.sync.ref_crop)
-                video_reader = VideoSyncReader(source=self.path / ref_video,
-                                               sample_rate=self.fps,
-                                               threshold=self.sync.led_threshold,
-                                               crop=crop)
-                ephys_reader = get_ephys_reader(self.path / ephys_file, self.ephys_param)
-                pipeline = SyncPipeline.from_cfg(self.sync, video_reader, ephys_reader)
-                align_params = pipeline.align_recording()
-                pipeline.write_json(align_params)
+                ref_video = self.path / self.sessions[recording][self.sync.ref_view]
+                ref_crop = self.view_config[self.sync.ref_view].get_crop(self.sync.ref_crop)
+                ephys_path = self.path / ephys_file
+                synchronize_ephys(self.sync, (ref_video, ref_crop), ephys_path, self.ephys_param, fps=self.fps)
 
     def _create_labels(self):
         if self.model is None:

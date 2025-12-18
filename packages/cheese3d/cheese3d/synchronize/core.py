@@ -3,16 +3,17 @@ import logging
 import numpy as np
 import matplotlib.pyplot as plt
 from dataclasses import dataclass
-from typing import List
+from typing import List, Tuple, Dict, Any
+from pathlib import Path
 
 from cheese3d.synchronize.aligners import (BaseAligner,
                                            CrossCorrelationAligner,
                                            RegressionAligner,
                                            SampleRateAligner,
                                            AlignmentParams)
-from cheese3d.synchronize.readers import SyncSignalReader
+from cheese3d.synchronize.readers import SyncSignalReader, VideoSyncReader, get_ephys_reader
 from cheese3d.synchronize.utils import get_time_points
-from cheese3d.utils import maybe
+from cheese3d.utils import maybe, BoundingBox, downsample_video_data
 
 @dataclass
 class SyncConfig:
@@ -223,3 +224,48 @@ class SyncPipeline:
         aligner_path = f"{self.target.root_path()}.align.json"
         with open(aligner_path, "w") as outfile:
             json.dump(params_json, outfile)
+
+def synchronize_videos(pipeline_cfg: SyncConfig,
+                       reference: Tuple[Path, BoundingBox],
+                       videos: Dict[str, Tuple[Path, BoundingBox]],
+                       fps: int = 100):
+    # run video synchronization first
+    ref_video, ref_crop = reference
+    ref_reader = VideoSyncReader(source=ref_video,
+                                 sample_rate=fps,
+                                 threshold=pipeline_cfg.led_threshold,
+                                 crop=ref_crop)
+    align_params = {"ref": (ref_video, 0, fps)}
+    for view, (video, crop) in videos.items():
+        target_reader = VideoSyncReader(source=video,
+                                        sample_rate=fps,
+                                        threshold=pipeline_cfg.led_threshold,
+                                        crop=crop)
+        pipeline = SyncPipeline.from_cfg(pipeline_cfg, ref_reader, target_reader)
+        align_param = pipeline.align_recording()
+        pipeline.write_json(align_param)
+        align_params[view] = (video,
+                              int(round(align_param.lag, 2) * align_param.sample_rate), # type: ignore
+                              align_param.sample_rate)
+    ref_lag = min(-lag for _, lag, _ in align_params.values())
+    for video, lag, view_fps in align_params.values():
+        shift = -lag - ref_lag
+        if view_fps != fps:
+            downsample_video_data([str(video)], start_offset=shift, fps=fps)
+        else:
+            downsample_video_data([str(video)], start_offset=shift)
+
+def synchronize_ephys(pipeline_cfg: SyncConfig,
+                      reference: Tuple[Path, BoundingBox],
+                      ephys_path: Path,
+                      ephys_params: Dict[str, Any],
+                      fps: int = 100):
+    ref_video, ref_crop = reference
+    video_reader = VideoSyncReader(source=ref_video,
+                                   sample_rate=fps,
+                                   threshold=pipeline_cfg.led_threshold,
+                                   crop=ref_crop)
+    ephys_reader = get_ephys_reader(ephys_path, ephys_params)
+    pipeline = SyncPipeline.from_cfg(pipeline_cfg, video_reader, ephys_reader)
+    align_params = pipeline.align_recording()
+    pipeline.write_json(align_params)
