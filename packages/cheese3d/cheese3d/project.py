@@ -416,12 +416,12 @@ class Ch3DProject:
                                "(hint: maybe you forgot to set `model.name` in the config?")
         # create label root if it doesn't exist
         label_path = self.model_path / self.model.name / "labels"
-        label_path.mkdir(exist_ok=True)
+        label_path.mkdir(parents=True, exist_ok=True)
         # create label folders for each video
         for recording in self.sessions.values():
             for video in recording.values():
                 label_folder = label_path / video.stem
-                label_folder.mkdir(exist_ok=True)
+                label_folder.mkdir(parents=True, exist_ok=True)
 
     def _label_folder_paths(self):
         if self.model is None:

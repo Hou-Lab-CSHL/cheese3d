@@ -25,6 +25,7 @@ class DLCBackend(Pose2dBackend):
         super().__init__()
         self.name = name
         self.root_dir = root_dir
+        self.root_dir.mkdir(parents=True, exist_ok=True)
         self.experimenter = experimenter
         self.date = maybe(date, datetime.now().strftime("%Y-%m-%d"))
         self.videos = videos
