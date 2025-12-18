@@ -55,7 +55,7 @@ def import_model(
     configs = ctx.obj["configs"]
     project = _build_project(path, name, configs, config_overrides, model_import=model)
     project._export_labels()
-    rich.print(f"Done importing {model.split(os.sep)[-1]} :white_check_mark:")
+    rich.print(f"Done importing {Path(model).stem} :white_check_mark:")
 
 @cli.command()
 def summarize(

@@ -372,6 +372,7 @@ class Ch3DProject:
             for view, video in views.items():
                 if view == self.sync.ref_view:
                     align_params[view] = {(video, 0, self.fps)}
+                    continue
                 crop = self.view_config[view].get_crop(self.sync.ref_crop)
                 ref_reader = VideoSyncReader(source=self.path / ref_video,
                                              sample_rate=self.fps,

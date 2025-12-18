@@ -1,3 +1,4 @@
+from IPython.utils.tests.test_wildcard import root
 import os
 import shutil
 import yaml
@@ -54,11 +55,12 @@ class DLCBackend(Pose2dBackend):
                 return names
             else:
                 return []
-        shutil.copytree(project_path, root_dir / project_path.name,
-                        ignore=_ignore,
-                        dirs_exist_ok=True,
-                        symlinks=True,
-                        ignore_dangling_symlinks=True)
+        if project_path.resolve() != (root_dir / project_path.name).resolve():
+            shutil.copytree(project_path, root_dir / project_path.name,
+                            ignore=_ignore,
+                            dirs_exist_ok=True,
+                            symlinks=True,
+                            ignore_dangling_symlinks=True)
         # create links for video files
         for video in videos:
             abspath = video.resolve()
