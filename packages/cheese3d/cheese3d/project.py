@@ -2,6 +2,7 @@ import re
 import os
 import io
 import toml
+import tempfile
 import tarfile
 import pandas as pd
 from pathlib import Path
@@ -312,7 +313,7 @@ class Ch3DProject:
         cfg_file = path / "config.yaml"
         cfg = ProjectConfig.load(cfg_file, cfg_dir, overrides)
 
-        return cls.from_cfg(cfg, path.parent, model_import=model_import) # type: ignore
+        return cls.from_cfg(cfg, path.parent, model_import=model_import)
 
     def summarize(self, pty = None):
         pty = maybe(pty, console.Console())
@@ -655,7 +656,7 @@ class Ch3DProject:
                     return None
                 else:
                     return x
-            tar.add(self.path, filter=_filter)
+            tar.add(self.path, arcname=self.name, filter=_filter)
             config = OmegaConf.load(self.path / "config.yaml")
             def _resolve_symlinks(x: tarfile.TarInfo):
                 if x.islnk():
@@ -668,44 +669,105 @@ class Ch3DProject:
                     return new_info
                 else:
                     return x
-            def _replace_root(x: tarfile.TarInfo, root: Path):
-                x.name = str(root / Path(x.name).name)
+            def _replace_root(x: tarfile.TarInfo, rel_root: Path):
+                # x.name now is relative like "project/path/to/file.txt"
+                # We want it to be like "project/videos/session1/file.txt"
+                name_parts = Path(x.name).parts
+                if name_parts and name_parts[0] == self.name:
+                    # Strip project prefix and rebuild relative path
+                    filename = name_parts[-1]  # Just the filename
+                    x.name = str(rel_root / filename)
                 return x
             if not skip_source and is_subpath(self.recording_path, start=self.path):
                 if portable:
-                    tar.add(self.recording_path, filter=_resolve_symlinks)
+                    tar.add(self.recording_path, arcname=f"{self.name}/{self.video_root}",
+                            filter=_resolve_symlinks)
                 else:
-                    tar.add(self.recording_path)
+                    tar.add(self.recording_path, arcname=f"{self.name}/{self.video_root}")
             elif not skip_source and portable:
                 config["video_root"] = "videos" # type: ignore
                 for session in self.sessions.values():
                     for recording in session.values():
-                        new_root = self.path / "videos" / recording.parent.name
-                        tar.add(recording, filter=(lambda x: _replace_root(x, new_root)))
+                        rel_root = Path(self.name) / "videos" / recording.parent.name
+                        tar.add(recording, filter=(lambda x: _replace_root(x, rel_root)))
                 for session in self.calibrations.values():
                     for recording in session.values():
-                        new_root = self.path / "videos" / recording.parent.name
-                        tar.add(recording, filter=(lambda x: _replace_root(x, new_root)))
+                        rel_root = Path(self.name) / "videos" / recording.parent.name
+                        tar.add(recording, filter=(lambda x: _replace_root(x, rel_root)))
             if is_subpath(self.model_path, start=self.path):
-                tar.add(self.model_path)
+                tar.add(self.model_path, arcname=f"{self.name}/{self.model_root}")
             elif portable:
                 config["model_root"] = "models" # type: ignore
-                new_root = self.path / "models"
                 for path in self.model_path.iterdir():
-                    tar.add(path, filter=(lambda x: _replace_root(x, new_root)))
+                    rel_root = Path(self.name) / "models"
+                    tar.add(path, filter=(lambda x: _replace_root(x, rel_root)))
             if self.ephys_path:
+                ephys_root_rel = self.ephys_root.name if isinstance(self.ephys_root, Path) else self.ephys_root
                 if not skip_source and is_subpath(self.ephys_path, start=self.path):
                     if portable:
-                        tar.add(self.ephys_path, filter=_resolve_symlinks)
+                        tar.add(self.ephys_path, arcname=f"{self.name}/{ephys_root_rel}",
+                                filter=_resolve_symlinks)
                     else:
-                        tar.add(self.ephys_path)
+                        tar.add(self.ephys_path, arcname=f"{self.name}/{ephys_root_rel}")
                 elif not skip_source and portable:
                     config["ephys_root"] = "ephys" # type: ignore
                     for recording in self.ephys_sessions.values(): # type: ignore
-                        new_root = self.path / "ephys" / recording.parent.name
-                        tar.add(recording, filter=(lambda x: _replace_root(x, new_root)))
+                        rel_root = Path(self.name) / "ephys" / recording.parent.name
+                        tar.add(recording, filter=(lambda x: _replace_root(x, rel_root)))
             yaml_str = OmegaConf.to_yaml(config)
             yaml_bytes = yaml_str.encode("utf-8")
-            tarinfo = tarfile.TarInfo(str(self.path / "config.yaml"))
+            arcname_config = f"{self.name}/config.yaml"
+            tarinfo = tarfile.TarInfo(arcname_config)
             tarinfo.size = len(yaml_bytes)
             tar.addfile(tarinfo, fileobj=io.BytesIO(yaml_bytes))
+
+    def restore(self, checkpoint_path, skip_source=False, portable=False):
+        rprint("Restoring project from checkpoint (this may take several minutes)...")
+        checkpoint_file = Path(checkpoint_path)
+        if not checkpoint_file.exists():
+            raise FileNotFoundError(f"Checkpoint file not found: {checkpoint_file}")
+        # Read config from checkpoint first to get video_root/ephys_root values
+        video_root_chk = None
+        ephys_root_chk = None
+        with tempfile.NamedTemporaryFile(mode='wb', suffix='.yaml', delete=False) as tmp_config:
+            tmp_config_path = Path(tmp_config.name)
+        try:
+            with tarfile.open(checkpoint_file, "r:xz") as tar:
+                config_member = None
+                for member in tar.getmembers():
+                    if member.name.endswith("config.yaml"):
+                        config_member = member
+                        break
+                if config_member:
+                    config_data = tar.extractfile(config_member)
+                    if config_data:
+                        tmp_config_path.write_bytes(config_data.read())
+                        config = ProjectConfig.load(tmp_config_path, cfg_dir=None, overrides=None)
+                        video_root_chk = config.video_root
+                        ephys_root_chk = config.ephys_root
+        finally:
+            if tmp_config_path.exists():
+                tmp_config_path.unlink()
+        def should_extract(name):
+            if name.endswith("config.yaml"):
+                return True
+            if name.endswith("/"):
+                return True
+            path_parts = Path(name).parts
+            if "checkpoints" in path_parts:
+                return False
+            if skip_source:
+                if video_root_chk and (video_root_chk in path_parts):
+                    return False
+                if ephys_root_chk and (ephys_root_chk in path_parts):
+                    return False
+            return True
+        def extract_filter(members):
+            for member in members:
+                if should_extract(member.name):
+                    yield member
+        # Create project directory if it doesn't exist
+        self.path.mkdir(parents=True, exist_ok=True)
+        with tarfile.open(checkpoint_file, "r:xz") as tar:
+            for member in extract_filter(tar.getmembers()):
+                tar.extract(member, path=self.root)

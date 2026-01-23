@@ -280,3 +280,27 @@ def checkpoint(
     project = _build_project(path, name, configs, config_overrides)
     project.checkpoint(skip_source, portable)
     rich.print("Checkpoint created :white_check_mark:")
+
+@cli.command()
+def restore(
+    ctx: typer.Context,
+    checkpoint_file: Annotated[str, typer.Argument(help="Path to checkpoint archive")],
+    name: Annotated[str, typer.Argument(help="Name of project")] = ".",
+    skip_source: Annotated[bool, typer.Option(
+        "--skip-source",
+        help="Skip recording directory when extracting archive."
+    )] = False,
+    portable: Annotated[bool, typer.Option(
+        "--portable",
+        help="The archive was created with portable mode. No-op flag for API compatibility."
+    )] = False,
+    config_overrides: Annotated[Optional[List[str]], typer.Argument(
+        help="Config overrides passed to Hydra (https://hydra.cc/docs/intro/)"
+    )] = None
+):
+    """Restore a project from a checkpoint archive."""
+    path = ctx.obj["path"]
+    configs = ctx.obj["configs"]
+    project = _build_project(path, name, configs, config_overrides)
+    project.restore(checkpoint_file, skip_source, portable)
+    rich.print("Restore complete :white_check_mark:")
