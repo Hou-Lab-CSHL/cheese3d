@@ -99,7 +99,7 @@ class DLCBackend(Pose2dBackend):
         dlc.create_new_project(
             project=self.name,
             experimenter=self.experimenter,
-            working_directory=self.root_dir,
+            working_directory=self.root_dir.absolute(),
             videos=self.videos,
             copy_videos=False
         )
