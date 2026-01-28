@@ -1,4 +1,3 @@
-from IPython.utils.tests.test_wildcard import root
 import os
 import shutil
 import yaml
@@ -99,7 +98,7 @@ class DLCBackend(Pose2dBackend):
         dlc.create_new_project(
             project=self.name,
             experimenter=self.experimenter,
-            working_directory=self.root_dir.absolute(),
+            working_directory=str(self.root_dir.absolute()),
             videos=self.videos,
             copy_videos=False
         )
@@ -107,7 +106,7 @@ class DLCBackend(Pose2dBackend):
     def overwrite_config(self):
         # load dlc config file
         dlc_config = OmegaConf.load(self.config_path)
-        dlc_config.project_path = self.project_path.absolute()
+        dlc_config.project_path = str(self.project_path.absolute())
         # overwrite videos
         videos = {}
         for (video, crop) in zip(self.videos, self.crops):
