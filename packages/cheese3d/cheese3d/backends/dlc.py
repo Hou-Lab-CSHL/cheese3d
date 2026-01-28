@@ -23,7 +23,7 @@ class DLCBackend(Pose2dBackend):
                  frames_per_video: int = 5):
         super().__init__()
         self.name = name
-        self.root_dir = root_dir
+        self.root_dir = root_dir.absolute()
         self.root_dir.mkdir(parents=True, exist_ok=True)
         self.experimenter = experimenter
         self.date = maybe(date, datetime.now().strftime("%Y-%m-%d"))
