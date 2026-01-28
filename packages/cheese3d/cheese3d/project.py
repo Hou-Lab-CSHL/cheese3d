@@ -464,12 +464,12 @@ class Ch3DProject:
         viewer.show(block=True)
         self._import_labels()
 
-    def train(self, gpu):
+    def train(self, gpu, iterate_dataset = True):
         self._import_labels()
         if self.model is None:
             raise RuntimeError("Cannot train model when pose model does not exist "
                                "(hint: maybe you forgot to set `model.name` in the config?")
-        self.model.train(gpu)
+        self.model.train(gpu, iterate_dataset)
 
     def _setup_anipose(self):
         if self.model is None:

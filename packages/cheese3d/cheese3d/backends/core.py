@@ -26,6 +26,6 @@ class Pose2dBackend:
         """Extract frames from videos."""
         raise NotImplementedError("This method should be implemented by subclasses.")
 
-    def train(self, gpu):
+    def train(self, gpu, iterate_dataset: bool = True):
         """Train the model using GPU ID `gpu`."""
         raise NotImplementedError("This method should be implemented by subclasses.")

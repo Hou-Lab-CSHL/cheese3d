@@ -237,10 +237,10 @@ class DLCBackend(Pose2dBackend):
                            crop=True,
                            videos_list=videos_list)
 
-    def train(self, gpu):
+    def train(self, gpu, iterate_dataset: bool = True):
         import deeplabcut as dlc
         training_datasets = reglob("iteration-[0-9]+", path=str(self.project_path / "training-datasets"))
-        if len(training_datasets) > 0:
+        if iterate_dataset and len(training_datasets) > 0:
             dlc.merge_datasets(config=self.config_path)
         dlc.create_training_dataset(config=self.config_path,
                                     userfeedback=False,

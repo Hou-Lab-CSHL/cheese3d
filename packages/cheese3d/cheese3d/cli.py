@@ -135,6 +135,9 @@ def train(
     ctx: typer.Context,
     name: Annotated[str, typer.Argument(help="Name of project")] = ".",
     gpu: Annotated[int, typer.Option(help="GPU ID(s) to use")] = 0,
+    iterate_dataset: Annotated[bool, typer.Option(
+        help="Create a new dataset iteration before training"
+    )] = True,
     config_overrides: Annotated[Optional[List[str]], typer.Argument(
         help="Config overrides passed to Hydra (https://hydra.cc/docs/intro/)"
     )] = None
@@ -143,7 +146,7 @@ def train(
     path = ctx.obj["path"]
     configs = ctx.obj["configs"]
     project = _build_project(path, name, configs, config_overrides)
-    project.train(gpu)
+    project.train(gpu, iterate_dataset)
     rich.print("Training complete :spaceship:")
 
 @cli.command()
