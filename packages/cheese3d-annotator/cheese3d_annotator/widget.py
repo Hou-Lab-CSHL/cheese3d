@@ -4,7 +4,7 @@ import yaml
 import numpy as np
 import pandas as pd
 from typing import List
-from magicgui.widgets import Container, FileEdit, ComboBox, Label, CheckBox, PushButton
+from magicgui.widgets import Container, FileEdit, LineEdit, ComboBox, Label, CheckBox, PushButton
 from qtpy.QtWidgets import QListWidget, QListWidgetItem, QMessageBox, QSizePolicy
 from qtpy.QtGui import QFont, QImage, QPixmap, QIcon
 from qtpy.QtCore import QSize
@@ -20,7 +20,9 @@ from cheese3d_annotator.data import (load_keypoints_and_skeleton,
                                      write_annotations,
                                      create_empty_annotations,
                                      find_keypoint_conflicts,
-                                     ensure_images_in_yaml)
+                                     ensure_images_in_yaml,
+                                     save_shapes_yaml,
+                                     load_shapes_yaml)
 
 class FrameAnnotatorWidget(Container):
     def __init__(self, viewer: Viewer):
@@ -565,3 +567,117 @@ class FramePickerWidget(Container):
             self.viewer.dims.current_step = (frame_index,) + self.viewer.dims.current_step[1:]
         except Exception as e:
             QMessageBox.warning(None, "Jump Failed", str(e))
+
+class CurveAnnotatorWidget(Container):
+    def __init__(self, viewer: Viewer):
+        super().__init__()
+        self.viewer = viewer
+        self.viewer.layers.clear()
+        self.viewer.window.remove_dock_widget('all')
+        self.viewer.grid.enabled = False
+
+        self.root_folder = FileEdit(label="Root Folder", mode="d")
+        self.labeler_name = LineEdit(label="Labeler", value="houlab")
+
+        self.folder_list = QListWidget()
+        self.folder_list.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
+        self.folder_list.setMaximumHeight(500)
+        self.folder_list.setFont(QFont("", 12))
+        self.folder_list.setStyleSheet("QListWidget::item { height: 32px; }")
+        self.folder_list.itemClicked.connect(self.load_subfolder)
+
+        self.help_label = Label(value="""
+        <b>Instructions:</b><br>
+        - Select Root Folder.<br>
+        - Pick a frame folder to annotate.<br>
+        - Use shape tool to draw curves on each frame.<br>
+        - Use slider to move between frames.<br>
+        - Press <b>S</b> to save.
+        """)
+
+        self.extend([
+            self.labeler_name,
+            self.root_folder,
+        ])
+        self.native.layout().addWidget(self.folder_list)
+        self.native.layout().addWidget(self.help_label.native)
+
+        self.root_folder.changed.connect(self.refresh_folders)
+
+        self.parts = ["right_ear", "left_ear"]
+        self.shape_layers = {}  # {part: shape_layer}
+        self.current_folder = None
+        self.last_frame = None
+
+        self._bind_keys()
+        # TODO: add on change callback for parts_dropdown
+        self.viewer.dims.events.current_step.connect(self._on_frame_change)
+
+    def refresh_folders(self):
+        self.folder_list.clear()
+        base = self.root_folder.value
+        if not base or not os.path.isdir(base):
+            return
+        for f in sorted(os.listdir(base)):
+            if os.path.isdir(os.path.join(base, f)):
+                self.folder_list.addItem(f)
+
+    def _on_frame_change(self, event):
+        frame = self.viewer.dims.current_step[0]
+        if self.last_frame is not None and frame != self.last_frame:
+            self._save(self.viewer)  # auto-save when frame changes
+        self.last_frame = frame
+
+    def _bind_keys(self):
+        @self.viewer.bind_key("y", overwrite=True)
+        def _save(viewer):
+            self._save(viewer)
+
+    def load_subfolder(self, item: QListWidgetItem):
+        if self.current_folder and self.shape_layers:
+            self._save(self.viewer)
+
+        folder_name = item.text()
+        folder_path = os.path.join(self.root_folder.value, folder_name)
+        self.viewer.layers.clear()
+        self.shape_layers.clear()
+
+        # Load image stack
+        self.filenames = sorted(glob(os.path.join(folder_path, "*.png")))
+        if not self.filenames:
+            QMessageBox.warning(None, "No images", f"No PNGs found in {folder_name}")
+            return
+
+        stack = np.stack([
+            rgb2gray(imread(p)) if imread(p).ndim == 3 else imread(p)
+            for p in self.filenames
+        ])
+        self.viewer.add_image(stack, name=folder_name)
+        self.viewer.dims.ndisplay = 2
+        self.viewer.dims.axis_labels = ("frame", "y", "x")
+        self.current_folder = folder_path
+        self.last_frame = self.viewer.dims.current_step[0]
+
+        # Load shapes
+        annotation_path = os.path.join(folder_path, "annotation.yaml")
+        all_data = load_shapes_yaml(annotation_path, self.filenames) if os.path.exists(annotation_path) else {}
+
+        for part in self.parts:
+            layer = self.viewer.add_shapes(
+                name=f"{part}_shapes", shape_type="path", ndim=3, edge_width=4
+            )
+            if part in all_data and all_data[part]:
+                layer.data = all_data[part]
+                layer.shape_type = "path"
+            self.shape_layers[part] = layer
+
+    def _save(self, viewer):
+        if self.current_folder and self.shape_layers:
+            labeler = self.labeler_name.value
+            save_shapes_yaml(
+                self.shape_layers,
+                self.filenames,
+                os.path.join(self.current_folder, "annotation.yaml"),
+                labeler=labeler
+            )
+            print(f"✅ Saved to {self.current_folder}/annotation.yaml")

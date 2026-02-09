@@ -111,3 +111,55 @@ def ensure_images_in_yaml(image_files: List[str],
     with open(yaml_path, "w") as f:
         yaml.safe_dump(annotations, f)
     print(f"▶︎ Added {n_files_added} new image(s) to {os.path.basename(yaml_path)}")
+
+def save_shapes_yaml(layers_by_part, filenames, path, labeler=""):
+    """
+    Save shape annotations using image filenames as keys.
+
+    Parameters
+    ----------
+    layers_by_part : dict
+        Dict of {part: napari shape layer}
+    filenames : list of str
+        List of frame image paths
+    path : str
+        Path to save annotation.yaml
+    labeler : str
+        Labeler name to include
+    """
+    out = {}
+    for part, layer in layers_by_part.items():
+        part_data = {}
+        for shape in layer.data:
+            shape = np.asarray(shape)
+            if shape.ndim != 2 or shape.shape[1] != 3 or np.isnan(shape).any():
+                continue
+            z = int(round(shape[0, 0]))
+            if z < 0 or z >= len(filenames):
+                continue
+            fname = os.path.basename(filenames[z])
+            part_data.setdefault(fname, []).append(shape[:, 1:].tolist())  # strip z-axis
+        out[part] = part_data
+
+    with open(path, "w") as f:
+        yaml.safe_dump(out, f)
+
+
+def load_shapes_yaml(path, filenames):
+    with open(path, "r") as f:
+        raw = yaml.safe_load(f) or {}
+
+    file_to_index = {os.path.basename(f): i for i, f in enumerate(filenames)}
+
+    out = {}
+    for part, part_data in raw.items():
+        data = []
+        for fname, shapes in part_data.items():
+            z = file_to_index.get(fname, None)
+            if z is None:
+                continue
+            for s in shapes:
+                shape = np.array([[z, y, x] for y, x in s], dtype=np.float32)
+                data.append(shape)
+        out[part] = data
+    return out
