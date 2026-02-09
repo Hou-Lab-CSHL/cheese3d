@@ -18,7 +18,7 @@ dependencies = [
     "hydra-core == 1.3.*",
     "joblib == 1.5.*",
     "torch <= 1.12.0",
-    "aniposelib @ git+https://github.com/Hou-Lab-CSHL/aniposelib.git@50c5b9d",
+    "aniposelib @ git+https://github.com/Hou-Lab-CSHL/aniposelib.git@62a15fef",
     "anipose @ git+https://github.com/Hou-Lab-CSHL/anipose.git",
     "opencv-python == 4.7.*",
     "opencv-python-headless == 4.7.*",
