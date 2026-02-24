@@ -155,6 +155,9 @@ def calibrate(
     name: Annotated[str, typer.Argument(help="Name of project")] = ".",
     config_overrides: Annotated[Optional[List[str]], typer.Argument(
         help="Config overrides passed to Hydra (https://hydra.cc/docs/intro/)"
+    )] = None,
+    session: Annotated[Optional[str], typer.Option(
+        help="Name of a specific session subfolder to process"
     )] = None
 ):
     """Extract camera calibration for triangulation."""
@@ -162,7 +165,7 @@ def calibrate(
     configs = ctx.obj["configs"]
     project = _build_project(path, name, configs, config_overrides)
     rich.print("Calibrating ...")
-    project.calibrate()
+    project.calibrate(session=session)
     rich.print("Calibration complete :white_check_mark:")
 
 @cli.command()
@@ -171,6 +174,9 @@ def track(
     name: Annotated[str, typer.Argument(help="Name of project")] = ".",
     config_overrides: Annotated[Optional[List[str]], typer.Argument(
         help="Config overrides passed to Hydra (https://hydra.cc/docs/intro/)"
+    )] = None,
+    session: Annotated[Optional[str], typer.Option(
+        help="Name of a specific session subfolder to process"
     )] = None
 ):
     """Track 2D keypoints using trained pose estimation model."""
@@ -178,7 +184,7 @@ def track(
     configs = ctx.obj["configs"]
     project = _build_project(path, name, configs, config_overrides)
     rich.print("Tracking 2D pose ...")
-    project.track()
+    project.track(session=session)
     rich.print("Pose estimation complete :white_check_mark:")
 
 @cli.command()
@@ -187,6 +193,9 @@ def triangulate(
     name: Annotated[str, typer.Argument(help="Name of project")] = ".",
     config_overrides: Annotated[Optional[List[str]], typer.Argument(
         help="Config overrides passed to Hydra (https://hydra.cc/docs/intro/)"
+    )] = None,
+    session: Annotated[Optional[str], typer.Option(
+        help="Name of a specific session subfolder to process"
     )] = None
 ):
     """Triangulate 2D pose estimation result to obtain 3D keypoints and Cheese3D features."""
@@ -194,7 +203,7 @@ def triangulate(
     configs = ctx.obj["configs"]
     project = _build_project(path, name, configs, config_overrides)
     rich.print("Triangulating ...")
-    project.triangulate()
+    project.triangulate(session=session)
     rich.print("Triangulation complete :white_check_mark:")
 
 @cli.command()
@@ -203,6 +212,9 @@ def analyze(
     name: Annotated[str, typer.Argument(help="Name of project")] = ".",
     config_overrides: Annotated[Optional[List[str]], typer.Argument(
         help="Config overrides passed to Hydra (https://hydra.cc/docs/intro/)"
+    )] = None,
+    session: Annotated[Optional[str], typer.Option(
+        help="Name of a specific session subfolder to process"
     )] = None
 ):
     """
@@ -212,9 +224,9 @@ def analyze(
     path = ctx.obj["path"]
     configs = ctx.obj["configs"]
     project = _build_project(path, name, configs, config_overrides)
-    project.calibrate()
-    project.track()
-    project.triangulate()
+    project.calibrate(session=session)
+    project.track(session=session)
+    project.triangulate(session=session)
 
 @cli.command()
 def generate_videos(

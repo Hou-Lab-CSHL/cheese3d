@@ -557,26 +557,54 @@ class Ch3DProject:
 
         return load_config(str(self.triangulation_path / "config.toml"))
 
-    def calibrate(self):
-        from anipose.calibrate import calibrate_all
-        calibrate_all(self._load_anipose_cfg())
+    def _resolve_anipose_session(self, session: str) -> str:
+        session_path = self.triangulation_path / session
+        if not session_path.is_dir():
+            available = [p.name for p in self.triangulation_path.iterdir()
+                         if p.is_dir()] if self.triangulation_path.is_dir() else []
+            raise ValueError(
+                f"Session folder '{session}' not found in {self.triangulation_path}. "
+                f"Available sessions: {available}")
+        return str(session_path.resolve())
 
-    def track(self):
-        from anipose.pose_videos import pose_videos_all
-        pose_videos_all(self._load_anipose_cfg())
+    def calibrate(self, session: Optional[str] = None):
+        if session is not None:
+            from anipose.calibrate import process_session
+            config = self._load_anipose_cfg()
+            process_session(config, self._resolve_anipose_session(session))
+        else:
+            from anipose.calibrate import calibrate_all
+            calibrate_all(self._load_anipose_cfg())
 
-    def triangulate(self):
+    def track(self, session: Optional[str] = None):
+        if session is not None:
+            from anipose.pose_videos import process_session
+            config = self._load_anipose_cfg()
+            process_session(config, self._resolve_anipose_session(session))
+        else:
+            from anipose.pose_videos import pose_videos_all
+            pose_videos_all(self._load_anipose_cfg())
+
+    def triangulate(self, session: Optional[str] = None):
         # first triangulate points using Anipose
-        from anipose.triangulate import triangulate_all
-        triangulate_all(self._load_anipose_cfg())
+        if session is not None:
+            from anipose.triangulate import process_session
+            config = self._load_anipose_cfg()
+            process_session(config, self._resolve_anipose_session(session))
+            sessions_to_process = [self.triangulation_path / session]
+        else:
+            from anipose.triangulate import triangulate_all
+            triangulate_all(self._load_anipose_cfg())
+            sessions_to_process = [s for s in self.triangulation_path.iterdir()
+                                   if s.is_dir()]
         # now compute cheese3d features
         exclude_kps = set(kp.label for kp in _DEFAULT_KEYPOINTS) - set(kp.label for kp in self.keypoints)
         if len(exclude_kps) > 0:
             rprint("[bold red]Keypoint configuration does not match default Cheese3D keypoints. "
                    "Some Cheese3D features may not be computed![/bold red]")
-        for session in self.triangulation_path.iterdir():
-            if session.is_dir():
-                landmarks = read_3d_data(session)
+        for session_dir in sessions_to_process:
+            if session_dir.is_dir():
+                landmarks = read_3d_data(session_dir)
                 c3d_features = compute_anatomical_measurements(landmarks, exclude_kps)
                 # write features to csv
                 c3d_features_df = pd.DataFrame({
@@ -585,9 +613,9 @@ class Ch3DProject:
                     for k, v in features.items()
                 })
                 if len(c3d_features_df) == 0:
-                    rprint(f"[bold red]No features constructed for {session.name}, skipping![/bold red]")
+                    rprint(f"[bold red]No features constructed for {session_dir.name}, skipping![/bold red]")
                     continue
-                csv_output = (session / "cheese3d")
+                csv_output = (session_dir / "cheese3d")
                 csv_output.mkdir(exist_ok=True)
                 csv_output = csv_output / "cheese3d_features.csv"
                 if not csv_output.exists():
