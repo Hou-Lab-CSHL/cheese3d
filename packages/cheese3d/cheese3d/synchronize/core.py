@@ -244,8 +244,9 @@ def synchronize_videos(pipeline_cfg: SyncConfig,
         pipeline = SyncPipeline.from_cfg(pipeline_cfg, ref_reader, target_reader)
         align_param = pipeline.align_recording()
         pipeline.write_json(align_param)
+        frame_lag = int(round(maybe(align_param.lag, 0), 2) * align_param.sample_rate)
         align_params[view] = (video,
-                              int(round(align_param.lag, 2) * align_param.sample_rate), # type: ignore
+                              frame_lag,
                               align_param.sample_rate)
     ref_lag = min(-lag for _, lag, _ in align_params.values())
     for video, lag, view_fps in align_params.values():
