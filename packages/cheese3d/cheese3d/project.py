@@ -365,20 +365,20 @@ class Ch3DProject:
         # run video synchronization first
         for recording, views in self.sessions.items():
             rprint(f"[bold green]Synchronizing recording videos:[/bold green] {recording.name}")
-            ref_video = self.path / views[self.sync.ref_view]
+            ref_video = views[self.sync.ref_view]
             ref_crop = self.view_config[self.sync.ref_view].get_crop(self.sync.ref_crop)
             sync_targets = {}
             for view, video in views.items():
                 if view == self.sync.ref_view:
                     continue
                 crop = self.view_config[view].get_crop(self.sync.ref_crop)
-                sync_targets[view] = (self.path / video, crop)
+                sync_targets[view] = (video, crop)
             synchronize_videos(self.sync, (ref_video, ref_crop), sync_targets, fps=self.fps)
         # run ephys synchronization if available
         if self.ephys_sessions and self.ephys_param:
             for recording, ephys_file in self.ephys_sessions.items():
                 rprint(f"[bold green]Synchronizing recording ephys:[/bold green] {recording.name}")
-                ref_video = self.path / self.sessions[recording][self.sync.ref_view]
+                ref_video = self.sessions[recording][self.sync.ref_view]
                 ref_crop = self.view_config[self.sync.ref_view].get_crop(self.sync.ref_crop)
                 ephys_path = self.path / ephys_file
                 synchronize_ephys(self.sync, (ref_video, ref_crop), ephys_path, self.ephys_param, fps=self.fps)
