@@ -13,7 +13,7 @@ from cheese3d.synchronize.aligners import (BaseAligner,
                                            AlignmentParams)
 from cheese3d.synchronize.readers import SyncSignalReader, VideoSyncReader, get_ephys_reader
 from cheese3d.synchronize.utils import get_time_points
-from cheese3d.utils import maybe, BoundingBox, downsample_video_data
+from cheese3d.utils import maybe, BoundingBox, synchronize_video_ffmpeg
 
 @dataclass
 class SyncConfig:
@@ -254,9 +254,9 @@ def synchronize_videos(pipeline_cfg: SyncConfig,
     for video, lag, view_fps in align_params.values():
         shift = -lag - ref_lag
         if view_fps != fps:
-            downsample_video_data([str(video)], start_offset=shift, fps=fps)
+            synchronize_video_ffmpeg([str(video)], start_offset=shift, fps=fps)
         else:
-            downsample_video_data([str(video)], start_offset=shift)
+            synchronize_video_ffmpeg([str(video)], start_offset=shift)
 
 def synchronize_ephys(pipeline_cfg: SyncConfig,
                       reference: Tuple[Path, BoundingBox],
