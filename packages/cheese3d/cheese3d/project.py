@@ -13,6 +13,7 @@ from rich import print as rprint
 from typing import List, Dict, Optional, Any
 from collections import namedtuple
 from datetime import datetime
+from filelock import FileLock
 
 from cheese3d.anatomy import compute_anatomical_measurements
 from cheese3d.config import (MultiViewConfig,
@@ -279,12 +280,13 @@ class Ch3DProject:
         else:
             ephys = None
         model_cfg = maybe(model_import, cfg.model)
-        model = build_model_backend(model_cfg,
-                                    root=(root / cfg.name /
-                                          relative_path(cfg.model_root, root / cfg.name)),
-                                    sessions=sessions,
-                                    view_cfg=cfg.views,
-                                    keypoints=cfg.keypoints)
+        with FileLock(root / cfg.name / "build_backend.lock"):
+            model = build_model_backend(model_cfg,
+                                        root=(root / cfg.name /
+                                            relative_path(cfg.model_root, root / cfg.name)),
+                                        sessions=sessions,
+                                        view_cfg=cfg.views,
+                                        keypoints=cfg.keypoints)
         view_regex = get_group_pattern(ProjectConfig.build_regex(cfg.video_regex), "view")
 
         return cls(name=cfg.name,
@@ -410,17 +412,19 @@ class Ch3DProject:
         if self.model is None:
             raise RuntimeError("Cannot import labels when pose model does not exist "
                                "(hint: maybe you forgot to set `model.name` in the config?")
-        self._create_labels()
-        label_paths = self._label_folder_paths()
-        self.model.import_c3d_labels(label_paths)
+        with FileLock(self.path / "labels.lock"):
+            self._create_labels()
+            label_paths = self._label_folder_paths()
+            self.model.import_c3d_labels(label_paths)
 
     def _export_labels(self):
         if self.model is None:
             raise RuntimeError("Cannot export labels when pose model does not exist "
                                "(hint: maybe you forgot to set `model.name` in the config?")
-        self._create_labels()
-        label_paths = self._label_folder_paths()
-        self.model.export_c3d_labels(label_paths)
+        with FileLock(self.path / "labels.lock"):
+            self._create_labels()
+            label_paths = self._label_folder_paths()
+            self.model.export_c3d_labels(label_paths)
 
     def extract_frames(self, sessions: Optional[List[RecordingKey]] = None, manual = False):
         self._import_labels()
@@ -475,81 +479,82 @@ class Ch3DProject:
         if self.model is None:
             raise RuntimeError("Cannot setup triangulation when pose model does not exist "
                                "(hint: maybe you forgot to set `model.name` in the config?")
-        # make anipose project folder
-        self.triangulation_path.mkdir(exist_ok=True)
-        # create session subfolders
-        for recording, videos in self.sessions.items():
-            session_path = self.triangulation_path / recording.name
-            session_path.mkdir(exist_ok=True)
-            # add raw videos
-            videos_path = session_path / "videos-raw"
-            videos_path.mkdir(exist_ok=True)
-            for video in videos.values():
-                src = Path(video).resolve()
-                dst = videos_path / src.name
-                relpath = Path(os.path.relpath(src, videos_path.resolve()))
-                if dst.exists():
-                    os.remove(dst)
-                os.symlink(relpath, dst)
-            # add calibration
-            calibration_path = session_path / "calibration"
-            calibration_path.mkdir(exist_ok=True)
-            # add calibration files
-            cal_key = RecordingKey(recording.session, recording.name)
-            matches = [k for k in self.calibrations.keys() if cal_key.matches(k)]
-            if len(matches) == 0:
-                raise RuntimeError(f"No calibration found for {recording} when setting up triangulation")
-            for match in matches:
-                for video in self.calibrations[match].values():
+        with FileLock(self.path / "setup_anipose.lock"):
+            # make anipose project folder
+            self.triangulation_path.mkdir(exist_ok=True)
+            # create session subfolders
+            for recording, videos in self.sessions.items():
+                session_path = self.triangulation_path / recording.name
+                session_path.mkdir(exist_ok=True)
+                # add raw videos
+                videos_path = session_path / "videos-raw"
+                videos_path.mkdir(exist_ok=True)
+                for video in videos.values():
                     src = Path(video).resolve()
-                    dst = calibration_path / src.name
-                    relpath = Path(os.path.relpath(src, calibration_path.resolve()))
+                    dst = videos_path / src.name
+                    relpath = Path(os.path.relpath(src, videos_path.resolve()))
                     if dst.exists():
                         os.remove(dst)
                     os.symlink(relpath, dst)
-        # create anipose config file
-        kp_schema = keypoints_by_group(self.keypoints)
-        for group, kps in kp_schema.items():
-            if len(kps) > 2:
-                kp_schema[group].append(kps[0])
-        config = {
-            "project": self.name,
-            "model_folder": os.path.relpath(self.model.project_path, os.getcwd()),
-            "nesting": 1,
-            "pipeline": {"videos-raw": "videos-raw",},
-            "labeling": {
-                "scheme": list(kp_schema.values()),
-                "ignore": self.ignore_keypoint_labels
-            },
-            "filter": {
-                "enabled": self.triangulation.filter2d,
-                "type": "medfilt",
-                "medfilt": 13, # length of median filter
-                "offset_threshold": 5, # offset from median filter to count as jump
-                "score_threshold": 0.8, # score below which to count as bad
-                "spline": False, # interpolate using linearly instead of cubic spline
-            },
-            "calibration": {
-                "board_type": "charuco",
-                "board_size": [7, 7],
-                "board_marker_bits": 4,
-                "board_marker_dict_number": 50,
-                "board_marker_length": 4.5, # mm
-                "board_square_side_length": 6 # mm
-            },
-            "triangulation": {
-                "triangulate": True,
-                "cam_regex": f"({self.view_regex})",
-                "manually_verify": False,
-                "axes": self.triangulation.axes,
-                "reference_point": self.triangulation.ref_point,
-                "optim": True,
-                "score_threshold": self.triangulation.score_threshold,
-                "scale_smooth": 0.0,
+                # add calibration
+                calibration_path = session_path / "calibration"
+                calibration_path.mkdir(exist_ok=True)
+                # add calibration files
+                cal_key = RecordingKey(recording.session, recording.name)
+                matches = [k for k in self.calibrations.keys() if cal_key.matches(k)]
+                if len(matches) == 0:
+                    raise RuntimeError(f"No calibration found for {recording} when setting up triangulation")
+                for match in matches:
+                    for video in self.calibrations[match].values():
+                        src = Path(video).resolve()
+                        dst = calibration_path / src.name
+                        relpath = Path(os.path.relpath(src, calibration_path.resolve()))
+                        if dst.exists():
+                            os.remove(dst)
+                        os.symlink(relpath, dst)
+            # create anipose config file
+            kp_schema = keypoints_by_group(self.keypoints)
+            for group, kps in kp_schema.items():
+                if len(kps) > 2:
+                    kp_schema[group].append(kps[0])
+            config = {
+                "project": self.name,
+                "model_folder": os.path.relpath(self.model.project_path, os.getcwd()),
+                "nesting": 1,
+                "pipeline": {"videos-raw": "videos-raw",},
+                "labeling": {
+                    "scheme": list(kp_schema.values()),
+                    "ignore": self.ignore_keypoint_labels
+                },
+                "filter": {
+                    "enabled": self.triangulation.filter2d,
+                    "type": "medfilt",
+                    "medfilt": 13, # length of median filter
+                    "offset_threshold": 5, # offset from median filter to count as jump
+                    "score_threshold": 0.8, # score below which to count as bad
+                    "spline": False, # interpolate using linearly instead of cubic spline
+                },
+                "calibration": {
+                    "board_type": "charuco",
+                    "board_size": [7, 7],
+                    "board_marker_bits": 4,
+                    "board_marker_dict_number": 50,
+                    "board_marker_length": 4.5, # mm
+                    "board_square_side_length": 6 # mm
+                },
+                "triangulation": {
+                    "triangulate": True,
+                    "cam_regex": f"({self.view_regex})",
+                    "manually_verify": False,
+                    "axes": self.triangulation.axes,
+                    "reference_point": self.triangulation.ref_point,
+                    "optim": True,
+                    "score_threshold": self.triangulation.score_threshold,
+                    "scale_smooth": 0.0,
+                }
             }
-        }
-        with open(self.triangulation_path / "config.toml", "w") as f:
-            toml.dump(config, f)
+            with open(self.triangulation_path / "config.toml", "w") as f:
+                toml.dump(config, f)
 
     def _load_anipose_cfg(self):
         from anipose.anipose import load_config
