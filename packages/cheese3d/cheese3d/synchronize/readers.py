@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, Dict, Any, Literal
+from typing import Optional, Dict, Any
 from tqdm import tqdm
 from open_ephys.analysis import Session as OESession
 
@@ -50,7 +50,7 @@ class VideoSyncReader(SyncSignalReader):
     - `crop`: Tuple of (left, right, top, bottom) coordinates for cropping.
     """
     crop: BoundingBox = field(default_factory=lambda: [None, None, None, None])
-    peak_algorithm: Literal["dynamic", "max"] = "dynamic"
+    peak_algorithm: str = "dynamic"
 
     def load_signal(self):
         print(self.source)

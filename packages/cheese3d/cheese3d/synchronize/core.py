@@ -3,7 +3,7 @@ import logging
 import numpy as np
 import matplotlib.pyplot as plt
 from dataclasses import dataclass
-from typing import List, Tuple, Dict, Any, Literal
+from typing import List, Tuple, Dict, Any
 from pathlib import Path
 
 from cheese3d.synchronize.aligners import (BaseAligner,
@@ -19,7 +19,7 @@ from cheese3d.utils import maybe, BoundingBox, synchronize_video_ffmpeg
 class SyncConfig:
     pipeline: List[str]
     led_threshold: float = 0.9
-    led_peak_algorithm: Literal["dynamic", "max"] = "dynamic"
+    led_peak_algorithm: str = "dynamic"
     max_regression_rmse: float = 1e-2
     ref_view: str = "bottomcenter"
     ref_crop: str = "default"
