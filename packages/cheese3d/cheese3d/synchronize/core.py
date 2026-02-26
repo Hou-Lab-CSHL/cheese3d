@@ -3,7 +3,7 @@ import logging
 import numpy as np
 import matplotlib.pyplot as plt
 from dataclasses import dataclass
-from typing import List, Tuple, Dict, Any
+from typing import List, Tuple, Dict, Any, Literal
 from pathlib import Path
 
 from cheese3d.synchronize.aligners import (BaseAligner,
@@ -19,6 +19,7 @@ from cheese3d.utils import maybe, BoundingBox, synchronize_video_ffmpeg
 class SyncConfig:
     pipeline: List[str]
     led_threshold: float = 0.9
+    led_peak_algorithm: Literal["dynamic", "max"] = "dynamic"
     max_regression_rmse: float = 1e-2
     ref_view: str = "bottomcenter"
     ref_crop: str = "default"
@@ -234,12 +235,14 @@ def synchronize_videos(pipeline_cfg: SyncConfig,
     ref_reader = VideoSyncReader(source=ref_video,
                                  sample_rate=fps,
                                  threshold=pipeline_cfg.led_threshold,
+                                 peak_algorithm=pipeline_cfg.led_peak_algorithm,
                                  crop=ref_crop)
     align_params = {"ref": (ref_video, 0, fps)}
     for view, (video, crop) in videos.items():
         target_reader = VideoSyncReader(source=video,
                                         sample_rate=fps,
                                         threshold=pipeline_cfg.led_threshold,
+                                        peak_algorithm=pipeline_cfg.led_peak_algorithm,
                                         crop=crop)
         pipeline = SyncPipeline.from_cfg(pipeline_cfg, ref_reader, target_reader)
         target_path = pipeline.target.root_path()
@@ -267,6 +270,7 @@ def synchronize_ephys(pipeline_cfg: SyncConfig,
     video_reader = VideoSyncReader(source=ref_video,
                                    sample_rate=fps,
                                    threshold=pipeline_cfg.led_threshold,
+                                   peak_algorithm=pipeline_cfg.led_peak_algorithm,
                                    crop=ref_crop)
     ephys_reader = get_ephys_reader(ephys_path, ephys_params)
     pipeline = SyncPipeline.from_cfg(pipeline_cfg, video_reader, ephys_reader)

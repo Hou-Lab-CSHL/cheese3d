@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Literal
 from tqdm import tqdm
 from open_ephys.analysis import Session as OESession
 
@@ -50,6 +50,7 @@ class VideoSyncReader(SyncSignalReader):
     - `crop`: Tuple of (left, right, top, bottom) coordinates for cropping.
     """
     crop: BoundingBox = field(default_factory=lambda: [None, None, None, None])
+    peak_algorithm: Literal["dynamic", "max"] = "dynamic"
 
     def load_signal(self):
         print(self.source)
@@ -65,7 +66,7 @@ class VideoSyncReader(SyncSignalReader):
         min_brightness = bin_edges[np.argmax(hist) + 1]
         brightness = brightness - min_brightness
         nz_brightness = brightness[brightness > 2]
-        if len(nz_brightness) > 0:
+        if (self.peak_algorithm == "dynamic") and (len(nz_brightness) > 0):
             mid = np.percentile(nz_brightness, 75)
             # q3 = np.percentile(nz_brightness, 75)
             # iqr = q3 - q1
@@ -87,6 +88,7 @@ class VideoSyncReader(SyncSignalReader):
 
         fig, ax = plt.subplots(figsize=(8, 6))
         ax.plot(brightness)
+        ax.axhline(peak_brightness, color='k', linestyle='--')
         ax.axhline(led_threshold, color='r', linestyle='--')
         ax.set_title("LED BBox Brightness")
         fig.savefig(f"{video.path.rstrip('.avi')}-qc-brightness.png", bbox_inches="tight")
