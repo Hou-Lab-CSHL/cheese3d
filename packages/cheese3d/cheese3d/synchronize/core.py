@@ -237,7 +237,7 @@ def synchronize_videos(pipeline_cfg: SyncConfig,
                                  threshold=pipeline_cfg.led_threshold,
                                  peak_algorithm=pipeline_cfg.led_peak_algorithm,
                                  crop=ref_crop)
-    align_params = {"ref": (ref_video, 0, fps)}
+    align_params = {}
     for view, (video, crop) in videos.items():
         target_reader = VideoSyncReader(source=video,
                                         sample_rate=fps,

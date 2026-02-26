@@ -139,9 +139,9 @@ def dlc_folder_to_components(folder: str | Path):
 def synchronize_video_ffmpeg(videos, start_offset = 0, fps = None):
     for video in videos:
         if start_offset > 0:
-            filter_args = f"[0:v]select='gt(n\,{start_offset})'[trim];[trim]"
+            filter_args = f"[0:v]select='gt(n\,{start_offset})'[out]"
         else:
-            filter_args = "[0:v]"
+            filter_args = "[0:v]null[out]"
         if fps is not None:
             input_fps = ["-r", f"{100 * fps/100}/1"]
             output_fps = ["-r", "100/1"]
@@ -165,7 +165,7 @@ def synchronize_video_ffmpeg(videos, start_offset = 0, fps = None):
             video
         ])
         if cmd.returncode:
-            raise RuntimeError("Failed to get video resolution "
+            raise RuntimeError("Failed to run ffmpeg sync "
                                f"(return code = {cmd.returncode}, "
                                f"args = {cmd.args})")
 
