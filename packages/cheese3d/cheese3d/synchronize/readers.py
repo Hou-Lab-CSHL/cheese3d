@@ -36,7 +36,7 @@ class SyncSignalReader:
                                   "Instead, inherit from this class to implement "
                                   "a specific sync signal source.")
 
-    def root_path(self):
+    def root_path(self) -> Path:
         raise NotImplementedError("Attempt to use SyncSignalReader directly. "
                                   "Instead, inherit from this class to implement "
                                   "a specific sync signal source.")
@@ -171,7 +171,7 @@ class DSISyncReader(SyncSignalReader):
         led_df = pd.read_csv(self.source, sep="\t", names=["timestamp", "signal"])
         analog_signal = led_df["signal"].values
         threshold = maybe(self.threshold, 0.1)
-        analog_signal = np.where(analog_signal > threshold, 1, 0) # type: ignore
+        analog_signal = np.where(analog_signal > threshold, 1, 0)
 
         return analog_signal
 

@@ -242,12 +242,14 @@ def synchronize_videos(pipeline_cfg: SyncConfig,
                                         threshold=pipeline_cfg.led_threshold,
                                         crop=crop)
         pipeline = SyncPipeline.from_cfg(pipeline_cfg, ref_reader, target_reader)
-        align_param = pipeline.align_recording()
-        pipeline.write_json(align_param)
-        frame_lag = int(round(maybe(align_param.lag, 0), 2) * align_param.sample_rate)
-        align_params[view] = (video,
-                              frame_lag,
-                              align_param.sample_rate)
+        target_path = pipeline.target.root_path()
+        if target_path.with_suffix(".align.json").exists():
+            print(f"alignment file exists, skipping {str(target_path)}...")
+        else:
+            align_param = pipeline.align_recording()
+            pipeline.write_json(align_param)
+            frame_lag = int(round(maybe(align_param.lag, 0), 2) * align_param.sample_rate)
+            align_params[view] = (video, frame_lag, align_param.sample_rate)
     ref_lag = min(-lag for _, lag, _ in align_params.values())
     for video, lag, view_fps in align_params.values():
         shift = -lag - ref_lag

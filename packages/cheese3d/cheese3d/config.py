@@ -318,8 +318,7 @@ class ProjectConfig:
             if "view" not in regex:
                 raise RuntimeError("Regex must contain 'view' key.")
             for key, rstr in regex.items():
-                full_regex = full_regex.replace("{{" + key + "}}", # type: ignore
-                                                fr"(?P<{key}>{rstr})")
+                full_regex = full_regex.replace("{{" + key + "}}", fr"(?P<{key}>{rstr})")
             missing_groups = re.match("({{.*}})", full_regex)
             if missing_groups:
                 raise RuntimeError(f"Regex is missing definitions for groups: {missing_groups.groups}")
