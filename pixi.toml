@@ -20,11 +20,11 @@ LD_LIBRARY_PATH = "$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
 PYTHONNOUSERSITE = "1"
 
 [dependencies]
-python = "3.10.*"
+python = "3.11.*"
 c-compiler = "*"
 cxx-compiler = "*"
-ffmpeg = "==4.4.1"
-av = "==9.2.0"
+ffmpeg = ">=5.1.2"
+av = ">=10.0.0"
 pillow = ">=9.0.0"
 
 [pypi-dependencies]
@@ -36,7 +36,7 @@ cudatoolkit = "11.7.*"
 cudnn = "8.*"
 
 [target.osx-arm64.dependencies]
-tensorflow-deps = "*"
+# tensorflow-deps = "*"
 hdf5 = "*"
 pytables = "*"
 

@@ -204,20 +204,6 @@ def read_3d_data(data_dir: str | Path, extra_cols = None):
     else:
         return landmarks
 
-def tiny_cmap(center, delta, n):
-    import seaborn as sns
-    import matplotlib as mpl
-
-    if isinstance(center, str):
-        _cmap = sns.color_palette(center, as_cmap=True)
-    elif isinstance(center, (list, tuple)):
-        _cmap = sns.dark_palette(tuple(center), input="rgb", as_cmap=True)
-
-    if isinstance(_cmap, list):
-        _cmap = mpl.colors.LinearSegmentedColormap.from_list("tiny_cmap", _cmap)
-
-    return list(_cmap(np.linspace(center - delta, center + delta, n)))
-
 def get_group_pattern(regex: str, group_name: str):
     """
     Return the raw regex subpattern text for the named group `group_name`, if present.
