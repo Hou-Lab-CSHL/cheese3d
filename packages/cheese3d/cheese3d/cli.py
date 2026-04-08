@@ -135,6 +135,9 @@ def train(
     ctx: typer.Context,
     name: Annotated[str, typer.Argument(help="Name of project")] = ".",
     gpu: Annotated[int, typer.Option(help="GPU ID(s) to use")] = 0,
+    iterate_dataset: Annotated[bool, typer.Option(
+        help="Create a new dataset iteration before training"
+    )] = True,
     config_overrides: Annotated[Optional[List[str]], typer.Argument(
         help="Config overrides passed to Hydra (https://hydra.cc/docs/intro/)"
     )] = None
@@ -143,7 +146,7 @@ def train(
     path = ctx.obj["path"]
     configs = ctx.obj["configs"]
     project = _build_project(path, name, configs, config_overrides)
-    project.train(gpu)
+    project.train(gpu, iterate_dataset)
     rich.print("Training complete :spaceship:")
 
 @cli.command()
@@ -152,6 +155,9 @@ def calibrate(
     name: Annotated[str, typer.Argument(help="Name of project")] = ".",
     config_overrides: Annotated[Optional[List[str]], typer.Argument(
         help="Config overrides passed to Hydra (https://hydra.cc/docs/intro/)"
+    )] = None,
+    session: Annotated[Optional[str], typer.Option(
+        help="Name of a specific session subfolder to process"
     )] = None
 ):
     """Extract camera calibration for triangulation."""
@@ -159,7 +165,7 @@ def calibrate(
     configs = ctx.obj["configs"]
     project = _build_project(path, name, configs, config_overrides)
     rich.print("Calibrating ...")
-    project.calibrate()
+    project.calibrate(session=session)
     rich.print("Calibration complete :white_check_mark:")
 
 @cli.command()
@@ -168,6 +174,9 @@ def track(
     name: Annotated[str, typer.Argument(help="Name of project")] = ".",
     config_overrides: Annotated[Optional[List[str]], typer.Argument(
         help="Config overrides passed to Hydra (https://hydra.cc/docs/intro/)"
+    )] = None,
+    session: Annotated[Optional[str], typer.Option(
+        help="Name of a specific session subfolder to process"
     )] = None
 ):
     """Track 2D keypoints using trained pose estimation model."""
@@ -175,7 +184,7 @@ def track(
     configs = ctx.obj["configs"]
     project = _build_project(path, name, configs, config_overrides)
     rich.print("Tracking 2D pose ...")
-    project.track()
+    project.track(session=session)
     rich.print("Pose estimation complete :white_check_mark:")
 
 @cli.command()
@@ -184,6 +193,9 @@ def triangulate(
     name: Annotated[str, typer.Argument(help="Name of project")] = ".",
     config_overrides: Annotated[Optional[List[str]], typer.Argument(
         help="Config overrides passed to Hydra (https://hydra.cc/docs/intro/)"
+    )] = None,
+    session: Annotated[Optional[str], typer.Option(
+        help="Name of a specific session subfolder to process"
     )] = None
 ):
     """Triangulate 2D pose estimation result to obtain 3D keypoints and Cheese3D features."""
@@ -191,7 +203,7 @@ def triangulate(
     configs = ctx.obj["configs"]
     project = _build_project(path, name, configs, config_overrides)
     rich.print("Triangulating ...")
-    project.triangulate()
+    project.triangulate(session=session)
     rich.print("Triangulation complete :white_check_mark:")
 
 @cli.command()
@@ -200,6 +212,9 @@ def analyze(
     name: Annotated[str, typer.Argument(help="Name of project")] = ".",
     config_overrides: Annotated[Optional[List[str]], typer.Argument(
         help="Config overrides passed to Hydra (https://hydra.cc/docs/intro/)"
+    )] = None,
+    session: Annotated[Optional[str], typer.Option(
+        help="Name of a specific session subfolder to process"
     )] = None
 ):
     """
@@ -209,9 +224,9 @@ def analyze(
     path = ctx.obj["path"]
     configs = ctx.obj["configs"]
     project = _build_project(path, name, configs, config_overrides)
-    project.calibrate()
-    project.track()
-    project.triangulate()
+    project.calibrate(session=session)
+    project.track(session=session)
+    project.triangulate(session=session)
 
 @cli.command()
 def generate_videos(
@@ -280,3 +295,27 @@ def checkpoint(
     project = _build_project(path, name, configs, config_overrides)
     project.checkpoint(skip_source, portable)
     rich.print("Checkpoint created :white_check_mark:")
+
+@cli.command()
+def restore(
+    ctx: typer.Context,
+    checkpoint_file: Annotated[str, typer.Argument(help="Path to checkpoint archive")],
+    name: Annotated[str, typer.Argument(help="Name of project")] = ".",
+    skip_source: Annotated[bool, typer.Option(
+        "--skip-source",
+        help="Skip recording directory when extracting archive."
+    )] = False,
+    portable: Annotated[bool, typer.Option(
+        "--portable",
+        help="The archive was created with portable mode. No-op flag for API compatibility."
+    )] = False,
+    config_overrides: Annotated[Optional[List[str]], typer.Argument(
+        help="Config overrides passed to Hydra (https://hydra.cc/docs/intro/)"
+    )] = None
+):
+    """Restore a project from a checkpoint archive."""
+    path = ctx.obj["path"]
+    configs = ctx.obj["configs"]
+    project = _build_project(path, name, configs, config_overrides)
+    project.restore(checkpoint_file, skip_source, portable)
+    rich.print("Restore complete :white_check_mark:")

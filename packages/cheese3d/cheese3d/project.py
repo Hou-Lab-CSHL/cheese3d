@@ -2,16 +2,18 @@ import re
 import os
 import io
 import toml
+import tempfile
 import tarfile
 import pandas as pd
 from pathlib import Path
 from dataclasses import dataclass, field
-from omegaconf import OmegaConf, DictConfig
+from omegaconf import OmegaConf
 from rich import table, console
 from rich import print as rprint
 from typing import List, Dict, Optional, Any
 from collections import namedtuple
 from datetime import datetime
+from filelock import FileLock
 
 from cheese3d.anatomy import compute_anatomical_measurements
 from cheese3d.config import (MultiViewConfig,
@@ -22,12 +24,10 @@ from cheese3d.config import (MultiViewConfig,
                              ProjectConfig,
                              keypoints_by_group,
                              _DEFAULT_KEYPOINTS)
-from cheese3d.synchronize.core import SyncConfig, SyncPipeline
-from cheese3d.synchronize.readers import VideoSyncReader, get_ephys_reader
+from cheese3d.synchronize.core import SyncConfig, synchronize_videos, synchronize_ephys
 from cheese3d.backends.core import Pose2dBackend
 from cheese3d.backends.dlc import DLCBackend
 from cheese3d.utils import (dlc_folder_to_components,
-                            downsample_video_data,
                             read_3d_data,
                             reglob,
                             maybe,
@@ -280,12 +280,13 @@ class Ch3DProject:
         else:
             ephys = None
         model_cfg = maybe(model_import, cfg.model)
-        model = build_model_backend(model_cfg,
-                                    root=(root / cfg.name /
-                                          relative_path(cfg.model_root, root / cfg.name)),
-                                    sessions=sessions,
-                                    view_cfg=cfg.views,
-                                    keypoints=cfg.keypoints)
+        with FileLock(root / cfg.name / "build_backend.lock"):
+            model = build_model_backend(model_cfg,
+                                        root=(root / cfg.name /
+                                            relative_path(cfg.model_root, root / cfg.name)),
+                                        sessions=sessions,
+                                        view_cfg=cfg.views,
+                                        keypoints=cfg.keypoints)
         view_regex = get_group_pattern(ProjectConfig.build_regex(cfg.video_regex), "view")
 
         return cls(name=cfg.name,
@@ -314,7 +315,7 @@ class Ch3DProject:
         cfg_file = path / "config.yaml"
         cfg = ProjectConfig.load(cfg_file, cfg_dir, overrides)
 
-        return cls.from_cfg(cfg, path.parent, model_import=model_import) # type: ignore
+        return cls.from_cfg(cfg, path.parent, model_import=model_import)
 
     def summarize(self, pty = None):
         pty = maybe(pty, console.Console())
@@ -368,47 +369,21 @@ class Ch3DProject:
             rprint(f"[bold green]Synchronizing recording videos:[/bold green] {recording.name}")
             ref_video = views[self.sync.ref_view]
             ref_crop = self.view_config[self.sync.ref_view].get_crop(self.sync.ref_crop)
-            align_params = {}
+            sync_targets = {}
             for view, video in views.items():
                 if view == self.sync.ref_view:
-                    align_params[view] = {(video, 0, self.fps)}
                     continue
                 crop = self.view_config[view].get_crop(self.sync.ref_crop)
-                ref_reader = VideoSyncReader(source=self.path / ref_video,
-                                             sample_rate=self.fps,
-                                             threshold=self.sync.led_threshold,
-                                             crop=ref_crop)
-                target_reader = VideoSyncReader(source=self.path / video,
-                                                sample_rate=self.fps,
-                                                threshold=self.sync.led_threshold,
-                                                crop=crop)
-                pipeline = SyncPipeline.from_cfg(self.sync, ref_reader, target_reader)
-                align_param = pipeline.align_recording()
-                pipeline.write_json(align_param)
-                align_params[view] = (video,
-                                      int(round(align_param.lag, 2) * align_param.sample_rate), # type: ignore
-                                      align_param.sample_rate)
-            ref_lag = min(-lag for _, lag, _ in align_params.values())
-            for video, lag, fps in align_params.values():
-                shift = -lag - ref_lag
-                if fps != self.fps:
-                    downsample_video_data([str(self.path / video)], start_offset=shift, fps=fps)
-                else:
-                    downsample_video_data([str(self.path / video)], start_offset=shift)
+                sync_targets[view] = (video, crop)
+            synchronize_videos(self.sync, (ref_video, ref_crop), sync_targets, fps=self.fps)
         # run ephys synchronization if available
         if self.ephys_sessions and self.ephys_param:
             for recording, ephys_file in self.ephys_sessions.items():
                 rprint(f"[bold green]Synchronizing recording ephys:[/bold green] {recording.name}")
                 ref_video = self.sessions[recording][self.sync.ref_view]
-                crop = self.view_config[self.sync.ref_view].get_crop(self.sync.ref_crop)
-                video_reader = VideoSyncReader(source=self.path / ref_video,
-                                               sample_rate=self.fps,
-                                               threshold=self.sync.led_threshold,
-                                               crop=crop)
-                ephys_reader = get_ephys_reader(self.path / ephys_file, self.ephys_param)
-                pipeline = SyncPipeline.from_cfg(self.sync, video_reader, ephys_reader)
-                align_params = pipeline.align_recording()
-                pipeline.write_json(align_params)
+                ref_crop = self.view_config[self.sync.ref_view].get_crop(self.sync.ref_crop)
+                ephys_path = self.path / ephys_file
+                synchronize_ephys(self.sync, (ref_video, ref_crop), ephys_path, self.ephys_param, fps=self.fps)
 
     def _create_labels(self):
         if self.model is None:
@@ -416,12 +391,12 @@ class Ch3DProject:
                                "(hint: maybe you forgot to set `model.name` in the config?")
         # create label root if it doesn't exist
         label_path = self.model_path / self.model.name / "labels"
-        label_path.mkdir(exist_ok=True)
+        label_path.mkdir(parents=True, exist_ok=True)
         # create label folders for each video
         for recording in self.sessions.values():
             for video in recording.values():
                 label_folder = label_path / video.stem
-                label_folder.mkdir(exist_ok=True)
+                label_folder.mkdir(parents=True, exist_ok=True)
 
     def _label_folder_paths(self):
         if self.model is None:
@@ -437,17 +412,19 @@ class Ch3DProject:
         if self.model is None:
             raise RuntimeError("Cannot import labels when pose model does not exist "
                                "(hint: maybe you forgot to set `model.name` in the config?")
-        self._create_labels()
-        label_paths = self._label_folder_paths()
-        self.model.import_c3d_labels(label_paths)
+        with FileLock(self.path / "labels.lock"):
+            self._create_labels()
+            label_paths = self._label_folder_paths()
+            self.model.import_c3d_labels(label_paths)
 
     def _export_labels(self):
         if self.model is None:
             raise RuntimeError("Cannot export labels when pose model does not exist "
                                "(hint: maybe you forgot to set `model.name` in the config?")
-        self._create_labels()
-        label_paths = self._label_folder_paths()
-        self.model.export_c3d_labels(label_paths)
+        with FileLock(self.path / "labels.lock"):
+            self._create_labels()
+            label_paths = self._label_folder_paths()
+            self.model.export_c3d_labels(label_paths)
 
     def extract_frames(self, sessions: Optional[List[RecordingKey]] = None, manual = False):
         self._import_labels()
@@ -491,92 +468,93 @@ class Ch3DProject:
         viewer.show(block=True)
         self._import_labels()
 
-    def train(self, gpu):
+    def train(self, gpu, iterate_dataset = True):
         self._import_labels()
         if self.model is None:
             raise RuntimeError("Cannot train model when pose model does not exist "
                                "(hint: maybe you forgot to set `model.name` in the config?")
-        self.model.train(gpu)
+        self.model.train(gpu, iterate_dataset)
 
     def _setup_anipose(self):
         if self.model is None:
             raise RuntimeError("Cannot setup triangulation when pose model does not exist "
                                "(hint: maybe you forgot to set `model.name` in the config?")
-        # make anipose project folder
-        self.triangulation_path.mkdir(exist_ok=True)
-        # create session subfolders
-        for recording, videos in self.sessions.items():
-            session_path = self.triangulation_path / recording.name
-            session_path.mkdir(exist_ok=True)
-            # add raw videos
-            videos_path = session_path / "videos-raw"
-            videos_path.mkdir(exist_ok=True)
-            for video in videos.values():
-                src = Path(video).resolve()
-                dst = videos_path / src.name
-                relpath = Path(os.path.relpath(src, videos_path.resolve()))
-                if dst.exists():
-                    os.remove(dst)
-                os.symlink(relpath, dst)
-            # add calibration
-            calibration_path = session_path / "calibration"
-            calibration_path.mkdir(exist_ok=True)
-            # add calibration files
-            cal_key = RecordingKey(recording.session, recording.name)
-            matches = [k for k in self.calibrations.keys() if cal_key.matches(k)]
-            if len(matches) == 0:
-                raise RuntimeError(f"No calibration found for {recording} when setting up triangulation")
-            for match in matches:
-                for video in self.calibrations[match].values():
+        with FileLock(self.path / "setup_anipose.lock"):
+            # make anipose project folder
+            self.triangulation_path.mkdir(exist_ok=True)
+            # create session subfolders
+            for recording, videos in self.sessions.items():
+                session_path = self.triangulation_path / recording.name
+                session_path.mkdir(exist_ok=True)
+                # add raw videos
+                videos_path = session_path / "videos-raw"
+                videos_path.mkdir(exist_ok=True)
+                for video in videos.values():
                     src = Path(video).resolve()
-                    dst = calibration_path / src.name
-                    relpath = Path(os.path.relpath(src, calibration_path.resolve()))
+                    dst = videos_path / src.name
+                    relpath = Path(os.path.relpath(src, videos_path.resolve()))
                     if dst.exists():
                         os.remove(dst)
                     os.symlink(relpath, dst)
-        # create anipose config file
-        kp_schema = keypoints_by_group(self.keypoints)
-        for group, kps in kp_schema.items():
-            if len(kps) > 2:
-                kp_schema[group].append(kps[0])
-        config = {
-            "project": self.name,
-            "model_folder": os.path.relpath(self.model.project_path, os.getcwd()),
-            "nesting": 1,
-            "pipeline": {"videos-raw": "videos-raw",},
-            "labeling": {
-                "scheme": list(kp_schema.values()),
-                "ignore": self.ignore_keypoint_labels
-            },
-            "filter": {
-                "enabled": self.triangulation.filter2d,
-                "type": "medfilt",
-                "medfilt": 13, # length of median filter
-                "offset_threshold": 5, # offset from median filter to count as jump
-                "score_threshold": 0.8, # score below which to count as bad
-                "spline": False, # interpolate using linearly instead of cubic spline
-            },
-            "calibration": {
-                "board_type": "charuco",
-                "board_size": [7, 7],
-                "board_marker_bits": 4,
-                "board_marker_dict_number": 50,
-                "board_marker_length": 4.5, # mm
-                "board_square_side_length": 6 # mm
-            },
-            "triangulation": {
-                "triangulate": True,
-                "cam_regex": f"({self.view_regex})",
-                "manually_verify": False,
-                "axes": self.triangulation.axes,
-                "reference_point": self.triangulation.ref_point,
-                "optim": True,
-                "score_threshold": self.triangulation.score_threshold,
-                "scale_smooth": 0.0,
+                # add calibration
+                calibration_path = session_path / "calibration"
+                calibration_path.mkdir(exist_ok=True)
+                # add calibration files
+                cal_key = RecordingKey(recording.session, recording.name)
+                matches = [k for k in self.calibrations.keys() if cal_key.matches(k)]
+                if len(matches) == 0:
+                    raise RuntimeError(f"No calibration found for {recording} when setting up triangulation")
+                for match in matches:
+                    for video in self.calibrations[match].values():
+                        src = Path(video).resolve()
+                        dst = calibration_path / src.name
+                        relpath = Path(os.path.relpath(src, calibration_path.resolve()))
+                        if dst.exists():
+                            os.remove(dst)
+                        os.symlink(relpath, dst)
+            # create anipose config file
+            kp_schema = keypoints_by_group(self.keypoints)
+            for group, kps in kp_schema.items():
+                if len(kps) > 2:
+                    kp_schema[group].append(kps[0])
+            config = {
+                "project": self.name,
+                "model_folder": os.path.relpath(self.model.project_path, os.getcwd()),
+                "nesting": 1,
+                "pipeline": {"videos-raw": "videos-raw",},
+                "labeling": {
+                    "scheme": list(kp_schema.values()),
+                    "ignore": self.ignore_keypoint_labels
+                },
+                "filter": {
+                    "enabled": self.triangulation.filter2d,
+                    "type": "medfilt",
+                    "medfilt": 13, # length of median filter
+                    "offset_threshold": 5, # offset from median filter to count as jump
+                    "score_threshold": 0.8, # score below which to count as bad
+                    "spline": False, # interpolate using linearly instead of cubic spline
+                },
+                "calibration": {
+                    "board_type": "charuco",
+                    "board_size": [7, 7],
+                    "board_marker_bits": 4,
+                    "board_marker_dict_number": 50,
+                    "board_marker_length": 4.5, # mm
+                    "board_square_side_length": 6 # mm
+                },
+                "triangulation": {
+                    "triangulate": True,
+                    "cam_regex": f"({self.view_regex})",
+                    "manually_verify": False,
+                    "axes": self.triangulation.axes,
+                    "reference_point": self.triangulation.ref_point,
+                    "optim": True,
+                    "score_threshold": self.triangulation.score_threshold,
+                    "scale_smooth": 0.0,
+                }
             }
-        }
-        with open(self.triangulation_path / "config.toml", "w") as f:
-            toml.dump(config, f)
+            with open(self.triangulation_path / "config.toml", "w") as f:
+                toml.dump(config, f)
 
     def _load_anipose_cfg(self):
         from anipose.anipose import load_config
@@ -584,26 +562,54 @@ class Ch3DProject:
 
         return load_config(str(self.triangulation_path / "config.toml"))
 
-    def calibrate(self):
-        from anipose.calibrate import calibrate_all
-        calibrate_all(self._load_anipose_cfg())
+    def _resolve_anipose_session(self, session: str) -> str:
+        session_path = self.triangulation_path / session
+        if not session_path.is_dir():
+            available = [p.name for p in self.triangulation_path.iterdir()
+                         if p.is_dir()] if self.triangulation_path.is_dir() else []
+            raise ValueError(
+                f"Session folder '{session}' not found in {self.triangulation_path}. "
+                f"Available sessions: {available}")
+        return str(session_path.resolve())
 
-    def track(self):
-        from anipose.pose_videos import pose_videos_all
-        pose_videos_all(self._load_anipose_cfg())
+    def calibrate(self, session: Optional[str] = None):
+        if session is not None:
+            from anipose.calibrate import process_session
+            config = self._load_anipose_cfg()
+            process_session(config, self._resolve_anipose_session(session))
+        else:
+            from anipose.calibrate import calibrate_all
+            calibrate_all(self._load_anipose_cfg())
 
-    def triangulate(self):
+    def track(self, session: Optional[str] = None):
+        if session is not None:
+            from anipose.pose_videos import process_session
+            config = self._load_anipose_cfg()
+            process_session(config, self._resolve_anipose_session(session))
+        else:
+            from anipose.pose_videos import pose_videos_all
+            pose_videos_all(self._load_anipose_cfg())
+
+    def triangulate(self, session: Optional[str] = None):
         # first triangulate points using Anipose
-        from anipose.triangulate import triangulate_all
-        triangulate_all(self._load_anipose_cfg())
+        if session is not None:
+            from anipose.triangulate import process_session
+            config = self._load_anipose_cfg()
+            process_session(config, self._resolve_anipose_session(session))
+            sessions_to_process = [self.triangulation_path / session]
+        else:
+            from anipose.triangulate import triangulate_all
+            triangulate_all(self._load_anipose_cfg())
+            sessions_to_process = [s for s in self.triangulation_path.iterdir()
+                                   if s.is_dir()]
         # now compute cheese3d features
         exclude_kps = set(kp.label for kp in _DEFAULT_KEYPOINTS) - set(kp.label for kp in self.keypoints)
         if len(exclude_kps) > 0:
             rprint("[bold red]Keypoint configuration does not match default Cheese3D keypoints. "
                    "Some Cheese3D features may not be computed![/bold red]")
-        for session in self.triangulation_path.iterdir():
-            if session.is_dir():
-                landmarks = read_3d_data(session)
+        for session_dir in sessions_to_process:
+            if session_dir.is_dir():
+                landmarks = read_3d_data(session_dir)
                 c3d_features = compute_anatomical_measurements(landmarks, exclude_kps)
                 # write features to csv
                 c3d_features_df = pd.DataFrame({
@@ -612,9 +618,9 @@ class Ch3DProject:
                     for k, v in features.items()
                 })
                 if len(c3d_features_df) == 0:
-                    rprint(f"[bold red]No features constructed for {session.name}, skipping![/bold red]")
+                    rprint(f"[bold red]No features constructed for {session_dir.name}, skipping![/bold red]")
                     continue
-                csv_output = (session / "cheese3d")
+                csv_output = (session_dir / "cheese3d")
                 csv_output.mkdir(exist_ok=True)
                 csv_output = csv_output / "cheese3d_features.csv"
                 if not csv_output.exists():
@@ -683,7 +689,7 @@ class Ch3DProject:
                     return None
                 else:
                     return x
-            tar.add(self.path, filter=_filter)
+            tar.add(self.path, arcname=self.name, filter=_filter)
             config = OmegaConf.load(self.path / "config.yaml")
             def _resolve_symlinks(x: tarfile.TarInfo):
                 if x.islnk():
@@ -696,44 +702,105 @@ class Ch3DProject:
                     return new_info
                 else:
                     return x
-            def _replace_root(x: tarfile.TarInfo, root: Path):
-                x.name = str(root / Path(x.name).name)
+            def _replace_root(x: tarfile.TarInfo, rel_root: Path):
+                # x.name now is relative like "project/path/to/file.txt"
+                # We want it to be like "project/videos/session1/file.txt"
+                name_parts = Path(x.name).parts
+                if name_parts and name_parts[0] == self.name:
+                    # Strip project prefix and rebuild relative path
+                    filename = name_parts[-1]  # Just the filename
+                    x.name = str(rel_root / filename)
                 return x
             if not skip_source and is_subpath(self.recording_path, start=self.path):
                 if portable:
-                    tar.add(self.recording_path, filter=_resolve_symlinks)
+                    tar.add(self.recording_path, arcname=f"{self.name}/{self.video_root}",
+                            filter=_resolve_symlinks)
                 else:
-                    tar.add(self.recording_path)
+                    tar.add(self.recording_path, arcname=f"{self.name}/{self.video_root}")
             elif not skip_source and portable:
                 config["video_root"] = "videos" # type: ignore
                 for session in self.sessions.values():
                     for recording in session.values():
-                        new_root = self.path / "videos" / recording.parent.name
-                        tar.add(recording, filter=(lambda x: _replace_root(x, new_root)))
+                        rel_root = Path(self.name) / "videos" / recording.parent.name
+                        tar.add(recording, filter=(lambda x: _replace_root(x, rel_root)))
                 for session in self.calibrations.values():
                     for recording in session.values():
-                        new_root = self.path / "videos" / recording.parent.name
-                        tar.add(recording, filter=(lambda x: _replace_root(x, new_root)))
+                        rel_root = Path(self.name) / "videos" / recording.parent.name
+                        tar.add(recording, filter=(lambda x: _replace_root(x, rel_root)))
             if is_subpath(self.model_path, start=self.path):
-                tar.add(self.model_path)
+                tar.add(self.model_path, arcname=f"{self.name}/{self.model_root}")
             elif portable:
                 config["model_root"] = "models" # type: ignore
-                new_root = self.path / "models"
                 for path in self.model_path.iterdir():
-                    tar.add(path, filter=(lambda x: _replace_root(x, new_root)))
+                    rel_root = Path(self.name) / "models"
+                    tar.add(path, filter=(lambda x: _replace_root(x, rel_root)))
             if self.ephys_path:
+                ephys_root_rel = self.ephys_root.name if isinstance(self.ephys_root, Path) else self.ephys_root
                 if not skip_source and is_subpath(self.ephys_path, start=self.path):
                     if portable:
-                        tar.add(self.ephys_path, filter=_resolve_symlinks)
+                        tar.add(self.ephys_path, arcname=f"{self.name}/{ephys_root_rel}",
+                                filter=_resolve_symlinks)
                     else:
-                        tar.add(self.ephys_path)
+                        tar.add(self.ephys_path, arcname=f"{self.name}/{ephys_root_rel}")
                 elif not skip_source and portable:
                     config["ephys_root"] = "ephys" # type: ignore
                     for recording in self.ephys_sessions.values(): # type: ignore
-                        new_root = self.path / "ephys" / recording.parent.name
-                        tar.add(recording, filter=(lambda x: _replace_root(x, new_root)))
+                        rel_root = Path(self.name) / "ephys" / recording.parent.name
+                        tar.add(recording, filter=(lambda x: _replace_root(x, rel_root)))
             yaml_str = OmegaConf.to_yaml(config)
             yaml_bytes = yaml_str.encode("utf-8")
-            tarinfo = tarfile.TarInfo(str(self.path / "config.yaml"))
+            arcname_config = f"{self.name}/config.yaml"
+            tarinfo = tarfile.TarInfo(arcname_config)
             tarinfo.size = len(yaml_bytes)
             tar.addfile(tarinfo, fileobj=io.BytesIO(yaml_bytes))
+
+    def restore(self, checkpoint_path, skip_source=False, portable=False):
+        rprint("Restoring project from checkpoint (this may take several minutes)...")
+        checkpoint_file = Path(checkpoint_path)
+        if not checkpoint_file.exists():
+            raise FileNotFoundError(f"Checkpoint file not found: {checkpoint_file}")
+        # Read config from checkpoint first to get video_root/ephys_root values
+        video_root_chk = None
+        ephys_root_chk = None
+        with tempfile.NamedTemporaryFile(mode='wb', suffix='.yaml', delete=False) as tmp_config:
+            tmp_config_path = Path(tmp_config.name)
+        try:
+            with tarfile.open(checkpoint_file, "r:xz") as tar:
+                config_member = None
+                for member in tar.getmembers():
+                    if member.name.endswith("config.yaml"):
+                        config_member = member
+                        break
+                if config_member:
+                    config_data = tar.extractfile(config_member)
+                    if config_data:
+                        tmp_config_path.write_bytes(config_data.read())
+                        config = ProjectConfig.load(tmp_config_path, cfg_dir=None, overrides=None)
+                        video_root_chk = config.video_root
+                        ephys_root_chk = config.ephys_root
+        finally:
+            if tmp_config_path.exists():
+                tmp_config_path.unlink()
+        def should_extract(name):
+            if name.endswith("config.yaml"):
+                return True
+            if name.endswith("/"):
+                return True
+            path_parts = Path(name).parts
+            if "checkpoints" in path_parts:
+                return False
+            if skip_source:
+                if video_root_chk and (video_root_chk in path_parts):
+                    return False
+                if ephys_root_chk and (ephys_root_chk in path_parts):
+                    return False
+            return True
+        def extract_filter(members):
+            for member in members:
+                if should_extract(member.name):
+                    yield member
+        # Create project directory if it doesn't exist
+        self.path.mkdir(parents=True, exist_ok=True)
+        with tarfile.open(checkpoint_file, "r:xz") as tar:
+            for member in extract_filter(tar.getmembers()):
+                tar.extract(member, path=self.root)

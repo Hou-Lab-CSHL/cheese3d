@@ -10,17 +10,21 @@ dev = { features = ["dev"] }
 [tasks]
 docs = "cd docs && pixi run -e docs sphinx-build -b html source _build/html"
 docs-serve = "cd docs && pixi run -e docs sphinx-autobuild --port 8090 -b html source _build/html"
+test = "cd packages/cheese3d && pixi run -e dev pytest"
+test-unit = "cd packages/cheese3d && pixi run -e dev pytest -m unit"
+test-integration = "cd packages/cheese3d && pixi run -e dev pytest -m integration"
+test-cov = "cd packages/cheese3d && pixi run -e dev pytest --cov=cheese3d --cov-report=html"
 
 [activation.env]
 LD_LIBRARY_PATH = "$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
 PYTHONNOUSERSITE = "1"
 
 [dependencies]
-python = "3.10.*"
+python = "3.11.*"
 c-compiler = "*"
 cxx-compiler = "*"
-ffmpeg = "==4.4.1"
-av = "==9.2.0"
+ffmpeg = ">=5.1.2"
+av = ">=10.0.0"
 pillow = ">=9.0.0"
 
 [pypi-dependencies]
@@ -32,7 +36,7 @@ cudatoolkit = "11.7.*"
 cudnn = "8.*"
 
 [target.osx-arm64.dependencies]
-tensorflow-deps = "*"
+# tensorflow-deps = "*"
 hdf5 = "*"
 pytables = "*"
 
@@ -47,3 +51,5 @@ sphinxemoji = ">=0.3.1,<0.4"
 
 [feature.dev.pypi-dependencies]
 textual-dev = "*"
+pytest = ">=7.4.0,<9.0.0"
+pytest-cov = ">=4.1.0,<6.0.0"

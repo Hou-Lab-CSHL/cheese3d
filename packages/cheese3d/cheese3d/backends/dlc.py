@@ -1,4 +1,3 @@
-from IPython.utils.tests.test_wildcard import root
 import os
 import shutil
 import yaml
@@ -24,7 +23,8 @@ class DLCBackend(Pose2dBackend):
                  frames_per_video: int = 5):
         super().__init__()
         self.name = name
-        self.root_dir = root_dir
+        self.root_dir = root_dir.absolute()
+        self.root_dir.mkdir(parents=True, exist_ok=True)
         self.experimenter = experimenter
         self.date = maybe(date, datetime.now().strftime("%Y-%m-%d"))
         self.videos = videos
@@ -98,7 +98,7 @@ class DLCBackend(Pose2dBackend):
         dlc.create_new_project(
             project=self.name,
             experimenter=self.experimenter,
-            working_directory=self.root_dir,
+            working_directory=str(self.root_dir.absolute()),
             videos=self.videos,
             copy_videos=False
         )
@@ -106,6 +106,7 @@ class DLCBackend(Pose2dBackend):
     def overwrite_config(self):
         # load dlc config file
         dlc_config = OmegaConf.load(self.config_path)
+        dlc_config.project_path = str(self.project_path.absolute())
         # overwrite videos
         videos = {}
         for (video, crop) in zip(self.videos, self.crops):
@@ -142,60 +143,61 @@ class DLCBackend(Pose2dBackend):
     def import_c3d_labels(self, videos: Dict[str, Path]):
         for name, path in videos.items():
             label_folder = self.project_path / "labeled-data" / name
-            if label_folder.exists():
-                images = reglob(r".*\.png", str(path))
-                for image in images:
-                    src_image = Path(image)
-                    dst_image = label_folder / src_image.name
-                    if dst_image.exists():
-                        os.remove(dst_image)
-                    relpath = os.path.relpath(src_image, label_folder)
-                    os.symlink(relpath, dst_image)
-                annotations_yaml = path / "annotations.yaml"
-                hdf = label_folder / f"CollectedData_{self.experimenter}.h5"
-                csv = label_folder / f"CollectedData_{self.experimenter}.csv"
-                if annotations_yaml.exists():
-                    with open(annotations_yaml, "r") as f:
-                        annotations = yaml.safe_load(f)
-                    data_dict = {}
-                    for kp, files in annotations.items():
-                        for file, coords in files.items():
-                            # create index for this row
-                            idx = ('labeled-data', str(label_folder.name), file)
-                            # get x and y coordinates (could be null/None)
-                            x_coord = coords[0][0]
-                            y_coord = coords[0][1]
-                            # create column keys for x and y
-                            x_col = (self.experimenter, kp, 'x')
-                            y_col = (self.experimenter, kp, 'y')
-                            # store in data dictionary
-                            if idx not in data_dict:
-                                data_dict[idx] = {}
-                            data_dict[idx][x_col] = x_coord
-                            data_dict[idx][y_col] = y_coord
-                    # convert to dataframe
-                    index = pd.MultiIndex.from_tuples(list(data_dict.keys()))
-                    columns = pd.MultiIndex.from_tuples(
-                        [(self.experimenter, bp, coord)
-                         for bp in annotations.keys()
-                         for coord in ['x', 'y']],
-                        names=["scorer", "bodyparts", "coords"]
-                    )
-                    # create empty df with the right structure
-                    df = pd.DataFrame(index=index, columns=columns)
-                    # fill in the values
-                    for idx, values in data_dict.items():
-                        for col, val in values.items():
-                            df.loc[idx, col] = val
-                    # convert to float (this will convert None/null to NaN)
-                    df = df.astype(float)
-                    # write dataframe to disk
-                    if hdf.exists():
-                        os.remove(hdf)
-                    df.to_hdf(hdf, key="df", mode="w")
-                    if csv.exists():
-                        os.remove(csv)
-                    df.to_csv(csv)
+            if not label_folder.exists():
+                label_folder.mkdir(exist_ok=True, parents=True)
+            images = reglob(r".*\.png", str(path))
+            for image in images:
+                src_image = Path(image)
+                dst_image = label_folder / src_image.name
+                if dst_image.exists():
+                    os.remove(dst_image)
+                relpath = os.path.relpath(src_image, label_folder)
+                os.symlink(relpath, dst_image)
+            annotations_yaml = path / "annotations.yaml"
+            hdf = label_folder / f"CollectedData_{self.experimenter}.h5"
+            csv = label_folder / f"CollectedData_{self.experimenter}.csv"
+            if annotations_yaml.exists():
+                with open(annotations_yaml, "r") as f:
+                    annotations = yaml.safe_load(f)
+                data_dict = {}
+                for kp, files in annotations.items():
+                    for file, coords in files.items():
+                        # create index for this row
+                        idx = ('labeled-data', str(label_folder.name), file)
+                        # get x and y coordinates (could be null/None)
+                        x_coord = coords[0][0]
+                        y_coord = coords[0][1]
+                        # create column keys for x and y
+                        x_col = (self.experimenter, kp, 'x')
+                        y_col = (self.experimenter, kp, 'y')
+                        # store in data dictionary
+                        if idx not in data_dict:
+                            data_dict[idx] = {}
+                        data_dict[idx][x_col] = x_coord
+                        data_dict[idx][y_col] = y_coord
+                # convert to dataframe
+                index = pd.MultiIndex.from_tuples(list(data_dict.keys()))
+                columns = pd.MultiIndex.from_tuples(
+                    [(self.experimenter, bp, coord)
+                     for bp in annotations.keys()
+                     for coord in ['x', 'y']],
+                    names=["scorer", "bodyparts", "coords"]
+                )
+                # create empty df with the right structure
+                df = pd.DataFrame(index=index, columns=columns)
+                # fill in the values
+                for idx, values in data_dict.items():
+                    for col, val in values.items():
+                        df.loc[idx, col] = val
+                # convert to float (this will convert None/null to NaN)
+                df = df.astype(float)
+                # write dataframe to disk
+                if hdf.exists():
+                    os.remove(hdf)
+                df.to_hdf(hdf, key="df", mode="w")
+                if csv.exists():
+                    os.remove(csv)
+                df.to_csv(csv)
 
     def export_c3d_labels(self, videos: Dict[str, Path]):
         for name, path in videos.items():
@@ -236,10 +238,10 @@ class DLCBackend(Pose2dBackend):
                            crop=True,
                            videos_list=videos_list)
 
-    def train(self, gpu):
+    def train(self, gpu, iterate_dataset: bool = True):
         import deeplabcut as dlc
         training_datasets = reglob("iteration-[0-9]+", path=str(self.project_path / "training-datasets"))
-        if len(training_datasets) > 0:
+        if iterate_dataset and len(training_datasets) > 0:
             dlc.merge_datasets(config=self.config_path)
         dlc.create_training_dataset(config=self.config_path,
                                     userfeedback=False,

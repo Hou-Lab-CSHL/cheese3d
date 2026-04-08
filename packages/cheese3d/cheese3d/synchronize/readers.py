@@ -36,7 +36,7 @@ class SyncSignalReader:
                                   "Instead, inherit from this class to implement "
                                   "a specific sync signal source.")
 
-    def root_path(self):
+    def root_path(self) -> Path:
         raise NotImplementedError("Attempt to use SyncSignalReader directly. "
                                   "Instead, inherit from this class to implement "
                                   "a specific sync signal source.")
@@ -50,6 +50,7 @@ class VideoSyncReader(SyncSignalReader):
     - `crop`: Tuple of (left, right, top, bottom) coordinates for cropping.
     """
     crop: BoundingBox = field(default_factory=lambda: [None, None, None, None])
+    peak_algorithm: str = "dynamic"
 
     def load_signal(self):
         print(self.source)
@@ -65,7 +66,7 @@ class VideoSyncReader(SyncSignalReader):
         min_brightness = bin_edges[np.argmax(hist) + 1]
         brightness = brightness - min_brightness
         nz_brightness = brightness[brightness > 2]
-        if len(nz_brightness) > 0:
+        if (self.peak_algorithm == "dynamic") and (len(nz_brightness) > 0):
             mid = np.percentile(nz_brightness, 75)
             # q3 = np.percentile(nz_brightness, 75)
             # iqr = q3 - q1
@@ -87,6 +88,7 @@ class VideoSyncReader(SyncSignalReader):
 
         fig, ax = plt.subplots(figsize=(8, 6))
         ax.plot(brightness)
+        ax.axhline(peak_brightness, color='k', linestyle='--')
         ax.axhline(led_threshold, color='r', linestyle='--')
         ax.set_title("LED BBox Brightness")
         fig.savefig(f"{video.path.rstrip('.avi')}-qc-brightness.png", bbox_inches="tight")
@@ -171,7 +173,7 @@ class DSISyncReader(SyncSignalReader):
         led_df = pd.read_csv(self.source, sep="\t", names=["timestamp", "signal"])
         analog_signal = led_df["signal"].values
         threshold = maybe(self.threshold, 0.1)
-        analog_signal = np.where(analog_signal > threshold, 1, 0) # type: ignore
+        analog_signal = np.where(analog_signal > threshold, 1, 0)
 
         return analog_signal
 

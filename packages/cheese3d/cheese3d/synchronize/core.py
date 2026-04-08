@@ -3,21 +3,23 @@ import logging
 import numpy as np
 import matplotlib.pyplot as plt
 from dataclasses import dataclass
-from typing import List
+from typing import List, Tuple, Dict, Any
+from pathlib import Path
 
 from cheese3d.synchronize.aligners import (BaseAligner,
                                            CrossCorrelationAligner,
                                            RegressionAligner,
                                            SampleRateAligner,
                                            AlignmentParams)
-from cheese3d.synchronize.readers import SyncSignalReader
+from cheese3d.synchronize.readers import SyncSignalReader, VideoSyncReader, get_ephys_reader
 from cheese3d.synchronize.utils import get_time_points
-from cheese3d.utils import maybe
+from cheese3d.utils import maybe, BoundingBox, synchronize_video_ffmpeg
 
 @dataclass
 class SyncConfig:
     pipeline: List[str]
     led_threshold: float = 0.9
+    led_peak_algorithm: str = "dynamic"
     max_regression_rmse: float = 1e-2
     ref_view: str = "bottomcenter"
     ref_crop: str = "default"
@@ -223,3 +225,54 @@ class SyncPipeline:
         aligner_path = f"{self.target.root_path()}.align.json"
         with open(aligner_path, "w") as outfile:
             json.dump(params_json, outfile)
+
+def synchronize_videos(pipeline_cfg: SyncConfig,
+                       reference: Tuple[Path, BoundingBox],
+                       videos: Dict[str, Tuple[Path, BoundingBox]],
+                       fps: int = 100):
+    # run video synchronization first
+    ref_video, ref_crop = reference
+    ref_reader = VideoSyncReader(source=ref_video,
+                                 sample_rate=fps,
+                                 threshold=pipeline_cfg.led_threshold,
+                                 peak_algorithm=pipeline_cfg.led_peak_algorithm,
+                                 crop=ref_crop)
+    align_params = {"ref": (ref_video, 0, fps)}
+    for view, (video, crop) in videos.items():
+        target_reader = VideoSyncReader(source=video,
+                                        sample_rate=fps,
+                                        threshold=pipeline_cfg.led_threshold,
+                                        peak_algorithm=pipeline_cfg.led_peak_algorithm,
+                                        crop=crop)
+        pipeline = SyncPipeline.from_cfg(pipeline_cfg, ref_reader, target_reader)
+        target_path = pipeline.target.root_path()
+        if target_path.with_suffix(".align.json").exists():
+            print(f"alignment file exists, skipping {str(target_path)}...")
+        else:
+            align_param = pipeline.align_recording()
+            pipeline.write_json(align_param)
+            frame_lag = int(round(maybe(align_param.lag, 0), 2) * align_param.sample_rate)
+            align_params[view] = (video, frame_lag, align_param.sample_rate)
+    ref_lag = min(-lag for _, lag, _ in align_params.values())
+    for video, lag, view_fps in align_params.values():
+        shift = -lag - ref_lag
+        if view_fps != fps:
+            synchronize_video_ffmpeg([str(video)], start_offset=shift, fps=fps)
+        else:
+            synchronize_video_ffmpeg([str(video)], start_offset=shift)
+
+def synchronize_ephys(pipeline_cfg: SyncConfig,
+                      reference: Tuple[Path, BoundingBox],
+                      ephys_path: Path,
+                      ephys_params: Dict[str, Any],
+                      fps: int = 100):
+    ref_video, ref_crop = reference
+    video_reader = VideoSyncReader(source=ref_video,
+                                   sample_rate=fps,
+                                   threshold=pipeline_cfg.led_threshold,
+                                   peak_algorithm=pipeline_cfg.led_peak_algorithm,
+                                   crop=ref_crop)
+    ephys_reader = get_ephys_reader(ephys_path, ephys_params)
+    pipeline = SyncPipeline.from_cfg(pipeline_cfg, video_reader, ephys_reader)
+    align_params = pipeline.align_recording()
+    pipeline.write_json(align_params)
