@@ -36,7 +36,6 @@ cudatoolkit = "11.7.*"
 cudnn = "8.*"
 
 [target.osx-arm64.dependencies]
-# tensorflow-deps = "*"
 hdf5 = "*"
 pytables = "*"
 
