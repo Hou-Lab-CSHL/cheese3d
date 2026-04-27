@@ -6,16 +6,18 @@
 
 Cheese3D is a pipeline for tracking mouse facial movements built on top of existing tools ([DeepLabCut](https://github.com/DeepLabCut/DeepLabCut) and [Anipose](https://github.com/lambdaloop/anipose)). By tracking anatomically-informed keypoints using multiple cameras registered in 3D, our pipeline produces sensitive, high-precision facial movement data that can be related internal state (e.g., electrophysiology).
 
+**NEW!** Check out the [Cheese3D paper](https://www.nature.com/articles/s41593-026-02262-8). 
+
 <p align="center">
-   <img src="docs/source/_static/Cheese3D.gif" alt="Animation of Cheese3D pipeline", width=60%>
-   <img src="docs/source/_static/Cheese3DIcon.png" alt="Animation of Cheese3D pipeline", width=34%>
+   <img src="docs/source/_static/Cheese3D.gif" alt="Animation of Cheese3D pipeline" style="height:300px; width:auto;">
+   <img src="docs/source/_static/Cheese3DIcon.png" alt="Cheese3D icon" style="height:300px; width:auto;">
 </p>
 
 Cheese3D output can be visualized interactively.
 
 <p align="center">
    <img src="docs/source/_static/Cheese3DVisualizer.gif" alt="Animation of Cheese3D visualizer", width=49%>
-   <img src="docs/source/_static/Cheese3DVisualizerStatic.png" alt="Animation of Cheese3D visualizer", width=49%>
+   <img src="docs/source/_static/Cheese3DVisualizerStatic.png" alt="Static view of Cheese3D visualizer", width=49%>
 </p>
 
 Using a combination of hardware synchronization signals and a multi-stage pipeline, we are able to precisely synchronize video and electrophysiology data. This allows us to relate spikes recorded in the brainstem to various facial movements (here, we highlight two example units correlated with ipsilateral ear movements).
@@ -24,18 +26,16 @@ Using a combination of hardware synchronization signals and a multi-stage pipeli
 
 ![](docs/source/_static/Cheese3DSync.png)
 
- If you use Cheese3D, please cite our preprint:
+If you use Cheese3D, please cite our [manuscript](https://www.nature.com/articles/s41593-026-02262-8):
 ```
-@article {Daruwalla2024.05.07.593051,
- 	author = {Daruwalla, Kyle and Martin, Irene Nozal and Zhang, Linghua and Nagli{\v c}, Diana and Frankel, Andrew and Rasgaitis, Catherine and Zhang, Xinyan and Ahmad, Zainab and Borniger, Jeremy C. and Hou, Xun Helen},
- 	title = {Cheese3D: Sensitive Detection and Analysis of Whole-Face Movement in Mice},
- 	elocation-id = {2024.05.07.593051},
- 	year = {2025},
- 	doi = {10.1101/2024.05.07.593051},
- 	publisher = {Cold Spring Harbor Laboratory},
- 	URL = {https://www.biorxiv.org/content/early/2025/03/01/2024.05.07.593051},
- 	eprint = {https://www.biorxiv.org/content/early/2025/03/01/2024.05.07.593051.full.pdf},
- 	journal = {bioRxiv}
+@article{Daruwalla2026cheese3d,
+  author    = {Daruwalla, Kyle and Nozal Martin, Irene and Zhang, Linghua and Nagli{\v{c}}, Diana and Frankel, Andrew and Rasgaitis, Catherine and Zhao, Rubin and Zhang, Xinyan and Ahmad, Zainab and Borniger, Jeremy C. and Hou, Xun Helen},
+  title     = {Cheese3D enables sensitive detection and analysis of whole-face movement in mice},
+  journal   = {Nature Neuroscience},
+  year      = {2026},
+  doi       = {10.1038/s41593-026-02262-8},
+  publisher = {Springer Nature},
+  URL       = {https://www.nature.com/articles/s41593-026-02262-8}
 }
 ```
 
@@ -54,7 +54,7 @@ The following notebooks contain the code required to reproduce the figures in ou
 | <img src="paper/Fig4-2Example.png" width=200> | `paper/fig4-part2-consummatory-behavior.ipynb` | Changes in consummatory behavior measured by Cheese3D features |
 | <img src="paper/Fig5-1Example.png" width=200> | `paper/fig5-part1-cheese3d-stimulation-triggered-movement.ipynb` | Stimulation triggered facial movements in anesthetized mice |
 | <img src="paper/Fig5-2Example.png" width=200> | `paper/fig5-part2-cheese3d-synchronized-electrophysiology.ipynb` | Synchronized Cheese3D with electrophysiology relates motor control activity to subtle facial movements |
-| <img src="Fig5-3Example.png" width=200> | `paper/fig5-part3-prediction-of-neural-activity-from-cheese3d.ipynb` | Predicting neural activity of brainstem units from single facial features |
+| <img src="paper/Fig5-3Example.png" width=200> | `paper/fig5-part3-prediction-of-neural-activity-from-cheese3d.ipynb` | Predicting neural activity of brainstem units from single facial features |
 
 ## System Requirements
 
