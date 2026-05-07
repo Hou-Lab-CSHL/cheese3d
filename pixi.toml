@@ -48,13 +48,16 @@ LD_LIBRARY_PATH = "$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
 PYTHONNOUSERSITE = "1"
 
 [dependencies]
-python = "3.11.*"
+python = "3.10.*"
 uv = ">=0.11.11,<0.12"
 c-compiler = "*"
 cxx-compiler = "*"
 ffmpeg = ">=5.1.2"
 av = ">=10.0.0"
 pillow = ">=9.0.0"
+
+[constraints]
+numpy = "<2.0.0"
 
 [pypi-dependencies]
 cheese3d_annotator = { path = "packages/cheese3d-annotator", editable = true }
@@ -63,10 +66,6 @@ cheese3d = { path = "packages/cheese3d", editable = true }
 [target.linux-64.dependencies]
 cudatoolkit = "11.7.*"
 cudnn = "8.*"
-
-[target.osx-arm64.dependencies]
-hdf5 = "*"
-pytables = "*"
 
 [feature.docs.pypi-dependencies]
 sphinx = ">=7.2.0,<8.0.0"
