@@ -58,18 +58,17 @@ class VideoFrames:
 
     @contextmanager
     def opencv_capture(self):
-        cap = cv2.VideoCapture(self.path) # type: ignore
+        cap = cv2.VideoCapture(self.path)
         try:
             yield cap
         finally:
             cap.release()
-            cv2.destroyAllWindows() # type: ignore
 
     def __iter__(self):
         # use opencv for faster iteration
         sx, ex, sy, ey = self.bounds
         with self.opencv_capture() as video:
-            video.set(cv2.CAP_PROP_POS_FRAMES, max(self.shift, 0)) # type: ignore
+            video.set(cv2.CAP_PROP_POS_FRAMES, max(self.shift, 0))
             for _ in range(len(self)):
                 ret, frame = video.read()
                 if ret:
@@ -82,9 +81,9 @@ class VideoFrames:
 
     @staticmethod
     def get_dims(path: str | Path):
-        cap = cv2.VideoCapture(str(path)) # type: ignore
-        height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT) # type: ignore
-        width = cap.get(cv2.CAP_PROP_FRAME_WIDTH) # type: ignore
+        cap = cv2.VideoCapture(str(path))
+        height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+        width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
         cap.release()
 
         return height, width
