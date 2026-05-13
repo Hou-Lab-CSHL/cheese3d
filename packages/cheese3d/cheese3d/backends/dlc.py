@@ -250,5 +250,4 @@ class DLCBackend(Pose2dBackend):
         dlc.train_network(config=self.config_path,
                           gputouse=gpu)
         dlc.evaluate_network(config=self.config_path,
-                             gputouse=gpu,
-                             per_keypoint_evaluation=True)
+                             gputouse=gpu)

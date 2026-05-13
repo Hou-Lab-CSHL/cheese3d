@@ -607,9 +607,13 @@ class Ch3DProject:
         if len(exclude_kps) > 0:
             rprint("[bold red]Keypoint configuration does not match default Cheese3D keypoints. "
                    "Some Cheese3D features may not be computed![/bold red]")
+        rprint("Generating Cheese3d features ...")
         for session_dir in sessions_to_process:
             if session_dir.is_dir():
                 landmarks = read_3d_data(session_dir)
+                if landmarks is None:
+                    rprint(f"[bold red]No landmarks found for {session_dir.name}, skipping![/bold red]")
+                    continue
                 c3d_features = compute_anatomical_measurements(landmarks, exclude_kps)
                 # write features to csv
                 c3d_features_df = pd.DataFrame({

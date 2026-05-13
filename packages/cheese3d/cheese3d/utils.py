@@ -185,6 +185,8 @@ def read_3d_data(data_dir: str | Path, extra_cols = None):
     to arrays of shape `(time,)`.
     """
     files = glob(str(Path(data_dir) / "pose-3d" / "*.csv"))
+    if len(files) == 0:
+        return None
     data = pd.read_csv(files[0])
     cols = data.head() # name of all the columns
     landmark_names = np.unique([s.split('_')[0]
