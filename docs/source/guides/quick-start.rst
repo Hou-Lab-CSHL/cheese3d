@@ -51,6 +51,10 @@ A Cheese3D project (by default) is self-contained in a folder with the same name
 
     Store all your Cheese3D projects in a single directory to keep them organized in one place!
 
+.. seealso::
+
+    For a deeper look at the project layout --- including how videos and ephys files are organized per session, how to share models between projects, and how to back projects up --- see :doc:`/guides/organizing-projects`.
+
 .. _create_new_project:
 Creating a new project
 ----------------------

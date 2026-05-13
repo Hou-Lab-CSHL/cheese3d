@@ -46,6 +46,7 @@ If you use Cheese3D, please cite our paper:
 
     guides/installation
     guides/quick-start
+    guides/organizing-projects
     guides/hardware
 
 .. toctree::
