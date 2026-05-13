@@ -397,6 +397,8 @@ restore
 
 Restore a project from a checkpoint archive.
 
+This command accepts the :ref:`common arguments <reference/cli:Global options and arguments>`.
+
 .. list-table:: ``restore`` arguments
     :header-rows: 1
 
@@ -408,14 +410,6 @@ Restore a project from a checkpoint archive.
       - ``str``
       - N/A
       - Path to checkpoint archive.
-    * - ``NAME``
-      - ``str``
-      - ``"."``
-      - Name of the project.
-    * - ``CONFIG_OVERRIDES``
-      - ``Optional[List[str]]``
-      - ``None``
-      - Config overrides passed to Hydra.
 
 .. list-table:: ``restore`` options
     :header-rows: 1
