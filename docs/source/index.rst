@@ -53,8 +53,9 @@ If you use Cheese3D, please cite our paper:
     :maxdepth: 2
     :caption: How-to examples
 
-    howto/regex
     howto/sync
+    howto/regex
+    howto/backups
 
 .. toctree::
     :maxdepth: 2

@@ -305,10 +305,6 @@ def restore(
         "--skip-source",
         help="Skip recording directory when extracting archive."
     )] = False,
-    portable: Annotated[bool, typer.Option(
-        "--portable",
-        help="The archive was created with portable mode. No-op flag for API compatibility."
-    )] = False,
     config_overrides: Annotated[Optional[List[str]], typer.Argument(
         help="Config overrides passed to Hydra (https://hydra.cc/docs/intro/)"
     )] = None
@@ -317,5 +313,5 @@ def restore(
     path = ctx.obj["path"]
     configs = ctx.obj["configs"]
     project = _build_project(path, name, configs, config_overrides)
-    project.restore(checkpoint_file, skip_source, portable)
+    project.restore(checkpoint_file, skip_source)
     rich.print("Restore complete :white_check_mark:")

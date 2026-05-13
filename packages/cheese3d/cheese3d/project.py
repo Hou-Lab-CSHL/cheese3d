@@ -758,7 +758,7 @@ class Ch3DProject:
             tarinfo.size = len(yaml_bytes)
             tar.addfile(tarinfo, fileobj=io.BytesIO(yaml_bytes))
 
-    def restore(self, checkpoint_path, skip_source=False, portable=False):
+    def restore(self, checkpoint_path, skip_source = False):
         rprint("Restoring project from checkpoint (this may take several minutes)...")
         checkpoint_file = Path(checkpoint_path)
         if not checkpoint_file.exists():
