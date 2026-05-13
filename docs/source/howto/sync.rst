@@ -77,9 +77,9 @@ Synchronizing ephys data
 
 To synchronize an ephys recording with the videos, fill in both the ``ephys_root`` and ``ephys_param`` keys in :ref:`main_config_ref`. Cheese3D currently supports three systems out of the box:
 
-* `Allego <https://neuronexus.com/products/data-acquisition-systems/allego-software/>`__ (``type: allego``)
+* `Allego <https://www.neuronexus.com/products/software/radiens/>`__ (``type: allego``)
 * `Open Ephys <https://open-ephys.org/gui>`__ (``type: openephys``)
-* `DSI <https://www.dsiplus.com/>`__ (``type: dsi``)
+* `DSI <https://www.datasci.com/products/software/ponemah>`__ (``type: dsi``)
 
 See :ref:`reference/configuration:Ephys options` for the parameters available for each system. The key things to set are:
 
