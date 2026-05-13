@@ -26,7 +26,6 @@ Using a combination of hardware synchronization signals and a multi-stage pipeli
 .. image:: /_static/Cheese3DSync.png
 
 |
-If you use Cheese3D, please cite our preprint:
 If you use Cheese3D, please cite our paper:
 
 .. code-block:: bibtex
@@ -46,8 +45,8 @@ If you use Cheese3D, please cite our paper:
     :caption: Guides
 
     guides/installation
-    guides/hardware
     guides/quick-start
+    guides/hardware
 
 .. toctree::
     :maxdepth: 2
@@ -60,6 +59,7 @@ If you use Cheese3D, please cite our paper:
     :caption: Reference
 
     reference/configuration
+    reference/cli
 
 Indices and tables
 ------------------
