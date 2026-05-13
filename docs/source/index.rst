@@ -27,19 +27,18 @@ Using a combination of hardware synchronization signals and a multi-stage pipeli
 
 |
 If you use Cheese3D, please cite our preprint:
+If you use Cheese3D, please cite our paper:
 
 .. code-block:: bibtex
 
-    @article {Daruwalla2024.05.07.593051,
-    	author = {Daruwalla, Kyle and Martin, Irene Nozal and Zhang, Linghua and Nagli{\v c}, Diana and Frankel, Andrew and Rasgaitis, Catherine and Zhang, Xinyan and Ahmad, Zainab and Borniger, Jeremy C. and Hou, Xun Helen},
-    	title = {Cheese3D: Sensitive Detection and Analysis of Whole-Face Movement in Mice},
-    	elocation-id = {2024.05.07.593051},
-    	year = {2025},
-    	doi = {10.1101/2024.05.07.593051},
-    	publisher = {Cold Spring Harbor Laboratory},
-    	URL = {https://www.biorxiv.org/content/early/2025/03/01/2024.05.07.593051},
-    	eprint = {https://www.biorxiv.org/content/early/2025/03/01/2024.05.07.593051.full.pdf},
-    	journal = {bioRxiv}
+    @article{Daruwalla2026cheese3d,
+        author    = {Daruwalla, Kyle and Nozal Martin, Irene and Zhang, Linghua and Nagli{\v{c}}, Diana and Frankel, Andrew and Rasgaitis, Catherine and Zhao, Rubin and Zhang, Xinyan and Ahmad, Zainab and Borniger, Jeremy C. and Hou, Xun Helen},
+        title     = {Cheese3D enables sensitive detection and analysis of whole-face movement in mice},
+        journal   = {Nature Neuroscience},
+        year      = {2026},
+        doi       = {10.1038/s41593-026-02262-8},
+        publisher = {Springer Nature},
+        URL       = {https://www.nature.com/articles/s41593-026-02262-8}
     }
 
 .. toctree::
