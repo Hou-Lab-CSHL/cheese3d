@@ -16,7 +16,7 @@ class VideoConfig:
     Structured config specification for a single camera recording.
 
     Arguments:
-    - `path`: a regex string that identifies videos recorded by this camera from filenames
+    - `view`: a regex string that identifies videos recorded by this camera from filenames
     - `crop`: a bounding box of the form `(xstart, xend, ystart, yend)`
         where any coordinate maybe set to `None` to accept the full bounds
     - `extra_crops`: a dictionary of bounding boxes structured similar to `crop`

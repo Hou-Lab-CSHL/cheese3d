@@ -79,6 +79,10 @@ Below is a description of all the options available in the configuration file.
       - :ref:`reference/configuration:Keypoint options`
       - :ref:`reference/configuration:Keypoint options`
       - List of anatomical keypoints to track.
+    * - ``keypoint_groups``
+      - :ref:`reference/configuration:Keypoint group options`
+      - :ref:`reference/configuration:Keypoint group options`
+      - List of keypoint groups defining skeletons for visualization.
     * - ``ignore_keypoint_labels``
       - ``List[str]``
       - ``["ref(head-post)"]``
@@ -113,7 +117,7 @@ Below is a description of the sub-configuration under the ``model`` key in the :
 Ephys options
 -------------
 
-Below is a description of the sub-configurations under the ``ephys_params`` key in the :ref:`main_config_ref`. Each type of ephys system has a different set of allowed configurations.
+Below is a description of the sub-configurations under the ``ephys_param`` key in the :ref:`main_config_ref`. Each type of ephys system has a different set of allowed configurations.
 
 .. _allego_config_ref:
 .. list-table:: Allego configuration file parameters
@@ -207,6 +211,10 @@ Cheese3D will temporally synchronize video data across all cameras (and optional
       - ``float``
       - ``0.9``
       - Threshold for detecting LED synchronization signals in video frames (0.0-1.0).
+    * - ``led_peak_algorithm``
+      - ``str``
+      - ``"dynamic"``
+      - Algorithm for detecting LED peak brightness. ``"dynamic"`` uses percentile-based detection; ``"max"`` uses maximum brightness.
     * - ``max_regression_rmse``
       - ``float``
       - ``0.01``
@@ -301,7 +309,7 @@ The ``views`` section defines multi-camera setup configuration. Each view has th
     * - Key
       - Type
       - Description
-    * - ``path``
+    * - ``view``
       - ``str``
       - Camera identifier that matches the ``view`` regex group in ``video_regex``.
     * - ``crop``
@@ -310,9 +318,6 @@ The ``views`` section defines multi-camera setup configuration. Each view has th
     * - ``extra_crops``
       - ``Dict[str, List[int]]``
       - Named additional crop regions, typically used for synchronization LEDs bounding boxes.
-    * - ``filterspec``
-      - ``Optional[Dict[str, float]]``
-      - FFMPEG filter specifications for brightness, contrast, and saturation adjustments.
 
 Example:
 
@@ -320,11 +325,10 @@ Example:
 
    views:
      topleft:
-       path: TL
+       view: TL
        crop: [null, null, null, null]
        extra_crops:
          sync_led: [250, 265, 20, 35]
-       filterspec: null
 
 Keypoint options
 ----------------
@@ -358,3 +362,38 @@ Example:
    - label: eye(front)(left)
      groups: [eye(left)]
      views: [topleft, left, topcenter]
+
+Keypoint group options
+----------------------
+
+The ``keypoint_groups`` section defines groups of keypoints and their skeleton connections for visualization. Each group has the following options:
+
+.. list-table:: Keypoint group configuration parameters
+    :header-rows: 1
+
+    * - Key
+      - Type
+      - Description
+    * - ``name``
+      - ``str``
+      - Name of the keypoint group (e.g., ``"nose"``, ``"eye(left)"``).
+    * - ``skeleton``
+      - ``List[List[str]]``
+      - List of keypoint pairs defining skeleton edges for visualization. Each sub-list contains two keypoint labels that should be connected.
+
+Example:
+
+.. code-block:: yaml
+
+   keypoint_groups:
+   - name: nose
+     skeleton:
+     - [nose(bottom), nose(tip)]
+     - [nose(tip), nose(top)]
+     - [nose(top), nose(bottom)]
+   - name: eye(left)
+     skeleton:
+     - [eye(front)(left), eye(top)(left)]
+     - [eye(top)(left), eye(back)(left)]
+     - [eye(back)(left), eye(bottom)(left)]
+     - [eye(bottom)(left), eye(front)(left)]
