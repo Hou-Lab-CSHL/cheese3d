@@ -1,0 +1,25 @@
+[workspace]
+name = "cheese3d-env"
+channels = ["conda-forge", "nvidia", "apple"]
+platforms = ["linux-64", "osx-arm64"]
+
+[activation.env]
+LD_LIBRARY_PATH = "$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
+PYTHONNOUSERSITE = "1"
+
+[dependencies]
+python = "3.10.*"
+ffmpeg = ">=5.1.2"
+av = ">=10.0.0"
+pillow = ">=9.0.0"
+
+[constraints]
+numpy = "<2.0.0"
+
+[target.linux-64.dependencies]
+cudatoolkit = "11.7.*"
+cudnn = "8.*"
+
+[pypi-dependencies]
+cheese3d = ">=0.1.0"
+cheese3d-annotator = ">=0.1.0"
