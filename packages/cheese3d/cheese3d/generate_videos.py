@@ -181,13 +181,13 @@ def read_frames(caps):
         frames.append(frame)
     return True, frames
 
-def get_plotting_params(caps):
+def get_plotting_params(caps, n_rows=4):
     params = [get_video_params_cap(c) for c in caps]
     height = max([p['height'] for p in params])
     widths = [round(p['width'] * height / p['height']) for p in params]
 
     width_total = sum(widths)
-    height_total = height * 4
+    height_total = height * n_rows
 
     nframes = min([p['nframes'] for p in params])
     fps = np.mean([p['fps'] for p in params])
@@ -204,28 +204,35 @@ def get_plotting_params(caps):
 def draw_data(start_img, frames_raw, frames_2d, frames_2d_filt, frames_2d_proj, pp):
     height = pp['height']
     widths = pp['widths']
+    has_filt = frames_2d_filt is not None
     frames_raw_resized = [cv2.resize(f, (w, height))
                          for f, w in zip(frames_raw, widths)]
     frames_2d_resized = [cv2.resize(f, (w, height))
                          for f, w in zip(frames_2d, widths)]
-    frames_2d_filt_resized = [cv2.resize(f, (w, height))
-                              for f, w in zip(frames_2d_filt, widths)]
     frames_2d_proj_resized = [cv2.resize(f, (w, height))
                               for f, w in zip(frames_2d_proj, widths)]
     imout = np.copy(start_img)
     imout[0:height] = np.hstack(frames_raw_resized)
     imout[height:height*2] = np.hstack(frames_2d_resized)
-    imout[height*2:height*3] = np.hstack(frames_2d_filt_resized)
-    imout[height*3:height*4] = np.hstack(frames_2d_proj_resized)
+    if has_filt:
+        frames_2d_filt_resized = [cv2.resize(f, (w, height))
+                                  for f, w in zip(frames_2d_filt, widths)]
+        imout[height*2:height*3] = np.hstack(frames_2d_filt_resized)
+        imout[height*3:height*4] = np.hstack(frames_2d_proj_resized)
+    else:
+        imout[height*2:height*3] = np.hstack(frames_2d_proj_resized)
 
     return imout
 
 def visualize_compare(fnames_raw, fnames_2d, fnames_2d_filt, fnames_2d_proj, out_fname):
+    has_filt = fnames_2d_filt is not None
+    n_rows = 4 if has_filt else 3
     caps_raw = [cv2.VideoCapture(v) for v in fnames_raw]
     caps_2d = [cv2.VideoCapture(v) for v in fnames_2d]
-    caps_2d_filt = [cv2.VideoCapture(v) for v in fnames_2d_filt]
+    if has_filt:
+        caps_2d_filt = [cv2.VideoCapture(v) for v in fnames_2d_filt]
     caps_2d_proj = [cv2.VideoCapture(v) for v in fnames_2d_proj]
-    pp = get_plotting_params(caps_2d)
+    pp = get_plotting_params(caps_2d, n_rows=n_rows)
     nframes = pp['nframes']
     fps = pp['fps']
     start_img = np.zeros((pp['height_total'], pp['width_total'], 3), dtype='uint8')
@@ -242,7 +249,11 @@ def visualize_compare(fnames_raw, fnames_2d, fnames_2d_filt, fnames_2d_proj, out
     for _ in trange(nframes, ncols=70):
         ret0, frames_raw = read_frames(caps_raw)
         ret1, frames_2d = read_frames(caps_2d)
-        ret2, frames_2d_filt = read_frames(caps_2d_filt)
+        if has_filt:
+            ret2, frames_2d_filt = read_frames(caps_2d_filt)
+        else:
+            ret2 = True
+            frames_2d_filt = None
         ret3, frames_2d_proj = read_frames(caps_2d_proj)
         if not all([ret0, ret1, ret2, ret3]):
             break
@@ -253,8 +264,9 @@ def visualize_compare(fnames_raw, fnames_2d, fnames_2d_filt, fnames_2d_proj, out
         cap.release()
     for cap in caps_2d:
         cap.release()
-    for cap in caps_2d_filt:
-        cap.release()
+    if has_filt:
+        for cap in caps_2d_filt:
+            cap.release()
     for cap in caps_2d_proj:
         cap.release()
     q.put(None)
@@ -297,11 +309,10 @@ def generate_compare_video(videos_raw_dir,
         if not all([os.path.exists(f) for f in vids_2d]):
             print(out_fname, 'missing labeled 2d videos')
             continue
-        if not all([os.path.exists(f) for f in vids_2d_filtered]):
-            print(out_fname, 'missing labeled filtered 2d videos')
-            continue
         if not all([os.path.exists(f) for f in vids_2d_projected]):
             print(out_fname, 'missing projected 2d videos')
             continue
+        if not all([os.path.exists(f) for f in vids_2d_filtered]):
+            vids_2d_filtered = None
         print(out_fname)
         visualize_compare(vids_raw, vids_2d, vids_2d_filtered, vids_2d_projected, out_fname)
