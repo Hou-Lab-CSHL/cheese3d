@@ -34,6 +34,7 @@ jobs:
     - name: Refresh env lockfile and push
       run: |
         TAG_VERSION="${GITHUB_REF#refs/tags/cheese3d/v}"
+        echo "updating public-env to ${TAG_VERSION}"
         git config user.name "github-actions[bot]"
         git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
         git fetch origin main
