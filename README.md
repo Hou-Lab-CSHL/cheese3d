@@ -8,8 +8,8 @@ Cheese3D is a pipeline for tracking mouse facial movements built on top of exist
 **NEW!** Check out the [Cheese3D paper](https://www.nature.com/articles/s41593-026-02262-8). 
 
 <p align="center">
-   <img src="docs/source/_static/Cheese3D.gif" alt="Animation of Cheese3D pipeline" style="height:250px; width:auto;">
-   <img src="docs/source/_static/Cheese3DIcon.png" alt="Cheese3D icon" style="height:250px; width:auto;">
+   <img src="docs/source/_static/Cheese3D.gif" alt="Animation of Cheese3D pipeline" style="height:200px; width:auto;">
+   <img src="docs/source/_static/Cheese3DIcon.png" alt="Cheese3D icon" style="height:200px; width:auto;">
 </p>
 
 Cheese3D output can be visualized interactively.
