@@ -655,10 +655,10 @@ class Ch3DProject:
             videos_2d_proj_dir = session_path / "videos-2d-proj"
             videos_compare_dir = session_path / "videos-compare"
 
-            rprint(f"Labeling videos in 2D: {recording.name}")
+            rprint(f"[bold]Labeling videos in 2D: {recording.name}[/bold]")
             generate_videos_2d(scheme, bodyparts, videos_raw_dir, pose_2d_dir, videos_labeled_dir)
             if self.triangulation.filter2d:
-                rprint(f"Labeling filtered videos in 2D: {recording.name}")
+                rprint(f"[bold]Labeling filtered videos in 2D: {recording.name}[/bold]")
                 generate_videos_2d(scheme,
                                    bodyparts,
                                    videos_raw_dir,
@@ -672,16 +672,16 @@ class Ch3DProject:
                 raw_files = [f for f in videos_raw_dir.iterdir() if f.is_file()]
                 if raw_files:
                     ap_cfg['video_extension'] = raw_files[0].suffix.lstrip('.')
-                rprint(f"Projecting 3D points to 2D: {recording.name}")
+                rprint(f"[bold]Projecting 3D points to 2D: {recording.name}[/bold]")
                 project_2d_session(ap_cfg, str(session_path.resolve()))
-                rprint(f"Labeling reprojected 3D points in 2D: {recording.name}")
+                rprint(f"[bold]Labeling reprojected 3D points in 2D: {recording.name}[/bold]")
                 generate_videos_2d(scheme,
                                    bodyparts,
                                    videos_raw_dir,
                                    pose_2d_proj_dir,
                                    videos_2d_proj_dir)
             if videos_labeled_dir.exists() and videos_2d_proj_dir.exists():
-                rprint(f"Stitching labeled videos together: {recording.name}")
+                rprint(f"[bold]Stitching labeled videos together: {recording.name}[/bold]")
                 generate_compare_video(videos_raw_dir,
                                        videos_labeled_dir,
                                        videos_labeled_filt_dir,
