@@ -631,22 +631,65 @@ class Ch3DProject:
                     c3d_features_df.to_csv(csv_output, index=False, index_label=None)
 
     def generate_videos(self):
-        from anipose.label_videos import label_videos_all, label_videos_filtered_all
-        anipose_cfg = self._load_anipose_cfg()
-        rprint("Labeling videos in 2D...")
-        label_videos_all(anipose_cfg)
+        from anipose.project_2d import process_session as project_2d_session
+        from cheese3d.generate_videos import generate_videos_2d
+        from cheese3d.generate_videos import generate_compare_video
 
-        if anipose_cfg["filter"]["enabled"]:
-            rprint("Labeling filtered videos in 2D...")
-            label_videos_filtered_all(anipose_cfg)
+        self._setup_anipose()
+        kp_schema = keypoints_by_group(self.keypoints)
+        for group, kps in kp_schema.items():
+            if len(kps) > 2:
+                kp_schema[group].append(kps[0])
+        scheme = list(kp_schema.values())
+        bodyparts = sorted(set([bp for chain in scheme for bp in chain]))
+        for recording, _ in self.sessions.items():
+            session_path = self.triangulation_path / recording.name
+            videos_raw_dir = session_path / "videos-raw"
+            pose_2d_dir = session_path / "pose-2d"
+            pose_2d_filt_dir = session_path / "pose-2d-filtered"
+            pose_3d_dir = session_path / "pose-3d"
+            calib_dir = session_path / "calibration"
+            pose_2d_proj_dir = session_path / "pose-2d-proj"
+            videos_labeled_dir = session_path / "videos-labeled"
+            videos_labeled_filt_dir = session_path / "videos-labeled-filtered"
+            videos_2d_proj_dir = session_path / "videos-2d-proj"
+            videos_compare_dir = session_path / "videos-compare"
 
-        from anipose.label_videos_proj import label_proj_all
-        rprint("Labeling reprojected 3D points in 2D...")
-        label_proj_all(anipose_cfg)
-
-        from anipose.label_filter_compare import label_filter_compare_all
-        rprint("Stitching labeled videos together...")
-        label_filter_compare_all(anipose_cfg)
+            rprint(f"Labeling videos in 2D: {recording.name}")
+            generate_videos_2d(scheme, bodyparts, videos_raw_dir, pose_2d_dir, videos_labeled_dir)
+            if self.triangulation.filter2d:
+                rprint(f"Labeling filtered videos in 2D: {recording.name}")
+                generate_videos_2d(scheme,
+                                   bodyparts,
+                                   videos_raw_dir,
+                                   pose_2d_filt_dir,
+                                   videos_labeled_filt_dir)
+            calib_toml = calib_dir / "calibration" / "calibration.toml"
+            pose_3d_csvs = sorted(pose_3d_dir.glob("*.csv"))
+            if len(pose_3d_csvs) > 0 and calib_toml.exists():
+                ap_cfg = self._load_anipose_cfg()
+                # Detect video extension from actual files for anipose
+                raw_files = [f for f in videos_raw_dir.iterdir() if f.is_file()]
+                if raw_files:
+                    ap_cfg['video_extension'] = raw_files[0].suffix.lstrip('.')
+                rprint(f"Projecting 3D points to 2D: {recording.name}")
+                project_2d_session(ap_cfg, str(session_path.resolve()))
+                rprint(f"Labeling reprojected 3D points in 2D: {recording.name}")
+                generate_videos_2d(scheme,
+                                   bodyparts,
+                                   videos_raw_dir,
+                                   pose_2d_proj_dir,
+                                   videos_2d_proj_dir)
+            if (videos_labeled_dir.exists() and
+                videos_labeled_filt_dir.exists() and
+                videos_2d_proj_dir.exists()):
+                rprint(f"Stitching labeled videos together: {recording.name}")
+                generate_compare_video(videos_raw_dir,
+                                       videos_labeled_dir,
+                                       videos_labeled_filt_dir,
+                                       videos_2d_proj_dir,
+                                       videos_compare_dir,
+                                       f"({self.view_regex})")
 
     def visualize(self, recording: RecordingKey):
         import napari
