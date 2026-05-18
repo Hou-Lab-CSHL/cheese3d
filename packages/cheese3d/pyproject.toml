@@ -1,6 +1,6 @@
 [project]
 name = "cheese3d"
-version = "0.1.0"
+version = "0.1.1"
 description = "Sensitive detection and analysis of whole-face movement in mice."
 authors = [{ name = "Hou Lab CSHL", email = "the.hou.lab@gmail.com" }]
 readme = "README.md"
