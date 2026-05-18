@@ -2,15 +2,14 @@
 
 [![Documentation](https://img.shields.io/badge/docs-latest-blue)](https://hou-lab-cshl.github.io/cheese3d/)
 [![Data](https://img.shields.io/badge/download-demodata-blue)](https://labshare.cshl.edu/shares/houlab/www-data/cheese3d_paper_data/cheese3d_demo.tar.gz)
-<!--[Download demo data](https://labshare.cshl.edu/shares/houlab/www-data/cheese3d_paper_data/cheese3d_demo.tar.gz)-->
 
 Cheese3D is a pipeline for tracking mouse facial movements built on top of existing tools ([DeepLabCut](https://github.com/DeepLabCut/DeepLabCut) and [Anipose](https://github.com/lambdaloop/anipose)). By tracking anatomically-informed keypoints using multiple cameras registered in 3D, our pipeline produces sensitive, high-precision facial movement data that can be related internal state (e.g., electrophysiology).
 
 **NEW!** Check out the [Cheese3D paper](https://www.nature.com/articles/s41593-026-02262-8). 
 
 <p align="center">
-   <img src="docs/source/_static/Cheese3D.gif" alt="Animation of Cheese3D pipeline" style="height:300px; width:auto;">
-   <img src="docs/source/_static/Cheese3DIcon.png" alt="Cheese3D icon" style="height:300px; width:auto;">
+   <img src="docs/source/_static/Cheese3D.gif" alt="Animation of Cheese3D pipeline" style="height:250px; width:auto;">
+   <img src="docs/source/_static/Cheese3DIcon.png" alt="Cheese3D icon" style="height:250px; width:auto;">
 </p>
 
 Cheese3D output can be visualized interactively.
