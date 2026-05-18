@@ -664,7 +664,7 @@ class Ch3DProject:
                                    videos_raw_dir,
                                    pose_2d_filt_dir,
                                    videos_labeled_filt_dir)
-            calib_toml = calib_dir / "calibration" / "calibration.toml"
+            calib_toml = calib_dir / "calibration.toml"
             pose_3d_csvs = sorted(pose_3d_dir.glob("*.csv"))
             if len(pose_3d_csvs) > 0 and calib_toml.exists():
                 ap_cfg = self._load_anipose_cfg()
@@ -680,9 +680,7 @@ class Ch3DProject:
                                    videos_raw_dir,
                                    pose_2d_proj_dir,
                                    videos_2d_proj_dir)
-            if (videos_labeled_dir.exists() and
-                videos_labeled_filt_dir.exists() and
-                videos_2d_proj_dir.exists()):
+            if videos_labeled_dir.exists() and videos_2d_proj_dir.exists():
                 rprint(f"Stitching labeled videos together: {recording.name}")
                 generate_compare_video(videos_raw_dir,
                                        videos_labeled_dir,
