@@ -3149,8 +3149,8 @@ packages:
   requires_python: '>=3.7'
 - pypi: ./packages/cheese3d
   name: cheese3d
-  version: 0.1.0
-  sha256: df147354f05d414bbad936e386e430d187f7af86ad20110fe0b1806eb43368e0
+  version: 0.1.1
+  sha256: b03d09d4e069f3ca6f07ba58925e8f21347e59782c3869f9cc4961f68f6ac076
   requires_dist:
   - pip>=25.2,<26
   - pandas>=2.1
