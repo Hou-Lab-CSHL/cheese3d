@@ -48,6 +48,7 @@ If you use Cheese3D, please cite our paper:
     guides/quick-start
     guides/organizing-projects
     guides/hardware
+    guides/troubleshooting
 
 .. toctree::
     :maxdepth: 2
