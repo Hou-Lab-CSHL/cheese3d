@@ -1,5 +1,21 @@
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
+
+from cheese3d.registry import load_entry_points, registered_names
+
+POSE_BACKEND_REGISTRY: Dict[str, Any] = {}
+
+def register_pose_backend(name: str, backend_cls):
+    POSE_BACKEND_REGISTRY[name] = backend_cls
+
+def get_pose_backend_class(name: str):
+    if name not in POSE_BACKEND_REGISTRY:
+        load_entry_points("cheese3d.pose_backends", POSE_BACKEND_REGISTRY)
+    if name not in POSE_BACKEND_REGISTRY:
+        raise RuntimeError(f"Unrecognized model backend {name}. "
+                           f"Supported backends are: {registered_names(POSE_BACKEND_REGISTRY)}")
+
+    return POSE_BACKEND_REGISTRY[name]
 
 class Pose2dBackend:
     name: str

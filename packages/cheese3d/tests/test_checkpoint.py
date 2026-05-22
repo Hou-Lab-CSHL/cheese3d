@@ -12,9 +12,11 @@ from cheese3d.synchronize.core import SyncConfig
 @pytest.fixture
 def minimal_project_config():
     """Create a minimal valid configuration for testing."""
-    from cheese3d.config import (_DEFAULT_KEYPOINTS, _DEFAULT_KEYPOINT_GROUPS,
-                                  _DEFAULT_VIDEO_REGEX, _DEFAULT_TRIANGULATION_AXES,
-                                  _DEFAULT_TRIANGULATION_REF)
+    from cheese3d.config import (_DEFAULT_KEYPOINTS,
+                                 _DEFAULT_KEYPOINT_GROUPS,
+                                 _DEFAULT_VIDEO_REGEX,
+                                 _DEFAULT_TRIANGULATION_AXES,
+                                 _DEFAULT_TRIANGULATION_REF)
 
     cfg = OmegaConf.structured(ProjectConfig)
     cfg.name = "test_project"
@@ -115,7 +117,7 @@ def test_restore_extracted_project(project_with_dummy_files, tmp_path):
     if old_checkpoint.exists():
         old_checkpoint.unlink()
     # Restore directly to the new location
-    project.restore(checkpoint_file, skip_source=True, portable=True)
+    project.restore(checkpoint_file, skip_source=True)
     # Verify files were restored to original project (restore extracts to project.root)
     # Since we're using the original project instance, it restores to its own root
     # This tests that restore works correctly on the same project
@@ -140,7 +142,7 @@ def test_restore_with_videos(project_with_dummy_files, tmp_path):
     for v in session_videos:
         v.unlink()
     # Restore the checkpoint
-    project.restore(checkpoint_file, skip_source=False, portable=True)
+    project.restore(checkpoint_file, skip_source=False)
     # Verify videos were restored
     assert (project.path / "videos" / "session1" / "recording_test_TL.avi").exists()
     assert (project.path / "videos" / "session1" / "recording_test_TR.avi").exists()

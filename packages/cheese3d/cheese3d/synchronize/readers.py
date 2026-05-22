@@ -11,7 +11,22 @@ from tqdm import tqdm
 from open_ephys.analysis import Session as OESession
 
 import cheese3d.allego_fr as afr
+from cheese3d.registry import load_entry_points, registered_names
 from cheese3d.utils import maybe, BoundingBox, VideoFrames
+
+SYNC_READER_REGISTRY: Dict[str, Any] = {}
+
+def register_sync_reader(name: str, reader_cls):
+    SYNC_READER_REGISTRY[name] = reader_cls
+
+def get_sync_reader_class(name: str):
+    if name not in SYNC_READER_REGISTRY:
+        load_entry_points("cheese3d.sync_readers", SYNC_READER_REGISTRY)
+    if name not in SYNC_READER_REGISTRY:
+        raise RuntimeError(f"Unknown sync reader type: {name}. "
+                           f"Supported types are: {registered_names(SYNC_READER_REGISTRY)}")
+
+    return SYNC_READER_REGISTRY[name]
 
 @dataclass
 class SyncSignalReader:
@@ -229,26 +244,16 @@ class SpikeGLXSyncReader(SyncSignalReader):
         return self.source / self.source.stem
 
 def get_ephys_reader(source: str | Path, ephys_param: Dict[str, Any]):
-    if ephys_param["type"] == "allego":
-        return AllegoSyncReader(Path(source),
-                                sample_rate=ephys_param["sample_rate"],
-                                threshold=ephys_param.get("sync_threshold"),
-                                time_start=ephys_param.get("time_start"),
-                                time_end=ephys_param.get("time_end"),
-                                channel=ephys_param.get("sync_channel", 32))
-    elif ephys_param["type"] == "openephys":
-        return OpenEphysSyncReader(Path(source),
-                                   sample_rate=ephys_param["sample_rate"],
-                                   threshold=ephys_param.get("sync_threshold"),
-                                   time_start=ephys_param.get("time_start"),
-                                   time_end=ephys_param.get("time_end"),
-                                   channel=ephys_param.get("sync_channel", 32))
-    elif ephys_param["type"] == "dsi":
-        return DSISyncReader(Path(source),
-                             sample_rate=ephys_param["sample_rate"],
-                             threshold=ephys_param.get("sync_threshold"),
-                             time_start=ephys_param.get("time_start"),
-                             time_end=ephys_param.get("time_end"))
-    else:
-        raise RuntimeError(f"Unknown ephys type: {ephys_param['type']}. "
-                           "Supported types are 'allego', 'openephys', and 'dsi'.")
+    reader_cls = get_sync_reader_class(ephys_param["type"])
+    kwargs = {k: v for k, v in ephys_param.items()
+              if k not in ["type", "sync_threshold", "sync_channel"]}
+    kwargs["source"] = Path(source)
+    kwargs["threshold"] = ephys_param.get("sync_threshold")
+    if "sync_channel" in ephys_param:
+        kwargs["channel"] = ephys_param["sync_channel"]
+
+    return reader_cls(**kwargs)
+
+register_sync_reader("allego", AllegoSyncReader)
+register_sync_reader("openephys", OpenEphysSyncReader)
+register_sync_reader("dsi", DSISyncReader)

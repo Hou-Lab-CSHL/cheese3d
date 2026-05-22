@@ -1,10 +1,25 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from dataclasses import dataclass, replace
-from typing import Optional, List
+from typing import Optional, Dict, Any
 
+from cheese3d.registry import load_entry_points, registered_names
 from cheese3d.synchronize.utils import get_time_points, resample_signal
 from cheese3d.utils import maybe
+
+ALIGNER_REGISTRY: Dict[str, Any] = {}
+
+def register_aligner(name: str, aligner_cls):
+    ALIGNER_REGISTRY[name] = aligner_cls
+
+def get_aligner_class(name: str):
+    if name not in ALIGNER_REGISTRY:
+        load_entry_points("cheese3d.aligners", ALIGNER_REGISTRY)
+    if name not in ALIGNER_REGISTRY:
+        raise ValueError(f"Unknown alignment stage: {name}. "
+                         f"Supported stages are: {registered_names(ALIGNER_REGISTRY)}")
+
+    return ALIGNER_REGISTRY[name]
 
 @dataclass(frozen=True)
 class AlignmentParams:
@@ -210,3 +225,7 @@ class SampleRateAligner(BaseAligner):
                                good=(not np.isnan(true_sample_rate)))
 
         return align_params, fig
+
+register_aligner("crosscorr", CrossCorrelationAligner)
+register_aligner("regression", RegressionAligner)
+register_aligner("samplerate", SampleRateAligner)

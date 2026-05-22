@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Optional, List, Dict
 from omegaconf import OmegaConf
 
-from cheese3d.backends.core import Pose2dBackend
+from cheese3d.backends.core import Pose2dBackend, register_pose_backend
 from cheese3d.config import KeypointConfig
 from cheese3d.utils import maybe, reglob, BoundingBox, VideoFrames, dlc_folder_to_components
 
@@ -251,3 +251,5 @@ class DLCBackend(Pose2dBackend):
                           gputouse=gpu)
         dlc.evaluate_network(config=self.config_path,
                              gputouse=gpu)
+
+register_pose_backend("dlc", DLCBackend)

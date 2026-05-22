@@ -25,7 +25,7 @@ from cheese3d.config import (MultiViewConfig,
                              keypoints_by_group,
                              _DEFAULT_KEYPOINTS)
 from cheese3d.synchronize.core import SyncConfig, synchronize_videos, synchronize_ephys
-from cheese3d.backends.core import Pose2dBackend
+from cheese3d.backends.core import Pose2dBackend, get_pose_backend_class
 from cheese3d.backends.dlc import DLCBackend
 from cheese3d.utils import (dlc_folder_to_components,
                             read_3d_data,
@@ -159,7 +159,7 @@ def build_model_backend(cfg: ModelConfig | str | Path,
         root = root / name / "backend"
 
         return DLCBackend.from_existing(existing_project, root, videos, keypoints, crops)
-    elif cfg.backend_type == "dlc":
+    else:
         if cfg.name is None:
             return None
 
@@ -170,17 +170,15 @@ def build_model_backend(cfg: ModelConfig | str | Path,
                 videos.append(video)
                 crops.append(view_cfg[view].get_crop())
 
-        return DLCBackend(
+        backend_cls = get_pose_backend_class(cfg.backend_type)
+        return backend_cls(
             name=cfg.name,
             root_dir=root / cfg.name / "backend",
             videos=videos,
             keypoints=keypoints,
-            experimenter=cfg.backend_options.get("experimenter", "default"),
-            date=cfg.backend_options.get("date"),
-            crops=crops
+            crops=crops,
+            **cfg.backend_options
         )
-    else:
-        raise RuntimeError(f"Unrecognized model backend {cfg.backend_type}.")
 
 @dataclass
 class Ch3DProject:

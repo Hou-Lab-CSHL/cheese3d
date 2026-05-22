@@ -2,22 +2,19 @@ import json
 import logging
 import numpy as np
 import matplotlib.pyplot as plt
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import List, Tuple, Dict, Any, Optional
 from pathlib import Path
 
-from cheese3d.synchronize.aligners import (BaseAligner,
-                                           CrossCorrelationAligner,
-                                           RegressionAligner,
-                                           SampleRateAligner,
-                                           AlignmentParams)
+from cheese3d.synchronize.aligners import BaseAligner, AlignmentParams, get_aligner_class
 from cheese3d.synchronize.readers import SyncSignalReader, VideoSyncReader, get_ephys_reader
 from cheese3d.synchronize.utils import get_time_points
 from cheese3d.utils import maybe, BoundingBox, synchronize_video_ffmpeg
 
 @dataclass
 class SyncConfig:
-    pipeline: List[str]
+    pipeline: List[Any]
     led_threshold: float = 0.9
     led_peak_algorithm: str = "dynamic"
     max_regression_rmse: float = 1e-2
@@ -29,25 +26,16 @@ class SyncConfig:
     def build_pipeline(self, ref_sample_rate, target_sample_rate):
         pipeline = []
         for stage in self.pipeline:
-            if stage == "crosscorr":
-                pipeline.append(CrossCorrelationAligner(
-                    ref_sample_rate=ref_sample_rate,
-                    target_sample_rate=target_sample_rate
-                ))
-            elif stage == "regression":
-                pipeline.append(RegressionAligner(
-                    ref_sample_rate=ref_sample_rate,
-                    target_sample_rate=target_sample_rate,
-                    max_rmse=self.max_regression_rmse
-                ))
-            elif stage == "samplerate":
-                pipeline.append(SampleRateAligner(
-                    ref_sample_rate=ref_sample_rate,
-                    target_sample_rate=target_sample_rate
-                ))
-            else:
-                raise ValueError(f"Unknown alignment stage: {stage}"
-                                 " (only 'crosscorr' / 'regression' / 'samplerate' allowed)")
+            options = {}
+            if isinstance(stage, Mapping):
+                options = {k: v for k, v in stage.items() if k != "type"}
+                stage = stage["type"]
+            aligner_cls = get_aligner_class(stage)
+            if stage == "regression" and "max_rmse" not in options:
+                options["max_rmse"] = self.max_regression_rmse
+            pipeline.append(aligner_cls(ref_sample_rate=ref_sample_rate,
+                                        target_sample_rate=target_sample_rate,
+                                        **options))
 
         return pipeline
 
