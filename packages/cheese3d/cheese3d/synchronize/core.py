@@ -166,6 +166,35 @@ class SyncPipeline:
 
         return fig
 
+    def plot_inter_pulse_intervals(self, ref_signal, target_signal,
+                                   align_params: AlignmentParams):
+        ref_times = get_time_points(ref_signal)
+        target_times = get_time_points(target_signal)
+        ref_intervals = np.diff(ref_times) / self.ref.sample_rate
+        target_intervals_before = np.diff(target_times) / self.target.sample_rate
+        target_sample_rate = maybe(align_params.sample_rate, self.target.sample_rate)
+        target_intervals_after = np.diff(target_times) / target_sample_rate
+        fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+        axes[0, 0].hist(ref_intervals)
+        axes[0, 0].set_xlabel("Inter-pulse interval (sec)")
+        axes[0, 0].set_ylabel("Count")
+        axes[0, 0].set_title("Source IPI Before")
+        axes[0, 1].hist(target_intervals_before)
+        axes[0, 1].set_xlabel("Inter-pulse interval (sec)")
+        axes[0, 1].set_ylabel("Count")
+        axes[0, 1].set_title("Target IPI Before")
+        axes[1, 0].hist(ref_intervals)
+        axes[1, 0].set_xlabel("Inter-pulse interval (sec)")
+        axes[1, 0].set_ylabel("Count")
+        axes[1, 0].set_title("Source IPI After")
+        axes[1, 1].hist(target_intervals_after)
+        axes[1, 1].set_xlabel("Inter-pulse interval (sec)")
+        axes[1, 1].set_ylabel("Count")
+        axes[1, 1].set_title("Target IPI After")
+        fig.tight_layout()
+
+        return fig
+
     def align_recording(self, plot_debug = False):
         ref_signal = self.ref.load_signal()
         target_signal = self.target.load_signal()
@@ -174,6 +203,13 @@ class SyncPipeline:
         ref_times = get_time_points(ref_signal)
         target_times = get_time_points(target_signal)
         if (len(ref_times) == 0) or (len(target_times) == 0):
+            fig = self.plot_inter_pulse_intervals(ref_signal, target_signal, align_params)
+            fig.savefig(f"{self.target.root_path()}.qc-inter-pulse-intervals.png",
+                        bbox_inches="tight")
+            if plot_debug:
+                plt.show()
+            else:
+                plt.close(fig)
             logging.warning(f"No signals detected: {len(ref_times)=}, {len(target_times)=}")
 
             return align_params
@@ -197,6 +233,13 @@ class SyncPipeline:
 
         fig = self.plot_alignment(ref_signal, target_signal, align_params)
         fig.savefig(f"{self.target.root_path()}.qc-final.png", bbox_inches="tight")
+        if plot_debug:
+            plt.show()
+        else:
+            plt.close(fig)
+        fig = self.plot_inter_pulse_intervals(ref_signal, target_signal, align_params)
+        fig.savefig(f"{self.target.root_path()}.qc-inter-pulse-intervals.png",
+                    bbox_inches="tight")
         if plot_debug:
             plt.show()
         else:
@@ -251,11 +294,18 @@ def synchronize_videos(pipeline_cfg: SyncConfig,
         else:
             align_param = pipeline.align_recording()
             pipeline.write_json(align_param)
-            frame_lag = int(round(maybe(align_param.lag, 0), 2) * align_param.sample_rate)
-            align_params[view] = (video, frame_lag, align_param.sample_rate)
+            sample_rate = maybe(align_param.sample_rate, target_reader.sample_rate)
+            if (align_param.lag is None) and (sample_rate == fps):
+                print(f"alignment failed, skipping ffmpeg sync for {str(target_path)}...")
+                continue
+            frame_lag = int(round(maybe(align_param.lag, 0), 2) * sample_rate)
+            align_params[view] = (video, frame_lag, sample_rate)
     ref_lag = min(-lag for _, lag, _ in align_params.values())
     for video, lag, view_fps in align_params.values():
         shift = -lag - ref_lag
+        if (shift == 0) and (view_fps == fps):
+            print(f"no ffmpeg sync needed, skipping {str(video)}...")
+            continue
         if view_fps != fps:
             synchronize_video_ffmpeg([str(video)], start_offset=shift, fps=fps)
         else:

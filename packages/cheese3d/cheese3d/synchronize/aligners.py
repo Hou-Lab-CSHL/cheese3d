@@ -136,12 +136,19 @@ class RegressionAligner(BaseAligner):
             ttimes_fitted = None
 
         if self.debug:
-            fig, ax = plt.subplots()
-            ax.scatter(rtimes, ttimes)
+            fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+            axes[0].scatter(rtimes, ttimes)
             if ttimes_fitted is not None:
-                ax.plot(rtimes, ttimes_fitted)
-            ax.set_xlabel("Reference Signal On-Times (sec)")
-            ax.set_ylabel("Target Signal On-Times (sec)")
+                axes[0].plot(rtimes, ttimes_fitted)
+            axes[0].set_xlabel("Reference Signal On-Times (sec)")
+            axes[0].set_ylabel("Target Signal On-Times (sec)")
+            axes[0].set_title("Regression Fit")
+            axes[1].scatter(rtimes, ttimes - rtimes)
+            axes[1].axhline(0, color="k", linestyle="--", linewidth=1)
+            axes[1].set_xlabel("Reference Signal On-Times (sec)")
+            axes[1].set_ylabel("Target - Reference (sec)")
+            axes[1].set_title("Regression Time Difference")
+            fig.tight_layout()
         else:
             fig = None
 
