@@ -191,6 +191,43 @@ class DSISyncReader(SyncSignalReader):
     def root_path(self):
         return self.source.parent.joinpath(self.source.stem.removesuffix("_led"))
 
+class SpikeGLXSyncReader(SyncSignalReader):
+    def load_signal(self):
+        on_file = self.source / "XA0_ON.txt"
+        off_file = self.source / "XA0_OFF.txt"
+        if not on_file.exists():
+            raise FileNotFoundError(f"ON edges file not found: {on_file}")
+        if not off_file.exists():
+            raise FileNotFoundError(f"OFF edges file not found: {off_file}")
+        # Load edge sample indices
+        on_edges = np.loadtxt(on_file, dtype=float)
+        off_edges = np.loadtxt(off_file, dtype=float)
+        # Determine signal length
+        if self.time_start is not None and self.time_end is not None:
+            analog_tbase = np.arange(self.time_start, self.time_end) / self.sample_rate
+        elif self.time_end is not None:
+            analog_tbase = np.arange(0, self.time_end) / self.sample_rate
+        else:
+            # Use the last edge + buffer
+            all_edges = np.concatenate([on_edges, off_edges])
+            last_timebin = all_edges.max() + 1
+            if all_edges.min() > 0:
+                first_timebin = 0
+            analog_tbase = np.arange(first_timebin, last_timebin, 1/self.sample_rate)
+        # Create binary signal
+        analog_signal = np.zeros_like(analog_tbase)
+        # Use searchsorted for fast index lookup
+        on_indices = np.searchsorted(analog_tbase, on_edges)
+        off_indices = np.searchsorted(analog_tbase, off_edges)
+        # Apply high signal between ON and OFF indices
+        for on, off in zip(on_indices, off_indices):
+            analog_signal[on:off] = 1
+
+        return analog_signal
+
+    def root_path(self):
+        return self.source / self.source.stem
+
 def get_ephys_reader(source: str | Path, ephys_param: Dict[str, Any]):
     if ephys_param["type"] == "allego":
         return AllegoSyncReader(Path(source),
