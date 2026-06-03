@@ -58,7 +58,10 @@ class VideoSyncReader(SyncSignalReader):
         # get average brightness level
         brightness = []
         for i, frame in enumerate(tqdm(video, desc="process video")):
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) # type: ignore
+            if ((self.time_start is not None and i < self.time_start) or
+                (self.time_end is not None and i > self.time_end)):
+                continue
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             brightness.append(np.mean(frame))
         # get peak brightness level
         brightness = np.asarray(brightness)
@@ -120,10 +123,12 @@ class AllegoSyncReader(SyncSignalReader):
     channel: int = 32
 
     def load_signal(self):
+        tstart = None if self.time_start is None else self.time_start * self.sample_rate
+        tend = None if self.time_end is None else self.time_end * self.sample_rate
         channels, _, _ = afr.read_allego_xdat_all_signals(
             datasource_name=self.root_path(),
-            time_start=self.time_start,
-            time_end=self.time_end
+            time_start=tstart,
+            time_end=tend
         )
         analog_signal = channels[self.channel]
         threshold = maybe(self.threshold, 0.1)
@@ -171,6 +176,12 @@ class OpenEphysSyncReader(SyncSignalReader):
 class DSISyncReader(SyncSignalReader):
     def load_signal(self):
         led_df = pd.read_csv(self.source, sep="\t", names=["timestamp", "signal"])
+        if self.time_start is not None:
+            time_start = self.time_start
+            led_df = led_df.query("timestamp >= @time_start")
+        if self.time_end is not None:
+            time_end = self.time_end
+            led_df = led_df.query("timestamp <= @time_end")
         analog_signal = led_df["signal"].values
         threshold = maybe(self.threshold, 0.1)
         analog_signal = np.where(analog_signal > threshold, 1, 0)
