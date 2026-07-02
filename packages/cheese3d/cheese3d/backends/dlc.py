@@ -252,4 +252,26 @@ class DLCBackend(Pose2dBackend):
         dlc.evaluate_network(config=self.config_path,
                              gputouse=gpu)
 
+    def track(self,
+              videos: Dict[str, Path],
+              output_dir: Path,
+              calibration_path: Optional[Path] = None) -> bool:
+        import deeplabcut as dlc
+        output_dir.mkdir(parents=True, exist_ok=True)
+        missing_videos = []
+        for video in videos.values():
+            video = Path(video)
+            existing = list(output_dir.glob(f"{video.stem}*.h5"))
+            if len(existing) == 0:
+                missing_videos.append(video)
+        if len(missing_videos) == 0:
+            return True
+        video_paths = [str(video.resolve()) for video in missing_videos]
+        dlc.analyze_videos(config=str(self.config_path),
+                           videos=video_paths,
+                           destfolder=str(output_dir),
+                           save_as_csv=False)
+
+        return True
+
 register_pose_backend("dlc", DLCBackend)

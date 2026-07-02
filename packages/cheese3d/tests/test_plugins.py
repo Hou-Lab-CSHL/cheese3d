@@ -1,8 +1,11 @@
 import pytest
+import toml
 from pathlib import Path
 
 from cheese3d.backends.core import get_pose_backend_class, register_pose_backend
 from cheese3d.backends.dlc import DLCBackend
+from cheese3d.backends.eks import EKSBackend
+from cheese3d.backends.lightning_pose import LightningPoseBackend
 from cheese3d.registry import RegistryError, load_entry_points
 from cheese3d.synchronize.aligners import (BaseAligner,
                                            CrossCorrelationAligner,
@@ -50,6 +53,23 @@ class EntryPoint:
 def test_builtin_plugins_are_registered():
     assert get_aligner_class("crosscorr") is CrossCorrelationAligner
     assert get_pose_backend_class("dlc") is DLCBackend
+    assert get_pose_backend_class("eks") is EKSBackend
+    assert get_pose_backend_class("lightning_pose") is LightningPoseBackend
+
+@pytest.mark.unit
+def test_backend_extras_are_mutually_exclusive():
+    pyproject = Path(__file__).parents[1] / "pyproject.toml"
+    config = toml.load(pyproject)
+    extras = config["project"]["optional-dependencies"]
+    dependencies = config["project"]["dependencies"]
+    assert "dlc" in extras
+    assert "lightning-pose" in extras
+    assert "ensemble-kalman-smoother >= 0.1.0" in dependencies
+    assert "ensemble-kalman-smoother >= 0.1.0" not in extras["dlc"]
+    assert "ensemble-kalman-smoother >= 0.1.0" not in extras["lightning-pose"]
+    assert config["tool"]["uv"]["conflicts"] == [
+        [{"extra": "dlc"}, {"extra": "lightning-pose"}]
+    ]
 
 @pytest.mark.unit
 def test_sync_config_builds_registered_aligner():

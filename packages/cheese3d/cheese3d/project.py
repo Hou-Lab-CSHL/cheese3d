@@ -26,7 +26,6 @@ from cheese3d.config import (MultiViewConfig,
                              _DEFAULT_KEYPOINTS)
 from cheese3d.synchronize.core import SyncConfig, synchronize_videos, synchronize_ephys
 from cheese3d.backends.core import Pose2dBackend, get_pose_backend_class
-from cheese3d.backends.dlc import DLCBackend
 from cheese3d.utils import (dlc_folder_to_components,
                             read_3d_data,
                             reglob,
@@ -157,8 +156,9 @@ def build_model_backend(cfg: ModelConfig | str | Path,
         existing_project = Path(cfg)
         name, *_ = dlc_folder_to_components(existing_project)
         root = root / name / "backend"
+        backend_cls = get_pose_backend_class("dlc")
 
-        return DLCBackend.from_existing(existing_project, root, videos, keypoints, crops)
+        return backend_cls.from_existing(existing_project, root, videos, keypoints, crops)
     else:
         if cfg.name is None:
             return None
@@ -169,16 +169,16 @@ def build_model_backend(cfg: ModelConfig | str | Path,
             for view, video in recording.items():
                 videos.append(video)
                 crops.append(view_cfg[view].get_crop())
-
+        if cfg.backend_type == "eks" and "camera_names" not in cfg.backend_options:
+            cfg.backend_options["camera_names"] = [view.view for view in view_cfg.values()]
         backend_cls = get_pose_backend_class(cfg.backend_type)
-        return backend_cls(
-            name=cfg.name,
-            root_dir=root / cfg.name / "backend",
-            videos=videos,
-            keypoints=keypoints,
-            crops=crops,
-            **cfg.backend_options
-        )
+
+        return backend_cls(name=cfg.name,
+                           root_dir=root / cfg.name / "backend",
+                           videos=videos,
+                           keypoints=keypoints,
+                           crops=crops,
+                           **cfg.backend_options)
 
 @dataclass
 class Ch3DProject:
@@ -515,9 +515,10 @@ class Ch3DProject:
             for group, kps in kp_schema.items():
                 if len(kps) > 2:
                     kp_schema[group].append(kps[0])
+            model_path = getattr(self.model, "anipose_model_path", self.model.project_path)
             config = {
                 "project": self.name,
-                "model_folder": os.path.relpath(self.model.project_path, os.getcwd()),
+                "model_folder": os.path.relpath(model_path, os.getcwd()),
                 "nesting": 1,
                 "pipeline": {"videos-raw": "videos-raw",},
                 "labeling": {
@@ -580,13 +581,27 @@ class Ch3DProject:
             calibrate_all(self._load_anipose_cfg())
 
     def track(self, session: Optional[str] = None):
-        if session is not None:
-            from anipose.pose_videos import process_session
-            config = self._load_anipose_cfg()
-            process_session(config, self._resolve_anipose_session(session))
-        else:
-            from anipose.pose_videos import pose_videos_all
-            pose_videos_all(self._load_anipose_cfg())
+        if self.model is None:
+            raise RuntimeError("Cannot track when pose model does not exist "
+                               "(hint: maybe you forgot to set `model.name` in the config?)")
+        self._setup_anipose()
+        recordings = [(recording, videos) for recording, videos in self.sessions.items()
+                      if session is None or recording.name == session]
+        if len(recordings) == 0:
+            raise ValueError(f"No recordings matched session={session!r}.")
+        for recording, videos in recordings:
+            output_dir = self.triangulation_path / recording.name / "pose-2d"
+            calibration_path = (self.triangulation_path / recording.name /
+                                "calibration" / "calibration.toml")
+            handled = self.model.track(videos=videos,
+                                       output_dir=output_dir,
+                                       calibration_path=calibration_path)
+            if not handled:
+                from anipose.pose_videos import process_session
+                rprint("[bold yellow]WARNING:[/bold yellow] Pose backend did not handle "
+                       "tracking directly; falling back to Anipose tracking.")
+                process_session(self._load_anipose_cfg(),
+                                self._resolve_anipose_session(recording.name))
 
     def triangulate(self, session: Optional[str] = None):
         # first triangulate points using Anipose

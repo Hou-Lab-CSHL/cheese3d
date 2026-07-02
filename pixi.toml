@@ -6,6 +6,8 @@ platforms = ["linux-64", "osx-arm64"]
 [environments]
 docs = { features = ["docs"] }
 dev = { features = ["dev"] }
+cheese3d-dlc = { features = ["cheese3d-dlc"] }
+cheese3d-lp = { features = ["cheese3d-lp"] }
 
 [tasks.build]
 args = [ "name" ]
@@ -54,10 +56,7 @@ c-compiler = "*"
 cxx-compiler = "*"
 ffmpeg = ">=5.1.2"
 av = ">=10.0.0"
-pillow = ">=9.0.0"
-
-[constraints]
-numpy = "<2.0.0"
+pillow = ">=9.0.0,<12.0.0"
 
 [pypi-dependencies]
 cheese3d_annotator = { path = "packages/cheese3d-annotator", editable = true }
@@ -80,3 +79,12 @@ sphinxemoji = ">=0.3.1,<0.4"
 textual-dev = "*"
 pytest = ">=7.4.0,<9.0.0"
 pytest-cov = ">=4.1.0,<6.0.0"
+
+[feature.cheese3d-dlc.pypi-dependencies]
+cheese3d = { path = "packages/cheese3d", editable = true, extras = ["dlc"] }
+
+[feature.cheese3d-dlc.constraints]
+numpy = "<2.0.0"
+
+[feature.cheese3d-lp.pypi-dependencies]
+cheese3d = { path = "packages/cheese3d", editable = true, extras = ["lightning-pose"] }
