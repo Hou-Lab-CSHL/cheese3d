@@ -68,6 +68,9 @@ conflicts = [
     ],
 ]
 
+[tool.uv.sources]
+torch = { index = "pytorch-cu126" }
+
 [[tool.uv.index]]
 name = "pypi"
 url = "https://pypi.org/simple"
@@ -77,6 +80,11 @@ publish-url = "https://upload.pypi.org/legacy/"
 name = "test-pypi"
 url = "https://test.pypi.org/simple"
 publish-url = "https://test.pypi.org/legacy/"
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
