@@ -4747,7 +4747,7 @@ packages:
 - pypi: ./packages/cheese3d
   name: cheese3d
   version: 0.1.1
-  sha256: 263f97cb4510dd22b5127a47e864723545e931b78aaaf3a2c0dd18d2a6d447ec
+  sha256: c1b464092ba1838f5454066cea68063a51d2b8a677f4a594cbe834b2d3374236
   requires_dist:
   - pip>=25.2,<26
   - pandas>=2.1

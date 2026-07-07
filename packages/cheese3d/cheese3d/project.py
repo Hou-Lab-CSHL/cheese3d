@@ -590,6 +590,7 @@ class Ch3DProject:
         if len(recordings) == 0:
             raise ValueError(f"No recordings matched session={session!r}.")
         for recording, videos in recordings:
+            rprint(f"[bold green]Tracking {recording.name} with {len(videos)} videos...[/bold green]")
             output_dir = self.triangulation_path / recording.name / "pose-2d"
             calibration_path = (self.triangulation_path / recording.name /
                                 "calibration" / "calibration.toml")

@@ -1,15 +1,12 @@
+import pandas as pd
 from pathlib import Path
 from typing import Dict, List, Optional
-
-import pandas as pd
-from rich import print as rprint
 
 from cheese3d.backends.core import Pose2dBackend, register_pose_backend
 from cheese3d.config import KeypointConfig
 from cheese3d.utils import BoundingBox
 
-def read_lightning_pose_predictions(csv_path: str | Path,
-                                    scorer: Optional[str] = None) -> pd.DataFrame:
+def read_lp_preds(csv_path: str | Path, scorer: Optional[str] = None) -> pd.DataFrame:
     csv_path = Path(csv_path)
     df = pd.read_csv(csv_path, header=[0, 1, 2], index_col=0)
     keep_cols = []
@@ -31,11 +28,10 @@ def read_lightning_pose_predictions(csv_path: str | Path,
     else:
         df.columns = pd.MultiIndex.from_tuples(list(df.columns),
                                                names=["scorer", "bodyparts", "coords"])
+
     return df.infer_objects()
 
-def dlc_df_to_h5(df: pd.DataFrame,
-                 h5_path: str | Path,
-                 scorer: Optional[str] = None) -> Path:
+def dlc_df_to_h5(df: pd.DataFrame, h5_path: str | Path, scorer: Optional[str] = None) -> Path:
     h5_path = Path(h5_path)
     h5_path.parent.mkdir(parents=True, exist_ok=True)
     keep_cols = [col for col in df.columns if col[2] in {"x", "y", "likelihood"}]
@@ -45,16 +41,13 @@ def dlc_df_to_h5(df: pd.DataFrame,
             [(scorer, bodypart, coord) for _, bodypart, coord in df.columns],
             names=["scorer", "bodyparts", "coords"]
         )
-    if h5_path.exists():
-        return h5_path
-    df.to_hdf(h5_path, key="df_with_missing", format="table", mode="w")
+    if not h5_path.exists():
+        df.to_hdf(h5_path, key="df_with_missing", format="table", mode="w")
+
     return h5_path
 
-def lightning_pose_csv_to_dlc_h5(csv_path: str | Path,
-                                 h5_path: str | Path,
-                                 scorer: Optional[str] = None) -> Path:
-    df = read_lightning_pose_predictions(csv_path, scorer=scorer)
-    return dlc_df_to_h5(df, h5_path, scorer=scorer)
+def lp_csv_to_dlc_h5(csv_path: str | Path, h5_path: str | Path, scorer: Optional[str] = None) -> Path:
+    return dlc_df_to_h5(read_lp_preds(csv_path, scorer=scorer), h5_path, scorer=scorer)
 
 class LightningPoseBackend(Pose2dBackend):
     def __init__(self,
@@ -106,39 +99,43 @@ class LightningPoseBackend(Pose2dBackend):
               calibration_path: Optional[Path] = None) -> bool:
         from lightning_pose.utils.predictions import predict_video
 
-        resolved_videos = {view: Path(video).resolve() for view, video in videos.items()}
-        video_list = list(resolved_videos.values())
         output_dir.mkdir(parents=True, exist_ok=True)
-        rprint(f"[bold green]Tracking 2D pose with Lightning Pose:[/bold green] "
-               f"{output_dir.parent.name}")
-        missing_videos = [video for video in video_list
+        # outputs are <session> / pose-2d by Ch3DProject orchestration
+        print(output_dir.parent.name)
+        # resolve paths to absolute
+        videos = {view: Path(video).resolve() for view, video in videos.items()}
+        # list of videos that we need to generate
+        # exit early if there are none
+        missing_videos = [video for video in videos.values()
                           if not (output_dir / f"{video.stem}.h5").exists()]
         if len(missing_videos) == 0:
             return True
-
+        # list of videos that lp model has already created internal preds for
         existing = [self.model.video_preds_dir() / f"{video.stem}.csv"
                     for video in missing_videos]
         if not all(path.exists() for path in existing):
-            if self.model.config.is_multi_view():
-                view_names = list(self.model.config.cfg.data.view_names)
-                videos_by_view = {}
-                for view_name in view_names:
-                    matches = [video for video in missing_videos if f"_{view_name}_" in video.stem]
-                    if len(matches) != 1:
-                        raise ValueError(f"Expected one video for view {view_name}, found {matches}")
-                    videos_by_view[view_name] = matches[0]
-                ordered_videos = [videos_by_view[view_name] for view_name in view_names]
-                output_files = [self.model.video_preds_dir() / f"{video.stem}.csv"
-                                for video in ordered_videos]
-                existing_outputs = [path for path in output_files if path.exists()]
-                if len(existing_outputs) > 0:
-                    raise RuntimeError("Lightning Pose multiview tracking would overwrite existing "
-                                       f"prediction files: {existing_outputs}")
-                self.model._load()
-                predict_video(video_file=[str(video) for video in ordered_videos],
-                              model=self.model,
-                              output_pred_file=[str(path) for path in output_files])
-            else:
+            # NOTE: currently the config is saying multiview
+            #       but lenny says this is a SVT
+            # if self.model.config.is_multi_view():
+            #     view_names = list(self.model.config.cfg.data.view_names)
+            #     if set(view_names) != set(videos.keys()):
+            #         raise RuntimeError("Session view names do not match view names for trained LP model!"
+            #                            f" Expected {set(view_names)}, got {set(videos.keys())}")
+            #     # get input/output file path ordering matching view order
+            #     ordered_videos = [videos[view_name] for view_name in view_names]
+            #     output_files = [self.model.video_preds_dir() / f"{video.stem}.csv"
+            #                     for video in ordered_videos]
+            #     existing_outputs = [path for path in output_files if path.exists()]
+            #     if len(existing_outputs) > 0:
+            #         raise RuntimeError("Lightning Pose multiview tracking would overwrite existing "
+            #                            f"prediction files: {existing_outputs}")
+            #     # automated collection utility does not match view names for C3D format correctly
+            #     # do this manually (otherwise could use model.predict_on_video_file_multiview)
+            #     self.model._load()
+            #     predict_video(video_file=[str(video) for video in ordered_videos],
+            #                   model=self.model,
+            #                   output_pred_file=[str(path) for path in output_files])
+            # else:
                 for video in missing_videos:
                     prediction_csv = self.model.video_preds_dir() / f"{video.stem}.csv"
                     if prediction_csv.exists():
@@ -149,8 +146,8 @@ class LightningPoseBackend(Pose2dBackend):
         for video in missing_videos:
             csv_path = self.model.video_preds_dir() / f"{video.stem}.csv"
             h5_path = output_dir / f"{video.stem}.h5"
-            lightning_pose_csv_to_dlc_h5(csv_path, h5_path, scorer=self.scorer)
-            rprint(f"Wrote {h5_path}")
+            lp_csv_to_dlc_h5(csv_path, h5_path, scorer=self.scorer)
+            print(f"Wrote {h5_path}")
 
         return True
 

@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from cheese3d.backends.lightning_pose import read_lightning_pose_predictions
+from cheese3d.backends.lightning_pose import read_lp_preds
 
 @pytest.mark.unit
 def test_read_lightning_pose_predictions_filters_metadata_columns(tmp_path):
@@ -15,7 +15,7 @@ def test_read_lightning_pose_predictions_filters_metadata_columns(tmp_path):
     ])
     df = pd.DataFrame([["test", 1.0, 2.0, 0.9, 3.0]], columns=columns)
     df.to_csv(csv_path)
-    parsed = read_lightning_pose_predictions(csv_path, scorer="lp")
+    parsed = read_lp_preds(csv_path, scorer="lp")
     assert list(parsed.columns) == [
         ("lp", "nose", "x"),
         ("lp", "nose", "y"),
