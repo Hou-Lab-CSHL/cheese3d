@@ -1,0 +1,575 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Synchronization guide &#8212; Cheese3D</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="../_static/styles/bootstrap.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+
+  
+  <link href="../_static/vendor/fontawesome/6.5.2/css/all.min.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=eba8b062" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b" />
+  <script src="../_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+    <script src="../_static/documentation_options.js?v=a1637f0b"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/scripts/sphinx-book-theme.js?v=887ef09a"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'howto/sync';</script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Regex guide" href="regex.html" />
+    <link rel="prev" title="Troubleshooting guide" href="../guides/troubleshooting.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-primary-sidebar-checkbox"/>
+  <label class="overlay overlay-primary" for="pst-primary-sidebar-checkbox"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-secondary-sidebar-checkbox"/>
+  <label class="overlay overlay-secondary" for="pst-secondary-sidebar-checkbox"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">Cheese3D</p>
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+ <script>
+ document.write(`
+   <button class="btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../guides/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/quick-start.html">Quick-start guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/organizing-projects.html">Organizing your Cheese3D projects/data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/hardware.html">Hardware setup guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/troubleshooting.html">Troubleshooting guide</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">How-to examples</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Synchronization guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="regex.html">Regex guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="backups.html">Backing up and sharing projects</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../reference/configuration.html">Configuration file</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/cli.html">Command-line interface</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+<a href="https://github.com/Hou-Lab-CSHL/cheese3d" target="_blank"
+   class="btn btn-sm btn-source-repository-button"
+   title="Source repository"
+   data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+
+</a>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../_sources/howto/sync.rst" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.rst</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"></i>
+  </button>
+`);
+</script>
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm pst-navbar-icon search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+  </button>
+`);
+</script>
+<button class="sidebar-toggle secondary-toggle btn btn-sm" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>Synchronization guide</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-synchronization-works">How synchronization works</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#configuring-the-sync-pipeline">Configuring the sync pipeline</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#synchronizing-ephys-data">Synchronizing ephys data</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#running-synchronization">Running synchronization</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#debugging-synchronization-issues">Debugging synchronization issues</a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="synchronization-guide">
+<h1>Synchronization guide<a class="headerlink" href="#synchronization-guide" title="Link to this heading">#</a></h1>
+<p>Cheese3D records from multiple cameras (and optionally an electrophysiology system) that each have their own internal clocks. Even though the cameras are triggered together, small differences in start times and sample rates accumulate over a recording. The <code class="docutils literal notranslate"><span class="pre">cheese3d</span> <span class="pre">sync</span></code> command aligns each video (and ephys file) to a single reference video so that frame <code class="docutils literal notranslate"><span class="pre">i</span></code> from every camera corresponds to the same moment in time.</p>
+<p>This guide explains:</p>
+<nav class="contents local" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="#how-synchronization-works" id="id1">How synchronization works</a></p></li>
+<li><p><a class="reference internal" href="#configuring-the-sync-pipeline" id="id2">Configuring the sync pipeline</a></p></li>
+<li><p><a class="reference internal" href="#synchronizing-ephys-data" id="id3">Synchronizing ephys data</a></p></li>
+<li><p><a class="reference internal" href="#running-synchronization" id="id4">Running synchronization</a></p></li>
+<li><p><a class="reference internal" href="#debugging-synchronization-issues" id="id5">Debugging synchronization issues</a></p></li>
+</ul>
+</nav>
+<section id="how-synchronization-works">
+<h2>How synchronization works<a class="headerlink" href="#how-synchronization-works" title="Link to this heading">#</a></h2>
+<p>Cheese3D relies on an infrared LED that is visible to every camera (see <a class="reference internal" href="../guides/hardware.html"><span class="doc">Hardware setup guide</span></a>). The LED pulses on for <code class="docutils literal notranslate"><span class="pre">20</span> <span class="pre">ms</span></code> every <code class="docutils literal notranslate"><span class="pre">10</span> <span class="pre">±</span> <span class="pre">0.5</span> <span class="pre">s</span></code>. For ephys, the same pulse train is sent to an analog input channel on the acquisition system. Because every recording sees the same pulse train, we can use the pulses as common landmarks to align signals.</p>
+<p>For each recording, Cheese3D:</p>
+<ol class="arabic simple">
+<li><p>Picks one camera as the <strong>reference view</strong> (set by <code class="docutils literal notranslate"><span class="pre">sync.ref_view</span></code> in <a class="reference internal" href="../reference/configuration.html#sync-options"><span class="std std-ref">Sync options</span></a>).</p></li>
+<li><p>Reads the LED brightness within the <code class="docutils literal notranslate"><span class="pre">sync_led</span></code> crop region of the reference video and converts it to a binary on/off signal.</p></li>
+<li><p>Repeats step 2 for every other video (the <strong>targets</strong>).</p></li>
+<li><p>Runs a pipeline of alignment algorithms (<code class="docutils literal notranslate"><span class="pre">sync.pipeline</span></code>) to estimate, for each target, a time lag and a corrected sample rate relative to the reference.</p></li>
+<li><p>Uses FFmpeg to shift each target video by the estimated lag so all videos start at the same instant.</p></li>
+<li><p>If ephys data is configured, repeats the alignment between the reference video and the ephys sync channel, writing the lag and sample rate to disk (the ephys file itself is not modified).</p></li>
+</ol>
+<p>After running <code class="docutils literal notranslate"><span class="pre">cheese3d</span> <span class="pre">sync</span></code>, every synchronized video has a sibling <code class="docutils literal notranslate"><span class="pre">&lt;video&gt;.align.json</span></code> file alongside several quality-control (QC) plots used for debugging.</p>
+</section>
+<section id="configuring-the-sync-pipeline">
+<h2>Configuring the sync pipeline<a class="headerlink" href="#configuring-the-sync-pipeline" title="Link to this heading">#</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">sync</span></code> section of <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code> controls the alignment behavior. See <a class="reference internal" href="../reference/configuration.html#sync-options"><span class="std std-ref">Sync options</span></a> for the full list of keys. A typical configuration looks like:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">sync</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">pipeline</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">crosscorr</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">regression</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">samplerate</span><span class="p p-Indicator">]</span>
+<span class="w">  </span><span class="nt">led_threshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.9</span>
+<span class="w">  </span><span class="nt">led_peak_algorithm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dynamic</span>
+<span class="w">  </span><span class="nt">max_regression_rmse</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.01</span>
+<span class="w">  </span><span class="nt">ref_view</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bottomcenter</span>
+<span class="w">  </span><span class="nt">ref_crop</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">default</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">pipeline</span></code> key is a list of alignment stages applied in order. Each stage refines the lag/sample-rate estimate produced by the previous stage, and potentially rejects poor results:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">crosscorr</span></code> — Computes the cross-correlation between reference and target LED signals to find a coarse lag. Best at finding the initial offset between recordings. Rejects results when the peak cross correlation amplitude is smaller than the number of total peaks.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">regression</span></code> — Regresses target pulse times against reference pulse times. Both the lag <em>and</em> the target sample rate are adjusted. The result is only accepted if the regression RMSE is below <code class="docutils literal notranslate"><span class="pre">max_regression_rmse</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">samplerate</span></code> — Estimates each signal’s pulse-to-pulse interval and corrects the target sample rate by the ratio of medians. Useful when clock drift is the dominant source of misalignment. Generally always accepted barring numerical issues (division by zero).</p></li>
+</ul>
+<p>You can include or exclude stages depending on your setup. For example, if your cameras share a hardware trigger and you only care about clock drift, you can use <code class="docutils literal notranslate"><span class="pre">pipeline:</span> <span class="pre">[samplerate]</span></code>.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>We recommend always using <code class="docutils literal notranslate"><span class="pre">regression</span></code> as it is most robust to differences in experimental setups.</p>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">ref_view</span></code> must match a view name from the <code class="docutils literal notranslate"><span class="pre">views</span></code> configuration, and the <code class="docutils literal notranslate"><span class="pre">sync_led</span></code> <code class="docutils literal notranslate"><span class="pre">extra_crops</span></code> region must be defined for every view so the LED can be located in each camera’s frame:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">views</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">bottomcenter</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">view</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">BC</span>
+<span class="w">    </span><span class="nt">crop</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">null</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">null</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">null</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">null</span><span class="p p-Indicator">]</span>
+<span class="w">    </span><span class="nt">extra_crops</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">sync_led</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">250</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">265</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">20</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">35</span><span class="p p-Indicator">]</span>
+<span class="w">  </span><span class="nt">topleft</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">view</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">TL</span>
+<span class="w">    </span><span class="nt">crop</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">null</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">null</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">null</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">null</span><span class="p p-Indicator">]</span>
+<span class="w">    </span><span class="nt">extra_crops</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">sync_led</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">310</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">325</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">40</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">55</span><span class="p p-Indicator">]</span>
+<span class="w">  </span><span class="c1"># ... one entry per camera</span>
+</pre></div>
+</div>
+<p>Adjust the <code class="docutils literal notranslate"><span class="pre">[xstart,</span> <span class="pre">xend,</span> <span class="pre">ystart,</span> <span class="pre">yend]</span></code> of each <code class="docutils literal notranslate"><span class="pre">sync_led</span></code> crop so it tightly encloses the LED in the corresponding view. Tight crops give a cleaner brightness trace and more reliable pulse detection.</p>
+</section>
+<section id="synchronizing-ephys-data">
+<h2>Synchronizing ephys data<a class="headerlink" href="#synchronizing-ephys-data" title="Link to this heading">#</a></h2>
+<p>To synchronize an ephys recording with the videos, fill in both the <code class="docutils literal notranslate"><span class="pre">ephys_root</span></code> and <code class="docutils literal notranslate"><span class="pre">ephys_param</span></code> keys in <a class="reference internal" href="../reference/configuration.html#main-config-ref"><span class="std std-ref">Main configuration file parameters</span></a>. Cheese3D currently supports three systems out of the box:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://www.neuronexus.com/products/software/radiens/">Allego</a> (<code class="docutils literal notranslate"><span class="pre">type:</span> <span class="pre">allego</span></code>)</p></li>
+<li><p><a class="reference external" href="https://open-ephys.org/gui">Open Ephys</a> (<code class="docutils literal notranslate"><span class="pre">type:</span> <span class="pre">openephys</span></code>)</p></li>
+<li><p><a class="reference external" href="https://www.datasci.com/products/software/ponemah">DSI</a> (<code class="docutils literal notranslate"><span class="pre">type:</span> <span class="pre">dsi</span></code>)</p></li>
+</ul>
+<p>See <a class="reference internal" href="../reference/configuration.html#ephys-options"><span class="std std-ref">Ephys options</span></a> for the parameters available for each system. The key things to set are:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">sample_rate</span></code> — Must match the acquisition system’s configured sample rate.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sync_channel</span></code> — The analog input channel wired to the LED pulse train (not needed for DSI).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sync_threshold</span></code> — Voltage threshold for detecting an “on” pulse. Adjust if your pulse amplitude differs from the default <code class="docutils literal notranslate"><span class="pre">0.2</span></code>.</p></li>
+</ul>
+<p>When <code class="docutils literal notranslate"><span class="pre">cheese3d</span> <span class="pre">sync</span></code> runs and ephys data is configured, an additional <code class="docutils literal notranslate"><span class="pre">.align.json</span></code> file is written next to each ephys recording. Downstream analysis code can use the <code class="docutils literal notranslate"><span class="pre">lag_time</span></code>, <code class="docutils literal notranslate"><span class="pre">slope</span></code>, and <code class="docutils literal notranslate"><span class="pre">sample_rate</span></code> fields to map ephys samples to video frames.</p>
+</section>
+<section id="running-synchronization">
+<h2>Running synchronization<a class="headerlink" href="#running-synchronization" title="Link to this heading">#</a></h2>
+<p>To synchronize a project, run:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cheese3d<span class="w"> </span>sync<span class="w"> </span><span class="o">[</span>NAME<span class="o">]</span>
+</pre></div>
+</div>
+<p>where <code class="docutils literal notranslate"><span class="pre">NAME</span></code> is the project name (or <code class="docutils literal notranslate"><span class="pre">.</span></code> for the current directory). See <a class="reference internal" href="../reference/cli.html#sync"><span class="std std-ref">sync</span></a> for command-line details.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If a <code class="docutils literal notranslate"><span class="pre">.align.json</span></code> file already exists for a target video, it is skipped. Delete the file to re-run synchronization for that target.</p>
+</div>
+<p>After <code class="docutils literal notranslate"><span class="pre">sync</span></code> completes, the recording folder will contain several new files for each video:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">&lt;video&gt;.align.json</span></code> — The estimated alignment parameters (lag, slope, sample rate).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&lt;video&gt;-qc-brightness.png</span></code> — The brightness trace of the <code class="docutils literal notranslate"><span class="pre">sync_led</span></code> crop with the detection threshold overlaid.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&lt;video&gt;-qc-bbox.png</span></code> — An exemplar frame with the <code class="docutils literal notranslate"><span class="pre">sync_led</span></code> crop drawn as a red rectangle.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&lt;video&gt;.qc-stage-&lt;i&gt;.png</span></code> — Per-stage debug plot for the <code class="docutils literal notranslate"><span class="pre">i</span></code>-th pipeline stage.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&lt;video&gt;.qc-final.png</span></code> — The aligned vs. unaligned signals over time, with first/last pulse zoom-ins.</p></li>
+</ul>
+</section>
+<section id="debugging-synchronization-issues">
+<h2>Debugging synchronization issues<a class="headerlink" href="#debugging-synchronization-issues" title="Link to this heading">#</a></h2>
+<p>When alignment fails or produces obviously wrong shifts, the QC plots are the first place to look.</p>
+<p><strong>The LED crop is wrong.</strong> Open <code class="docutils literal notranslate"><span class="pre">&lt;video&gt;-qc-bbox.png</span></code> and check that the red rectangle tightly encloses the LED. If the LED is outside the box, adjust the <code class="docutils literal notranslate"><span class="pre">sync_led</span></code> crop in the <code class="docutils literal notranslate"><span class="pre">extra_crops</span></code> for that view. If the box is too large, ambient brightness changes can swamp the LED signal.</p>
+<p><strong>No pulses are detected.</strong> Open <code class="docutils literal notranslate"><span class="pre">&lt;video&gt;-qc-brightness.png</span></code>. You should see a flat baseline with sharp spikes every <code class="docutils literal notranslate"><span class="pre">~10</span> <span class="pre">s</span></code>. Some potential issues:</p>
+<ul class="simple">
+<li><p>If you see only noise, the crop is mispositioned (see above)</p></li>
+<li><p>If the peaks do not cross the dashed red line or noise crosses this line, <code class="docutils literal notranslate"><span class="pre">led_threshold</span></code> is too high—try lowering it (e.g. <code class="docutils literal notranslate"><span class="pre">0.7</span></code>)</p></li>
+<li><p>If the dashed black line is a poor “max brightness”, <code class="docutils literal notranslate"><span class="pre">led_peak_algorithm</span></code> is misestimating the peak—try <code class="docutils literal notranslate"><span class="pre">&quot;max&quot;</span></code> instead</p></li>
+</ul>
+<p><strong>The cross-correlation lag looks wrong.</strong> Open <code class="docutils literal notranslate"><span class="pre">&lt;video&gt;.qc-stage-0.png</span></code>. A correct alignment shows a single dominant peak in the cross-correlation (with height greater than the number of total peaks). Multiple peaks of similar height might mean the LED detection is unreliable—fix the brightness trace first. Occasionally, there may not be a unique lag at which all peaks across source and target are overlapping; in this case, you can trust the algorithm to reject the results and rely on <code class="docutils literal notranslate"><span class="pre">regression</span></code> instead.</p>
+<p><strong>The regression stage is rejected.</strong> Cheese3D prints the regression RMSE during sync. If it is above <code class="docutils literal notranslate"><span class="pre">max_regression_rmse</span></code>, the stage is considered “bad” and the previous estimate is kept. Either:</p>
+<ul class="simple">
+<li><p>Raise <code class="docutils literal notranslate"><span class="pre">max_regression_rmse</span></code> if your cameras are known to drift significantly, or</p></li>
+<li><p>Inspect <code class="docutils literal notranslate"><span class="pre">&lt;video&gt;.qc-stage-1.png</span></code>: the scatter of target pulse times vs. reference pulse times should lie on a near-identity line. Outliers usually indicate spurious or missed pulses. Clearly non-linear trends indicate time-varying misalignment of the sample rate which our pipeline does not currently correct.</p></li>
+</ul>
+<p><strong>The final alignment looks correct, but downstream tracking is off.</strong> Open <code class="docutils literal notranslate"><span class="pre">&lt;video&gt;.qc-final.png</span></code>. The “First pulse (after)” and “Last pulse (after)” panels should show the reference and target pulses overlapping. If this isn’t the case, then inspect the other QC plots to debug more.</p>
+</section>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="../guides/troubleshooting.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Troubleshooting guide</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="regex.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Regex guide</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+  <div class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav class="bd-toc-nav page-toc">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-synchronization-works">How synchronization works</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#configuring-the-sync-pipeline">Configuring the sync pipeline</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#synchronizing-ephys-data">Synchronizing ephys data</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#running-synchronization">Running synchronization</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#debugging-synchronization-issues">Debugging synchronization issues</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Kyle Daruwalla & Hou Lab @ CSHL
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2025, Hou Lab @ CSHL.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b"></script>
+<script src="../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

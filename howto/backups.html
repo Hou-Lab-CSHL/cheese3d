@@ -1,0 +1,558 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Backing up and sharing projects &#8212; Cheese3D</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="../_static/styles/bootstrap.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+
+  
+  <link href="../_static/vendor/fontawesome/6.5.2/css/all.min.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=eba8b062" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b" />
+  <script src="../_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+    <script src="../_static/documentation_options.js?v=a1637f0b"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/scripts/sphinx-book-theme.js?v=887ef09a"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'howto/backups';</script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Configuration file" href="../reference/configuration.html" />
+    <link rel="prev" title="Regex guide" href="regex.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-primary-sidebar-checkbox"/>
+  <label class="overlay overlay-primary" for="pst-primary-sidebar-checkbox"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-secondary-sidebar-checkbox"/>
+  <label class="overlay overlay-secondary" for="pst-secondary-sidebar-checkbox"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">Cheese3D</p>
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+ <script>
+ document.write(`
+   <button class="btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../guides/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/quick-start.html">Quick-start guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/organizing-projects.html">Organizing your Cheese3D projects/data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/hardware.html">Hardware setup guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/troubleshooting.html">Troubleshooting guide</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">How-to examples</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="sync.html">Synchronization guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="regex.html">Regex guide</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Backing up and sharing projects</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../reference/configuration.html">Configuration file</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/cli.html">Command-line interface</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+<a href="https://github.com/Hou-Lab-CSHL/cheese3d" target="_blank"
+   class="btn btn-sm btn-source-repository-button"
+   title="Source repository"
+   data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+
+</a>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../_sources/howto/backups.rst" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.rst</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"></i>
+  </button>
+`);
+</script>
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm pst-navbar-icon search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+  </button>
+`);
+</script>
+<button class="sidebar-toggle secondary-toggle btn btn-sm" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>Backing up and sharing projects</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#what-is-a-checkpoint">What is a checkpoint?</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#what-is-included-in-a-checkpoint">What is included in a checkpoint</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#creating-a-checkpoint">Creating a checkpoint</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#portable-archives">Portable archives</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#restoring-a-checkpoint">Restoring a checkpoint</a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="backing-up-and-sharing-projects">
+<h1>Backing up and sharing projects<a class="headerlink" href="#backing-up-and-sharing-projects" title="Link to this heading">#</a></h1>
+<p>Two CLI commands help you move a project between machines or archive it for long-term storage:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">cheese3d</span> <span class="pre">checkpoint</span></code>: bundles a project into a single archive</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cheese3d</span> <span class="pre">restore</span></code>: expands an archive back into a working project</p></li>
+</ul>
+<p>This guide explains:</p>
+<nav class="contents local" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="#what-is-a-checkpoint" id="id1">What is a checkpoint?</a></p></li>
+<li><p><a class="reference internal" href="#what-is-included-in-a-checkpoint" id="id2">What is included in a checkpoint</a></p></li>
+<li><p><a class="reference internal" href="#creating-a-checkpoint" id="id3">Creating a checkpoint</a></p></li>
+<li><p><a class="reference internal" href="#restoring-a-checkpoint" id="id4">Restoring a checkpoint</a></p></li>
+</ul>
+</nav>
+<section id="what-is-a-checkpoint">
+<h2>What is a checkpoint?<a class="headerlink" href="#what-is-a-checkpoint" title="Link to this heading">#</a></h2>
+<p>A <strong>checkpoint</strong> is a single <code class="docutils literal notranslate"><span class="pre">.tar.xz</span></code> archive that captures the state of a Cheese3D project at a point in time. Archives are written to the project’s <code class="docutils literal notranslate"><span class="pre">checkpoints/</span></code> folder using the naming scheme:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>&lt;project&gt;/checkpoints/&lt;name&gt;_&lt;YYYY-MM-DD-HH-MM-SS&gt;.tar.xz
+</pre></div>
+</div>
+<p>The timestamp is generated when the command is run, so successive checkpoints never overwrite each other.</p>
+<p>Checkpoints are useful for:</p>
+<ul class="simple">
+<li><p><strong>Snapshotting before a destructive change.</strong> Take a checkpoint before retraining the pose model, re-running synchronization, or editing labels. If the new run is worse, <code class="docutils literal notranslate"><span class="pre">restore</span></code> brings you back to the previous state.</p></li>
+<li><p><strong>Sharing a project.</strong> Hand a single <code class="docutils literal notranslate"><span class="pre">.tar.xz</span></code> to a collaborator or upload it to long-term storage instead of dealing with many loose files and possibly external symlinks.</p></li>
+<li><p><strong>Moving a project between machines.</strong> Use <code class="docutils literal notranslate"><span class="pre">--portable</span></code> (see <a class="reference internal" href="#portable-archives"><span class="std std-ref">Portable archives</span></a> below) to ensure the archive is self-contained regardless of where its data originally lived.</p></li>
+</ul>
+</section>
+<section id="what-is-included-in-a-checkpoint">
+<h2>What is included in a checkpoint<a class="headerlink" href="#what-is-included-in-a-checkpoint" title="Link to this heading">#</a></h2>
+<p>By default, <code class="docutils literal notranslate"><span class="pre">cheese3d</span> <span class="pre">checkpoint</span></code> includes everything inside the project folder <em>except</em> the <code class="docutils literal notranslate"><span class="pre">checkpoints/</span></code> subfolder itself. Concretely, that means:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">config.yaml</span></code>: always included (and possibly rewritten; see <a class="reference internal" href="#portable-archives"><span class="std std-ref">Portable archives</span></a> below)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">triangulation/</span></code>: always included</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">model/</span></code> (the default <code class="docutils literal notranslate"><span class="pre">model_root</span></code>): included <em>if</em> the model lives inside the project folder; externalized model directories are only included when <code class="docutils literal notranslate"><span class="pre">--portable</span></code> is set</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">videos/</span></code> (the default <code class="docutils literal notranslate"><span class="pre">video_root</span></code>): included <em>if</em> the videos live inside the project folder and <code class="docutils literal notranslate"><span class="pre">--skip-source</span></code> is <em>not</em> set; externalized video roots require <code class="docutils literal notranslate"><span class="pre">--portable</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ephys/</span></code> (the default <code class="docutils literal notranslate"><span class="pre">ephys_root</span></code>): same rules as <code class="docutils literal notranslate"><span class="pre">videos/</span></code>—included by default when <code class="docutils literal notranslate"><span class="pre">ephys_root</span></code> is inside the project folder, requires <code class="docutils literal notranslate"><span class="pre">--portable</span></code> otherwise</p></li>
+</ul>
+<p>See <a class="reference internal" href="../guides/organizing-projects.html"><span class="doc">Organizing your Cheese3D projects/data</span></a> for the project layout these <code class="docutils literal notranslate"><span class="pre">*_root</span></code> folders refer to.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Because source recordings (videos and ephys) are typically large, you can opt out of them at archive time with <code class="docutils literal notranslate"><span class="pre">--skip-source</span></code>; the resulting archive contains the configuration, the trained model, the triangulation outputs, and any other project files, but not the raw inputs.</p>
+</div>
+</section>
+<section id="creating-a-checkpoint">
+<h2>Creating a checkpoint<a class="headerlink" href="#creating-a-checkpoint" title="Link to this heading">#</a></h2>
+<p>The minimal invocation, from inside a project folder:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cheese3d<span class="w"> </span>checkpoint
+</pre></div>
+</div>
+<p>To explicitly skip source recordings (useful when you only want to share the <em>results</em> of an analysis):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cheese3d<span class="w"> </span>checkpoint<span class="w"> </span>--skip-source
+</pre></div>
+</div>
+<p>See <a class="reference internal" href="../reference/cli.html#checkpoint"><span class="std std-ref">checkpoint</span></a> for the full set of options.</p>
+<section id="portable-archives">
+<h3>Portable archives<a class="headerlink" href="#portable-archives" title="Link to this heading">#</a></h3>
+<p>The defaults above only bundle source recordings and models that live <strong>inside the project folder</strong>. If your <code class="docutils literal notranslate"><span class="pre">video_root</span></code>, <code class="docutils literal notranslate"><span class="pre">ephys_root</span></code>, or <code class="docutils literal notranslate"><span class="pre">model_root</span></code> points to a shared location (e.g., a lab-wide <code class="docutils literal notranslate"><span class="pre">dlc-projects/</span></code> folder or an external drive), those files won’t appear in a default archive—the resulting checkpoint won’t be self-contained for transfer to another machine.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">--portable</span></code> flag fixes this:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cheese3d<span class="w"> </span>checkpoint<span class="w"> </span>--portable
+</pre></div>
+</div>
+<p>With <code class="docutils literal notranslate"><span class="pre">--portable</span></code>:</p>
+<ul class="simple">
+<li><p>External directories pointed to by <code class="docutils literal notranslate"><span class="pre">video_root</span></code>, <code class="docutils literal notranslate"><span class="pre">ephys_root</span></code>, and <code class="docutils literal notranslate"><span class="pre">model_root</span></code> are copied into the archive under standard subfolders (<code class="docutils literal notranslate"><span class="pre">videos/</span></code>, <code class="docutils literal notranslate"><span class="pre">ephys/</span></code>, and <code class="docutils literal notranslate"><span class="pre">models/</span></code>).</p></li>
+<li><p>Symbolic links inside source folders are resolved and the linked files are copied in directly.</p></li>
+<li><p>The embedded <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code> is rewritten so <code class="docutils literal notranslate"><span class="pre">video_root</span></code>, <code class="docutils literal notranslate"><span class="pre">ephys_root</span></code>, and <code class="docutils literal notranslate"><span class="pre">model_root</span></code> are set to those standard subfolders. So on restore, the project simply works without further reconfiguration.</p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">--portable</span></code> and <code class="docutils literal notranslate"><span class="pre">--skip-source</span></code> are independent. Combining them produces a self-contained archive of <em>just</em> the model and analysis outputs without raw recordings:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cheese3d<span class="w"> </span>checkpoint<span class="w"> </span>--portable<span class="w"> </span>--skip-source
+</pre></div>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>If you’re handing a project off to someone who doesn’t share your filesystem layout, always use <code class="docutils literal notranslate"><span class="pre">--portable</span></code>. The archive is then guaranteed to restore into a working project on any machine.</p>
+</div>
+</section>
+</section>
+<section id="restoring-a-checkpoint">
+<h2>Restoring a checkpoint<a class="headerlink" href="#restoring-a-checkpoint" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">cheese3d</span> <span class="pre">restore</span></code> expands an archive back into a project on disk:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cheese3d<span class="w"> </span>restore<span class="w"> </span>path/to/&lt;name&gt;_&lt;timestamp&gt;.tar.xz
+</pre></div>
+</div>
+<p>By default, the project is restored under the <code class="docutils literal notranslate"><span class="pre">--path</span></code> directory using the project name baked into the archive. To restore under a different name, pass it as the second argument:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cheese3d<span class="w"> </span>restore<span class="w"> </span>my_project_2026-05-13-09-30-00.tar.xz<span class="w"> </span>my_project_copy
+</pre></div>
+</div>
+<p>You can also skip source recordings at restore time. This is useful when you have a large portable archive but only need the configuration, model, and analysis results on the target machine:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cheese3d<span class="w"> </span>restore<span class="w"> </span>my_project.tar.xz<span class="w"> </span>--skip-source
+</pre></div>
+</div>
+<p>See <a class="reference internal" href="../reference/cli.html#restore"><span class="std std-ref">restore</span></a> for the full set of options.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">restore</span></code> will not delete files that already exist in the target directory; it only extracts files from the archive on top of what’s already there. To guarantee a clean restore, point <code class="docutils literal notranslate"><span class="pre">--path</span></code> at an empty folder, or remove the target project directory before running <code class="docutils literal notranslate"><span class="pre">restore</span></code>.</p>
+</div>
+</section>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="regex.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Regex guide</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="../reference/configuration.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Configuration file</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+  <div class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav class="bd-toc-nav page-toc">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#what-is-a-checkpoint">What is a checkpoint?</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#what-is-included-in-a-checkpoint">What is included in a checkpoint</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#creating-a-checkpoint">Creating a checkpoint</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#portable-archives">Portable archives</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#restoring-a-checkpoint">Restoring a checkpoint</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Kyle Daruwalla & Hou Lab @ CSHL
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2025, Hou Lab @ CSHL.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b"></script>
+<script src="../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

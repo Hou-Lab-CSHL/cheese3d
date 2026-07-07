@@ -1,0 +1,635 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Organizing your Cheese3D projects/data &#8212; Cheese3D</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="../_static/styles/bootstrap.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+
+  
+  <link href="../_static/vendor/fontawesome/6.5.2/css/all.min.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=eba8b062" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b" />
+  <script src="../_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+    <script src="../_static/documentation_options.js?v=a1637f0b"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/scripts/sphinx-book-theme.js?v=887ef09a"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'guides/organizing-projects';</script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Hardware setup guide" href="hardware.html" />
+    <link rel="prev" title="Quick-start guide" href="quick-start.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-primary-sidebar-checkbox"/>
+  <label class="overlay overlay-primary" for="pst-primary-sidebar-checkbox"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-secondary-sidebar-checkbox"/>
+  <label class="overlay overlay-secondary" for="pst-secondary-sidebar-checkbox"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">Cheese3D</p>
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+ <script>
+ document.write(`
+   <button class="btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quick-start.html">Quick-start guide</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Organizing your Cheese3D projects/data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="hardware.html">Hardware setup guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting guide</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">How-to examples</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../howto/sync.html">Synchronization guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../howto/regex.html">Regex guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../howto/backups.html">Backing up and sharing projects</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../reference/configuration.html">Configuration file</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/cli.html">Command-line interface</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+<a href="https://github.com/Hou-Lab-CSHL/cheese3d" target="_blank"
+   class="btn btn-sm btn-source-repository-button"
+   title="Source repository"
+   data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+
+</a>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../_sources/guides/organizing-projects.rst" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.rst</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"></i>
+  </button>
+`);
+</script>
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm pst-navbar-icon search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+  </button>
+`);
+</script>
+<button class="sidebar-toggle secondary-toggle btn btn-sm" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>Organizing your Cheese3D projects/data</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#anatomy-of-a-project-folder">Anatomy of a project folder</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#organizing-source-video-recordings">Organizing source video recordings</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#naming-video-files">Naming video files</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#organizing-ephys-data">Organizing ephys data</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#pose-estimation-models">Pose estimation models</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-triangulation-folder">The <code class="docutils literal notranslate"><span class="pre">triangulation/</span></code> folder</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#managing-multiple-projects">Managing multiple projects</a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="organizing-your-cheese3d-projects-data">
+<h1>Organizing your Cheese3D projects/data<a class="headerlink" href="#organizing-your-cheese3d-projects-data" title="Link to this heading">#</a></h1>
+<p>A Cheese3D project is just a directory on disk: a configuration file, some video data, optionally an ephys recording, and a pose estimation model. This basic structure offers an easy way to keep projects self-contained and organized. This guide describes the recommended layout and the conventions Cheese3D uses to locate files inside it.</p>
+<nav class="contents local" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="#anatomy-of-a-project-folder" id="id1">Anatomy of a project folder</a></p></li>
+<li><p><a class="reference internal" href="#organizing-source-video-recordings" id="id2">Organizing source video recordings</a></p>
+<ul>
+<li><p><a class="reference internal" href="#naming-video-files" id="id3">Naming video files</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#organizing-ephys-data" id="id4">Organizing ephys data</a></p></li>
+<li><p><a class="reference internal" href="#pose-estimation-models" id="id5">Pose estimation models</a></p></li>
+<li><p><a class="reference internal" href="#the-triangulation-folder" id="id6">The <code class="docutils literal notranslate"><span class="pre">triangulation/</span></code> folder</a></p></li>
+<li><p><a class="reference internal" href="#managing-multiple-projects" id="id7">Managing multiple projects</a></p></li>
+</ul>
+</nav>
+<section id="anatomy-of-a-project-folder">
+<h2>Anatomy of a project folder<a class="headerlink" href="#anatomy-of-a-project-folder" title="Link to this heading">#</a></h2>
+<p>A Cheese3D project is self-contained in a single folder whose name matches the <code class="docutils literal notranslate"><span class="pre">name</span></code> field in <a class="reference internal" href="../reference/configuration.html#main-config-ref"><span class="std std-ref">Main configuration file parameters</span></a>. A fully populated project looks like this:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>&lt;project&gt;/
+|__ config.yaml                  # All project settings (see Configuration reference)
+|__ videos/                      # Source video recordings, one sub-folder per session
+|  |__ &lt;session-1&gt;/
+|  |  |__ &lt;video files&gt;
+|  |__ &lt;session-2&gt;/
+|     |__ &lt;video files&gt;
+|__ ephys/                       # Optional; only when ephys_root is set
+|  |__ &lt;session-1&gt;/
+|     |__ &lt;ephys files&gt;
+|__ model/                       # 2D pose estimation models for this project
+|  |__ &lt;model-name&gt;/
+|     |__ backend/               # The underlying DLC project
+|     |__ labels/                # Frames extracted/labeled in this project
+|__ triangulation/               # Auto-created during the 3D stage
+   |__ config.toml               # Anipose configuration
+   |__ &lt;session-1&gt;/
+      |__ videos-raw/            # Synchronized inputs (symlinks to videos/)
+      |__ calibration/           # Camera calibration output
+      |__ pose-2d/               # 2D keypoint predictions
+      |__ pose-3d/               # 3D triangulated keypoints
+      |__ cheese3d/              # Cheese3D feature CSV
+      |__ videos-compare/        # Labeled output videos
+</pre></div>
+</div>
+<p>Only <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code> is required up front. Every other folder is either populated by you (e.g., <code class="docutils literal notranslate"><span class="pre">videos</span></code>, <code class="docutils literal notranslate"><span class="pre">ephys</span></code>) or created by Cheese3D as you advance through the pipeline (e.g., the <code class="docutils literal notranslate"><span class="pre">triangulation/</span></code> folder).</p>
+<p>The names <code class="docutils literal notranslate"><span class="pre">videos</span></code>, <code class="docutils literal notranslate"><span class="pre">ephys</span></code>, <code class="docutils literal notranslate"><span class="pre">model</span></code>, and <code class="docutils literal notranslate"><span class="pre">triangulation</span></code> are defaults; they can be remapped via the <code class="docutils literal notranslate"><span class="pre">video_root</span></code>, <code class="docutils literal notranslate"><span class="pre">ephys_root</span></code>, and <code class="docutils literal notranslate"><span class="pre">model_root</span></code> keys in <a class="reference internal" href="../reference/configuration.html#main-config-ref"><span class="std std-ref">Main configuration file parameters</span></a>. The discussion below uses the default names.</p>
+</section>
+<section id="organizing-source-video-recordings">
+<h2>Organizing source video recordings<a class="headerlink" href="#organizing-source-video-recordings" title="Link to this heading">#</a></h2>
+<p>Cheese3D treats each recording session as a folder of videos—typically one file per camera view—under <code class="docutils literal notranslate"><span class="pre">videos/</span></code>. The folder name is the <strong>session name</strong>, which you list under <code class="docutils literal notranslate"><span class="pre">sessions</span></code> in <a class="reference internal" href="../reference/configuration.html#main-config-ref"><span class="std std-ref">Main configuration file parameters</span></a>:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>videos/
+|__ 20231031_chew/
+|  |__ chewing_TL_001.avi
+|  |__ chewing_TR_001.avi
+|  |__ chewing_BC_001.avi
+|  |__ ...
+|__ 20231101_baseline/
+   |__ baseline_TL_001.avi
+   |__ ...
+</pre></div>
+</div>
+<p>Within each session folder, Cheese3D discovers individual videos using the <code class="docutils literal notranslate"><span class="pre">video_regex</span></code> pattern. The regex must capture at least a <code class="docutils literal notranslate"><span class="pre">view</span></code> group (so each file is matched to a camera) and may include other groups like <code class="docutils literal notranslate"><span class="pre">type</span></code> for further grouping and filtering.</p>
+<section id="naming-video-files">
+<h3>Naming video files<a class="headerlink" href="#naming-video-files" title="Link to this heading">#</a></h3>
+<p>The video filename is what Cheese3D uses to attach a camera view and other information to a recording. The more metadata you encode in the filename, the more flexibility you have later when filtering or grouping recordings via <code class="docutils literal notranslate"><span class="pre">video_regex</span></code>.</p>
+<p>A useful filename scheme typically encodes:</p>
+<ul class="simple">
+<li><p><strong>view</strong> (required): which camera the video came from (e.g. <code class="docutils literal notranslate"><span class="pre">TL</span></code>, <code class="docutils literal notranslate"><span class="pre">TR</span></code>, <code class="docutils literal notranslate"><span class="pre">BC</span></code>). Must match the <code class="docutils literal notranslate"><span class="pre">view</span></code> field of an entry in <a class="reference internal" href="../reference/configuration.html#view-options"><span class="std std-ref">View options</span></a>.</p></li>
+<li><p><strong>type</strong>: the kind of recording (e.g. <code class="docutils literal notranslate"><span class="pre">cal</span></code> for calibration, <code class="docutils literal notranslate"><span class="pre">behavior</span></code> for experimental trials).</p></li>
+<li><p><strong>subject</strong>: the mouse identifier (e.g. <code class="docutils literal notranslate"><span class="pre">mouse1</span></code>, <code class="docutils literal notranslate"><span class="pre">M042</span></code>). Encoding this lets you keep many subjects’ recordings in one folder and split them apart via configuration.</p></li>
+<li><p><strong>condition</strong>: an experimental condition or stimulus label (e.g. <code class="docutils literal notranslate"><span class="pre">baseline</span></code>, <code class="docutils literal notranslate"><span class="pre">stim</span></code>).</p></li>
+<li><p><strong>session number</strong> or <strong>repetition</strong>: a counter to disambiguate repeated recordings.</p></li>
+</ul>
+<p>For example, a recording folder with two subjects across baseline and stim conditions might look like:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>videos/
+|__ 20240115_pilot/
+   |__ mouse1_cal_TL_001.avi
+   |__ mouse1_cal_TR_001.avi
+   |__ ...
+   |__ mouse1_baseline_TL_001.avi
+   |__ mouse1_baseline_TR_001.avi
+   |__ ...
+   |__ mouse2_stim_TL_001.avi
+   |__ mouse2_stim_TR_001.avi
+   |__ ...
+</pre></div>
+</div>
+<p>You can describe this layout with a regex that captures each piece of metadata as a named group:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">video_regex</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">_path_</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;{{subject}}_{{type}}_{{view}}_{{rep}}\\.avi&quot;</span>
+<span class="w">  </span><span class="nt">subject</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;mouse\\d+&quot;</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;cal|baseline|stim&quot;</span>
+<span class="w">  </span><span class="nt">view</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;TL|TR|L|R|TC|BC&quot;</span>
+<span class="w">  </span><span class="nt">rep</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;\\d+&quot;</span>
+</pre></div>
+</div>
+<p>Any group you define here becomes a key you can filter on in <code class="docutils literal notranslate"><span class="pre">sessions</span></code> and <code class="docutils literal notranslate"><span class="pre">calibration</span></code>. For example, to only use specific subjects from a folder for analysis:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">sessions</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">20240115_pilot</span>
+<span class="w">    </span><span class="nt">subject</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mouse1</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">baseline</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">20240115_pilot</span>
+<span class="w">    </span><span class="nt">subject</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mouse2</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">stim</span>
+<span class="nt">calibration</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cal</span>
+</pre></div>
+</div>
+<p>In this configuration, calibration videos are shared across subjects (since they only filter on <code class="docutils literal notranslate"><span class="pre">type:</span> <span class="pre">cal</span></code>), while each session pulls only the trials belonging to one mouse. See <a class="reference internal" href="../howto/regex.html"><span class="doc">Regex guide</span></a> for a complete walkthrough of how the dictionary form is translated into a Python regex with named groups.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Pick a filename convention before you start recording and stick to it. The <code class="docutils literal notranslate"><span class="pre">video_regex</span></code> only needs to be written once if every recording follows the same scheme. Renaming files after the fact is tedious; baking subject IDs, conditions, and view codes into your acquisition pipeline pays off later.</p>
+</div>
+</section>
+</section>
+<section id="organizing-ephys-data">
+<h2>Organizing ephys data<a class="headerlink" href="#organizing-ephys-data" title="Link to this heading">#</a></h2>
+<p>Ephys is optional. To use it, set <code class="docutils literal notranslate"><span class="pre">ephys_root</span></code> in <a class="reference internal" href="../reference/configuration.html#main-config-ref"><span class="std std-ref">Main configuration file parameters</span></a> (commonly to <code class="docutils literal notranslate"><span class="pre">ephys</span></code>) and add an <code class="docutils literal notranslate"><span class="pre">ephys_param</span></code> block for your acquisition system. Cheese3D currently supports <a class="reference external" href="https://www.neuronexus.com/products/software/radiens/">Allego</a>, <a class="reference external" href="https://open-ephys.org/gui">Open Ephys</a>, and <a class="reference external" href="https://www.datasci.com/products/software/ponemah">DSI</a> — see <a class="reference internal" href="../reference/configuration.html#ephys-options"><span class="std std-ref">Ephys options</span></a>.</p>
+<p>Ephys files are organized <strong>per session, mirroring the video layout</strong>. Cheese3D looks for ephys recordings under <code class="docutils literal notranslate"><span class="pre">&lt;ephys_root&gt;/&lt;session-name&gt;/</span></code>, matching the same session names listed in <code class="docutils literal notranslate"><span class="pre">sessions</span></code>:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>ephys/
+|__ 20231031_chew/
+|  |__ &lt;ephys recording files&gt;
+|__ 20231101_baseline/
+   |__ &lt;ephys recording files&gt;
+</pre></div>
+</div>
+<p>Which files Cheese3D picks up inside each session folder is controlled by the <code class="docutils literal notranslate"><span class="pre">ephys_regex</span></code> pattern, just like videos. After running <code class="docutils literal notranslate"><span class="pre">cheese3d</span> <span class="pre">sync</span></code>, a sibling <code class="docutils literal notranslate"><span class="pre">.align.json</span></code> file is written next to each ephys recording with the alignment parameters (see <a class="reference internal" href="../howto/sync.html"><span class="doc">Synchronization guide</span></a>).</p>
+</section>
+<section id="pose-estimation-models">
+<h2>Pose estimation models<a class="headerlink" href="#pose-estimation-models" title="Link to this heading">#</a></h2>
+<p>The 2D pose estimation model lives under <code class="docutils literal notranslate"><span class="pre">model/&lt;model-name&gt;/</span></code>, where <code class="docutils literal notranslate"><span class="pre">&lt;model-name&gt;</span></code> is the <code class="docutils literal notranslate"><span class="pre">model.name</span></code> field in <a class="reference internal" href="../reference/configuration.html#main-config-ref"><span class="std std-ref">Main configuration file parameters</span></a>:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>model/
+|__ cheese3d_demo_model/
+   |__ backend/        # The DLC project (config.yaml, training-datasets/, etc.)
+   |__ labels/         # Frames extracted and labeled inside Cheese3D
+</pre></div>
+</div>
+<p>You can either <strong>create</strong> a fresh model when setting up a new project or <strong>import</strong> an existing DLC project that you’ve already trained (the interactive UI prompts for either). Importing is the right choice when:</p>
+<ul class="simple">
+<li><p>you have a pre-trained model that already covers the keypoints you care about, or</p></li>
+<li><p>multiple projects share the same keypoint schema and you’d rather not retrain.</p></li>
+</ul>
+<p>Importing copies the DLC project into <code class="docutils literal notranslate"><span class="pre">model/&lt;model-name&gt;/backend/</span></code>, so each Cheese3D project gets its own independent copy. If you want a single canonical model to be the source of truth, keep the model outside Cheese3D (e.g. in a shared <code class="docutils literal notranslate"><span class="pre">dlc-projects/</span></code> directory) and either:</p>
+<ul class="simple">
+<li><p>re-import them into each project, keeping independent copies, or</p></li>
+<li><p>change the <code class="docutils literal notranslate"><span class="pre">model_root</span></code> key in <a class="reference internal" href="../reference/configuration.html#main-config-ref"><span class="std std-ref">Main configuration file parameters</span></a> to point to the shared DLC project folder.</p></li>
+</ul>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Newly labeled frames go into <code class="docutils literal notranslate"><span class="pre">model/&lt;model-name&gt;/labels/</span></code> and are automatically kept in sync with the backend folder.</p>
+</div>
+</section>
+<section id="the-triangulation-folder">
+<h2>The <code class="docutils literal notranslate"><span class="pre">triangulation/</span></code> folder<a class="headerlink" href="#the-triangulation-folder" title="Link to this heading">#</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">triangulation</span></code> folder contains an <a class="reference external" href="https://github.com/lambdaloop/anipose">Anipose</a> project with one sub-folder per session, plus a top-level <code class="docutils literal notranslate"><span class="pre">config.toml</span></code> that Cheese3D generates from your <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code>. Everything in this folder is generated.</p>
+</section>
+<section id="managing-multiple-projects">
+<h2>Managing multiple projects<a class="headerlink" href="#managing-multiple-projects" title="Link to this heading">#</a></h2>
+<p>Each Cheese3D project is independent. If you run several experiments, give each one its own project folder rather than packing them together. A common workspace layout looks like:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>cheese3d-workspace/
+|__ dlc-projects/                       # Shared DLC models, used by projects below
+|  |__ mymodel/
+|__ 20231031_chewing_study/
+|  |__ config.yaml
+|  |__ videos/
+|__ 20240115_baseline_pilot/
+   |__ config.yaml
+   |__ videos/
+</pre></div>
+</div>
+<p>Putting all projects under a single parent directory makes it easy to back up everything at once, browse past experiments, and share models between them. Similar to sharing DLC models, you can also share video or ephys data by using a shared folder and adjusting <code class="docutils literal notranslate"><span class="pre">video_root</span></code> and <code class="docutils literal notranslate"><span class="pre">ephys_root</span></code> in the config.</p>
+</section>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="quick-start.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Quick-start guide</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="hardware.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Hardware setup guide</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+  <div class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav class="bd-toc-nav page-toc">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#anatomy-of-a-project-folder">Anatomy of a project folder</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#organizing-source-video-recordings">Organizing source video recordings</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#naming-video-files">Naming video files</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#organizing-ephys-data">Organizing ephys data</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#pose-estimation-models">Pose estimation models</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-triangulation-folder">The <code class="docutils literal notranslate"><span class="pre">triangulation/</span></code> folder</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#managing-multiple-projects">Managing multiple projects</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Kyle Daruwalla & Hou Lab @ CSHL
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2025, Hou Lab @ CSHL.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b"></script>
+<script src="../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>
