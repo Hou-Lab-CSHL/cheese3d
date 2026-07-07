@@ -1,13 +1,17 @@
 [workspace]
 name = "cheese3d"
-channels = ["conda-forge", "nvidia", "apple"]
+channels = ["conda-forge", "apple"]
 platforms = ["linux-64", "osx-arm64"]
 
 [environments]
+default = { features = ["dlc"] }
 docs = { features = ["docs"] }
 dev = { features = ["dev"] }
-cheese3d-dlc = { features = ["cheese3d-dlc"] }
-cheese3d-lp = { features = ["cheese3d-lp"] }
+dev-dlc = { features = ["dev", "dlc"] }
+dev-lp = { features = ["dev", "lp-cu12"] }
+dev-lp-cu13 = { features = ["dev", "lp-cu13"] }
+lp = { features = ["lp-cu12"] }
+lp-cu13 = { features = ["lp-cu13"] }
 
 [tasks.build]
 args = [ "name" ]
@@ -50,7 +54,7 @@ LD_LIBRARY_PATH = "$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
 PYTHONNOUSERSITE = "1"
 
 [dependencies]
-python = "3.10.*"
+python = "3.11.*"
 uv = ">=0.11.11,<0.12"
 c-compiler = "*"
 cxx-compiler = "*"
@@ -62,9 +66,9 @@ pillow = ">=9.0.0,<12.0.0"
 cheese3d_annotator = { path = "packages/cheese3d-annotator", editable = true }
 cheese3d = { path = "packages/cheese3d", editable = true }
 
-[target.linux-64.dependencies]
-cudatoolkit = "11.7.*"
-cudnn = "8.*"
+# [target.linux-64.dependencies]
+# cudatoolkit = "11.7.*"
+# cudnn = "8.*"
 
 [feature.docs.pypi-dependencies]
 sphinx = ">=7.2.0,<8.0.0"
@@ -80,11 +84,20 @@ textual-dev = "*"
 pytest = ">=7.4.0,<9.0.0"
 pytest-cov = ">=4.1.0,<6.0.0"
 
-[feature.cheese3d-dlc.pypi-dependencies]
-cheese3d = { path = "packages/cheese3d", editable = true, extras = ["dlc"] }
+[feature.dlc.pypi-dependencies]
+cheese3d = { path = "packages/cheese3d", editable = true, extras = ["dlc", "cuda12"] }
 
-[feature.cheese3d-dlc.constraints]
+# [feature.dlc-cu12.pypi-options]
+# extra-index-urls = ["https://download.pytorch.org/whl/cu126"]
+
+[feature.dlc.constraints]
 numpy = "<2.0.0"
 
-[feature.cheese3d-lp.pypi-dependencies]
-cheese3d = { path = "packages/cheese3d", editable = true, extras = ["lightning-pose"] }
+[feature.lp-cu12.pypi-dependencies]
+cheese3d = { path = "packages/cheese3d", editable = true, extras = ["lp", "cuda12"] }
+
+# [feature.lp-cu12.pypi-options]
+# extra-index-urls = ["https://download.pytorch.org/whl/cu126"]
+
+[feature.lp-cu13.pypi-dependencies]
+cheese3d = { path = "packages/cheese3d", editable = true, extras = ["lp", "cuda13"] }

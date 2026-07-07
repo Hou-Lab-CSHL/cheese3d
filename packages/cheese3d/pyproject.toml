@@ -4,7 +4,7 @@ version = "0.1.1"
 description = "Sensitive detection and analysis of whole-face movement in mice."
 authors = [{ name = "Hou Lab CSHL", email = "the.hou.lab@gmail.com" }]
 readme = "README.md"
-requires-python = "== 3.10.*"
+requires-python = ">= 3.10"
 scripts = { cheese3d = "cheese3d.cli:cli" }
 dependencies = [
     "pip>=25.2,<26",
@@ -18,8 +18,6 @@ dependencies = [
     "toml >= 0.10",
     # "joblib == 1.5.*",
     "ensemble-kalman-smoother >= 0.1.0",
-    "jax[cuda12]; sys_platform == 'linux'",
-    "jax[cpu]; sys_platform == 'darwin'",
     "aniposelib >= 0.8.0",
     "anipose >= 1.1.24",
     "opencv-python >= 4.10.0.84",
@@ -30,7 +28,7 @@ dependencies = [
     "scikit-video",
     "seaborn",
     "tqdm",
-    "filelock >= 3.24.3",
+    "filelock",
     "open-ephys-python-tools == 0.1.12",
     "typer-slim[standard] >= 0.15.3, < 0.16",
     "questionary",
@@ -42,16 +40,22 @@ dependencies = [
 
 [project.optional-dependencies]
 dlc = [
-    "tables>=3.10.1",
-    "tensorflow < 2.13; sys_platform == 'linux'",
-    "deeplabcut[tf] == 2.3.5 ; sys_platform == 'linux'",
-    "tensorflow-macos < 2.13 ; sys_platform == 'darwin'",
-    "tensorflow-metal ; sys_platform == 'darwin'",
-    "deeplabcut[apple_mchips] == 2.3.5 ; sys_platform == 'darwin'",
+    # "tables>=3.10.1",
+    # "tensorflow < 2.13; sys_platform == 'linux'",
+    "deeplabcut[tf-cu12] >= 3.0.0 ; sys_platform == 'linux'",
+    # "tensorflow-macos < 2.13 ; sys_platform == 'darwin'",
+    # "tensorflow-metal ; sys_platform == 'darwin'",
+    "deeplabcut[apple_mchips] >= 3.0.0 ; sys_platform == 'darwin'",
 ]
-lightning-pose = [
+lp = [
     "lightning-pose == 2.2.0",
     "tables >= 3.9",
+]
+cuda12 = [
+    "jax[cuda12]; sys_platform == 'linux'",
+]
+cuda13 = [
+    "jax[cuda13]; sys_platform == 'linux'",
 ]
 
 [build-system]
@@ -66,12 +70,16 @@ package = true
 conflicts = [
     [
         { extra = "dlc" },
-        { extra = "lightning-pose" },
+        { extra = "lp" },
     ],
+    [
+        { extra = "cuda12" },
+        { extra = "cuda13" },
+    ]
 ]
 
 [tool.uv.sources]
-torch = { index = "pytorch-cu126" }
+torch = { index = "pytorch-cu126", marker = "extra == 'cuda12'" }
 
 [[tool.uv.index]]
 name = "pypi"
