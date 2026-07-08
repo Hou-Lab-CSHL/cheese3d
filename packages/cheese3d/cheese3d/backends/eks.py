@@ -2,7 +2,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
-from rich import print as rprint
 from eks.multicam_smoother import fit_eks_multicam
 from eks.singlecam_smoother import fit_eks_singlecam
 
@@ -76,7 +75,7 @@ class EKSBackend(Pose2dBackend):
 
     def train(self, gpu, iterate_dataset: bool = True):
         for model_name, model in self._selected_train_models().items():
-            rprint(f"[bold green]Training EKS submodel:[/bold green] {model_name}")
+            print(f"Training EKS submodel: {model_name}")
             model.train(gpu, iterate_dataset)
 
     def track(self,
@@ -92,7 +91,7 @@ class EKSBackend(Pose2dBackend):
         if len(existing_outputs) > 0:
             raise RuntimeError("EKS tracking would overwrite existing output files. "
                                f"Existing outputs: {existing_outputs}")
-        rprint(f"[bold green]Tracking 2D pose with EKS ensemble:[/bold green] {output_key}")
+        print(output_key)
         model_csvs = {}
         for model_name, model in self.models.items():
             sub_output_dir = self.ensemble_preds_path / model_name / output_key
