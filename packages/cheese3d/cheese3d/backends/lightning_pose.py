@@ -56,7 +56,8 @@ class LightningPoseBackend(Pose2dBackend):
                  videos: List[Path],
                  keypoints: List[KeypointConfig],
                  crops: Optional[List[BoundingBox]] = None,
-                 scorer: Optional[str] = None):
+                 scorer: Optional[str] = None,
+                 **cfg_options):
         from lightning_pose.api import Model
 
         super().__init__()
@@ -67,6 +68,7 @@ class LightningPoseBackend(Pose2dBackend):
         self.keypoints = keypoints
         self.crops = crops
         self.scorer = scorer
+        self._update_config(**cfg_options)
         self.model = Model.from_dir(self.project_path)
 
     @classmethod
@@ -76,6 +78,14 @@ class LightningPoseBackend(Pose2dBackend):
                       *args,
                       **kwargs):
         raise NotImplementedError("Importing existing Lightning Pose models is not implemented.")
+
+    def _update_config(self, **cfg_options):
+        from lightning_pose.api import ModelConfig
+        from omegaconf import OmegaConf
+
+        cfg = ModelConfig.from_yaml_file(self.project_path / "config.yaml")
+        cfg.cfg.merge_with(cfg_options)
+        OmegaConf.save(cfg.cfg, self.project_path / "config.yaml")
 
     @property
     def project_path(self):

@@ -87,17 +87,17 @@ pytest-cov = ">=4.1.0,<6.0.0"
 [feature.dlc.pypi-dependencies]
 cheese3d = { path = "packages/cheese3d", editable = true, extras = ["dlc", "cuda12"] }
 
-# [feature.dlc-cu12.pypi-options]
-# extra-index-urls = ["https://download.pytorch.org/whl/cu126"]
-
 [feature.dlc.constraints]
 numpy = "<2.0.0"
 
 [feature.lp-cu12.pypi-dependencies]
 cheese3d = { path = "packages/cheese3d", editable = true, extras = ["lp", "cuda12"] }
 
-# [feature.lp-cu12.pypi-options]
-# extra-index-urls = ["https://download.pytorch.org/whl/cu126"]
+[feature.lp-cu12.activation.env]
+TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD = "1"
 
 [feature.lp-cu13.pypi-dependencies]
 cheese3d = { path = "packages/cheese3d", editable = true, extras = ["lp", "cuda13"] }
+
+[feature.lp-cu13.activation.env]
+TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD = "1"
