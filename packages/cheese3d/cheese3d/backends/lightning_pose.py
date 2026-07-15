@@ -1,3 +1,5 @@
+import json
+import subprocess
 import pandas as pd
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -5,6 +7,65 @@ from typing import Dict, List, Optional
 from cheese3d.backends.core import Pose2dBackend, register_pose_backend
 from cheese3d.config import KeypointConfig
 from cheese3d.utils import BoundingBox
+
+def is_lightning_pose_video(video: str | Path) -> bool:
+    """Return whether a video has the MP4 H.264 format used by the LP app."""
+    video = Path(video)
+    if video.suffix.lower() != ".mp4":
+        return False
+    try:
+        result = subprocess.run([
+            "ffprobe", "-v", "error",
+            "-select_streams", "v:0",
+            "-show_entries", "format=format_name:stream=codec_name,pix_fmt",
+            "-of", "json",
+            str(video)
+        ], capture_output=True, check=True, text=True)
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return False
+    try:
+        probe = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return False
+    streams = probe.get("streams", [])
+    format_names = probe.get("format", {}).get("format_name", "").split(",")
+
+    return ("mp4" in format_names and len(streams) == 1 and
+            streams[0].get("codec_name") == "h264" and
+            streams[0].get("pix_fmt") == "yuv420p")
+
+def preprocess_lightning_pose_video(video: str | Path, output_dir: str | Path) -> Path:
+    """Convert a video to the MP4 H.264 format used by the Lightning Pose app."""
+    video = Path(video)
+    if is_lightning_pose_video(video):
+        return video
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / f"{video.stem}.mp4"
+    if (output_path.exists() and
+        output_path.stat().st_mtime >= video.stat().st_mtime and
+        is_lightning_pose_video(output_path)):
+        return output_path
+    try:
+        subprocess.run([
+            "ffmpeg",
+            "-i", str(video),
+            "-loglevel", "info", "-stats",
+            "-c:v", "libx264",
+            "-pix_fmt", "yuv420p",
+            "-g", "1",
+            "-preset", "medium",
+            "-crf", "23",
+            "-vf", "setsar=1",
+            "-an",
+            "-y", str(output_path)
+        ], check=True)
+    except FileNotFoundError as error:
+        raise RuntimeError("ffmpeg is required to preprocess Lightning Pose videos.") from error
+    except subprocess.CalledProcessError as error:
+        raise RuntimeError(f"Failed to preprocess video {video} for Lightning Pose.") from error
+
+    return output_path
 
 def read_lp_preds(csv_path: str | Path, scorer: Optional[str] = None) -> pd.DataFrame:
     csv_path = Path(csv_path)
@@ -110,8 +171,6 @@ class LightningPoseBackend(Pose2dBackend):
         from lightning_pose.utils.predictions import predict_video
 
         output_dir.mkdir(parents=True, exist_ok=True)
-        # outputs are <session> / pose-2d by Ch3DProject orchestration
-        print(output_dir.parent.name)
         # resolve paths to absolute
         videos = {view: Path(video).resolve() for view, video in videos.items()}
         # list of videos that we need to generate
@@ -147,10 +206,14 @@ class LightningPoseBackend(Pose2dBackend):
             #                   output_pred_file=[str(path) for path in output_files])
             # else:
                 for video in missing_videos:
+                    print(f"single view tracking for {video}")
                     prediction_csv = self.model.video_preds_dir() / f"{video.stem}.csv"
                     if prediction_csv.exists():
                         continue
-                    self.model.predict_on_video_file(video,
+                    preprocessed_video = preprocess_lightning_pose_video(
+                        video, self.project_path / "preprocessed-videos"
+                    )
+                    self.model.predict_on_video_file(preprocessed_video,
                                                      compute_metrics=False,
                                                      generate_labeled_video=False)
         for video in missing_videos:
