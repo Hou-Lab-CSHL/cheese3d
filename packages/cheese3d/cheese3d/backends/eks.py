@@ -92,16 +92,17 @@ class EKSBackend(Pose2dBackend):
         if len(existing_outputs) > 0:
             raise RuntimeError("EKS tracking would overwrite existing output files. "
                                f"Existing outputs: {existing_outputs}")
-        print(output_key)
         model_csvs = {}
         for model_name, model in self.models.items():
             sub_output_dir = self.ensemble_preds_path / model_name / output_key
+            print(f"using model {model_name}")
             model.track(videos=videos,
                         output_dir=sub_output_dir,
                         calibration_path=calibration_path)
             model_csvs[model_name] = self._normalize_outputs(model_name,
                                                              videos,
                                                              sub_output_dir)
+        print(f"running eks on: {output_key}")
         self._run_eks(model_csvs=model_csvs,
                       videos=videos,
                       output_dir=output_dir,
