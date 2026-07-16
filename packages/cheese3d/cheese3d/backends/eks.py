@@ -169,6 +169,7 @@ class EKSBackend(Pose2dBackend):
                            output_dir: Path) -> Dict[Path, Path]:
         csv_dir = output_dir / "eks-input"
         csv_dir.mkdir(parents=True, exist_ok=True)
+        dfs = {}
         csvs = {}
         for video in videos.values():
             video = Path(video)
@@ -177,9 +178,12 @@ class EKSBackend(Pose2dBackend):
                 raise FileNotFoundError(f"EKS submodel {model_name!r} did not produce "
                                         f"expected pose file: {h5_path}")
             csv_path = csv_dir / f"{video.stem}.csv"
-            if not csv_path.exists():
-                pd.read_hdf(h5_path).to_csv(csv_path)
+            dfs[video.resolve()] = pd.read_hdf(h5_path)
             csvs[video.resolve()] = csv_path
+        # trim to the shortest video cause EKS can't handle different lengths
+        min_frames = min(len(df) for df in dfs.values())
+        for video, df in dfs.items():
+            df.iloc[:min_frames].to_csv(csvs[video])
 
         return csvs
 
