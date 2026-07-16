@@ -1,7 +1,6 @@
-from pathlib import Path
-from typing import Any, Dict, List, Optional
-
 import pandas as pd
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 from eks.multicam_smoother import fit_eks_multicam
 from eks.singlecam_smoother import fit_eks_singlecam
 
@@ -22,6 +21,7 @@ class EKSBackend(Pose2dBackend):
                  crops: Optional[List[BoundingBox]] = None,
                  train_model: Optional[str] = None,
                  smooth_param: Optional[float] = None,
+                 s_frames: Optional[List[Tuple[int | None, int | None]]] = None,
                  calibration: Optional[str | Path] = None,
                  camera_names: Optional[List[str]] = None):
         self.name = name
@@ -32,6 +32,7 @@ class EKSBackend(Pose2dBackend):
         self.crops = crops
         self.train_model = train_model
         self.smooth_param = smooth_param
+        self.s_frames = [tuple(s) for s in s_frames] if s_frames is not None else s_frames
         self.calibration = (Path(calibration).expanduser().absolute()
                             if calibration is not None else None)
         self.camera_names = camera_names
@@ -215,17 +216,19 @@ class EKSBackend(Pose2dBackend):
             smoothed_df, *_ = fit_eks_singlecam(input_source=prediction_csvs,
                                                 save_file=str(save_file),
                                                 bodypart_list=bodyparts,
-                                                smooth_param=self.smooth_param)
+                                                smooth_param=self.smooth_param,
+                                                s_frames=self.s_frames)
             dlc_df_to_h5(smoothed_df, output_dir / f"{video.stem}.h5")
-            return
-        calibration = self._resolve_calibration(calibration_path, multicam=True)
-        camera_dfs, *_ = fit_eks_multicam(input_source=prediction_csvs,
-                                          save_dir=str(self.ensemble_preds_path / "eks"),
-                                          bodypart_list=bodyparts,
-                                          smooth_param=self.smooth_param,
-                                          camera_names=self.camera_names,
-                                          calibration=str(calibration))
-        for video, camera_df in zip(resolved_videos, camera_dfs):
-            dlc_df_to_h5(camera_df, output_dir / f"{video.stem}.h5")
+        else:
+            calibration = self._resolve_calibration(calibration_path, multicam=True)
+            camera_dfs, *_ = fit_eks_multicam(input_source=prediction_csvs,
+                                              save_dir=str(self.ensemble_preds_path / "eks"),
+                                              bodypart_list=bodyparts,
+                                              smooth_param=self.smooth_param,
+                                              s_frames=self.s_frames,
+                                              camera_names=self.camera_names,
+                                              calibration=str(calibration))
+            for video, camera_df in zip(resolved_videos, camera_dfs):
+                dlc_df_to_h5(camera_df, output_dir / f"{video.stem}.h5")
 
 register_pose_backend("eks", EKSBackend)
