@@ -23,7 +23,8 @@ class EKSBackend(Pose2dBackend):
                  smooth_param: Optional[float] = None,
                  s_frames: Optional[List[Tuple[int | None, int | None]]] = None,
                  calibration: Optional[str | Path] = None,
-                 camera_names: Optional[List[str]] = None):
+                 camera_names: Optional[List[str]] = None,
+                 view_names: Optional[Dict[str, str]] = None):
         self.name = name
         self.root_dir = Path(root_dir).absolute()
         self.root_dir.mkdir(parents=True, exist_ok=True)
@@ -36,6 +37,7 @@ class EKSBackend(Pose2dBackend):
         self.calibration = (Path(calibration).expanduser().absolute()
                             if calibration is not None else None)
         self.camera_names = camera_names
+        self.view_names = view_names or {}
         self.model_configs = self._coerce_model_configs(models)
         self._validate_model_configs()
         self.models = self._build_models()
@@ -205,16 +207,17 @@ class EKSBackend(Pose2dBackend):
                  videos: Dict[str, Path],
                  output_dir: Path,
                  calibration_path: Optional[Path]):
-        resolved_videos = [Path(video).resolve() for video in videos.values()]
-        prediction_csvs = [str(model_csvs[model_name][video])
-                           for model_name in self.models.keys()
-                           for video in resolved_videos]
+        resolved_videos = {view: Path(video).resolve() for view, video in videos.items()}
+        prediction_csvs = {self.view_names.get(view, view):
+                           [str(model_csvs[model_name][video])
+                            for model_name in self.models.keys()]
+                           for view, video in resolved_videos.items()}
         bodyparts = [keypoint.label for keypoint in self.keypoints]
         if len(resolved_videos) == 1:
-            video = resolved_videos[0]
+            video = list(resolved_videos.values())[0]
             save_file = self.ensemble_preds_path / "eks" / f"{video.stem}_eks.csv"
             save_file.parent.mkdir(parents=True, exist_ok=True)
-            smoothed_df, *_ = fit_eks_singlecam(input_source=prediction_csvs,
+            smoothed_df, *_ = fit_eks_singlecam(input_source=list(prediction_csvs.values()),
                                                 save_file=str(save_file),
                                                 bodypart_list=bodyparts,
                                                 smooth_param=self.smooth_param,
@@ -229,7 +232,7 @@ class EKSBackend(Pose2dBackend):
                                               s_frames=self.s_frames,
                                               camera_names=self.camera_names,
                                               calibration=str(calibration))
-            for video, camera_df in zip(resolved_videos, camera_dfs):
+            for video, camera_df in zip(resolved_videos.values(), camera_dfs):
                 dlc_df_to_h5(camera_df, output_dir / f"{video.stem}.h5")
 
 register_pose_backend("eks", EKSBackend)

@@ -169,8 +169,15 @@ def build_model_backend(cfg: ModelConfig | str | Path,
             for view, video in recording.items():
                 videos.append(video)
                 crops.append(view_cfg[view].get_crop())
+        if cfg.backend_type == "eks" and "view_names" not in cfg.backend_options:
+            cfg.backend_options["view_names"] = {
+                view: view_cfg[view].view
+                for view in view_cfg
+            }
         if cfg.backend_type == "eks" and "camera_names" not in cfg.backend_options:
-            cfg.backend_options["camera_names"] = [view.view for view in view_cfg.values()]
+            cfg.backend_options["camera_names"] = [
+                view for view in cfg.backend_options["view_names"].values()
+            ]
         backend_cls = get_pose_backend_class(cfg.backend_type)
 
         return backend_cls(name=cfg.name,

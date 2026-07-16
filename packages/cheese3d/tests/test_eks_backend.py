@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
 from cheese3d.backends.core import register_pose_backend
@@ -77,3 +78,40 @@ def test_eks_backend_rejects_unknown_train_model(tmp_path):
                        "rng0": {"backend_type": "fake_primitive"},
                        "rng1": {"backend_type": "fake_primitive"},
                    })
+
+@pytest.mark.unit
+def test_eks_run_uses_regex_view_names(tmp_path, monkeypatch):
+    backend = EKSBackend(name="ensemble",
+                         root_dir=tmp_path / "backend",
+                         videos=[],
+                         keypoints=[KeypointConfig(label="nose")],
+                         camera_names=["TL", "TR"],
+                         view_names={"topleft": "TL", "topright": "TR"},
+                         models={
+                             "rng0": {"backend_type": "fake_primitive"},
+                             "rng1": {"backend_type": "fake_primitive"},
+                         })
+    videos = {
+        "topleft": tmp_path / "recording_TL.avi",
+        "topright": tmp_path / "recording_TR.avi",
+    }
+    model_csvs = {
+        "rng0": {path.resolve(): tmp_path / f"rng0-{path.stem}.csv"
+                 for path in videos.values()},
+        "rng1": {path.resolve(): tmp_path / f"rng1-{path.stem}.csv"
+                 for path in videos.values()},
+    }
+    received = {}
+
+    def fake_fit_eks_multicam(**kwargs):
+        received.update(kwargs)
+        return [pd.DataFrame(), pd.DataFrame()], None
+
+    monkeypatch.setattr("cheese3d.backends.eks.fit_eks_multicam", fake_fit_eks_multicam)
+    monkeypatch.setattr("cheese3d.backends.eks.dlc_df_to_h5", lambda *args: None)
+    calibration = tmp_path / "calibration.toml"
+    calibration.touch()
+    backend._run_eks(model_csvs, videos, tmp_path / "output", calibration)
+
+    assert set(received["input_source"]) == {"TL", "TR"}
+    assert set(received["input_source"]) != set(videos)
