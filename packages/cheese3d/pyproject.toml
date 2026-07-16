@@ -55,7 +55,9 @@ cuda12 = [
     "jax[cuda12]; sys_platform == 'linux'",
 ]
 cuda13 = [
-    "jax[cuda13]; sys_platform == 'linux'",
+    # this should be cuda13 but ensemble-kalman-smoother caps jax <= 0.4.36
+    # which does not support cuda13
+    "jax[cuda12]; sys_platform == 'linux'",
 ]
 
 [build-system]
