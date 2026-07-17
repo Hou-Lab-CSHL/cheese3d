@@ -61,6 +61,7 @@ cxx-compiler = "*"
 ffmpeg = ">=5.1.2"
 av = ">=10.0.0"
 pillow = ">=9.0.0,<12.0.0"
+numpy = "<2.3"
 
 [pypi-dependencies]
 cheese3d_annotator = { path = "packages/cheese3d-annotator", editable = true }

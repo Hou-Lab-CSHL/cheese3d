@@ -25,7 +25,11 @@ dependencies = [
     "opencv-contrib-python >= 4.10.0.84",
     "pims >= 0.7",
     "av",
-    "scikit-video",
+    # this should really be >=1.1.12 which supports latest numpy
+    # until the new maintainers of scikit-video can publish on pypi
+    # we must limit numpy
+    "scikit-video >= 1.1.11",
+    "numpy < 2.3",
     "seaborn",
     "tqdm",
     "filelock",
