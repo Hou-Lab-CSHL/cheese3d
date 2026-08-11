@@ -9,6 +9,7 @@ import traceback
 import webbrowser
 from textual import work, on
 from textual.app import App, ComposeResult
+from textual.binding import Binding
 from textual.message import Message
 from textual.screen import Screen, ModalScreen
 from textual_serve.server import Server
@@ -35,11 +36,62 @@ from textual.widgets import (Checkbox,
                              SelectionList,
                              OptionList)
 from textual_fspicker import SelectDirectory
+from textual_fspicker.parts import DirectoryNavigation
 
 from cheese3d.config import _DEFAULT_VIDEO_REGEX
 from cheese3d.utils import maybe, reglob
 from cheese3d.project import Ch3DProject, RecordingKey
 from cheese3d.config import ProjectConfig, ModelConfig
+
+
+class _Cheese3DDirectoryPicker(SelectDirectory):
+    """Directory picker whose parent shortcut works regardless of focus.
+
+    ``textual-fspicker`` already handles Backspace inside its directory list,
+    but that binding becomes inactive after a button or another control receives
+    focus. Priority screen bindings make Backspace and Alt+Left reliable across
+    the entire dialog.
+    """
+
+    BINDINGS = [
+        Binding("backspace", "parent_directory", "Parent", priority=True),
+        Binding("alt+left", "parent_directory", "Parent", priority=True),
+    ]
+
+    def _input_bar(self) -> ComposeResult:
+        """Add a physical parent button beside the current-directory display."""
+        # Keep the dependency's existing current-directory display rather than
+        # replacing it; the extra control is appended to the same input bar.
+        yield from super()._input_bar()
+        yield Button("↑ Parent", id="parent_directory", variant="primary")
+
+    def action_parent_directory(self) -> None:
+        """Move to the current directory's parent without leaving the picker."""
+        navigation = self.query_one(DirectoryNavigation)
+        if not navigation.is_root:
+            navigation.location = navigation.location.parent
+        # Restore list focus so arrows and Enter work immediately after going up.
+        navigation.focus()
+
+    @on(Button.Pressed, "#parent_directory")
+    def press_parent_directory(self, event: Button.Pressed) -> None:
+        """Handle the visible Parent button using the keyboard action's logic."""
+        event.stop()
+        self.action_parent_directory()
+
+
+def _directory_picker(title: str = "Select directory") -> SelectDirectory:
+    """Create an unrestricted picker starting outside the repository checkout.
+
+    The Textual web server inherits the repository as its working directory, so
+    ``SelectDirectory()`` used to open inside Cheese3D on every invocation. The
+    user's home directory is a more useful starting point and the picker's ``..``
+    entry still permits navigation all the way to the filesystem root.
+    """
+    # Former behavior is preserved here for context; it made the repository the
+    # initial location whenever Cheese3D was launched from its source checkout.
+    # return SelectDirectory()
+    return _Cheese3DDirectoryPicker(location=Path.home(), title=title)
 
 _REGEX_HELP_MSG = """
 A utility to help with building named grouped
@@ -619,7 +671,10 @@ class ModelWizard(Horizontal):
     @on(Button.Pressed)
     @work
     async def select_directory(self, event: Button.Pressed) -> None:
-        model_path = await self.app.push_screen_wait(SelectDirectory())
+        # Imported models may live anywhere accessible to the Cheese3D process.
+        model_path = await self.app.push_screen_wait(
+            _directory_picker("Select model directory")
+        )
         if model_path is None:
             model_path = ""
         else:
@@ -636,7 +691,10 @@ class ModelWizard(Horizontal):
             self.name_or_path.disabled = False
             self.choose_path.disabled = True
         elif event.select.value == "import":
-            model_path = await self.app.push_screen_wait(SelectDirectory())
+            # Use the same unrestricted browser when import mode is selected.
+            model_path = await self.app.push_screen_wait(
+                _directory_picker("Select model directory")
+            )
             if model_path is None:
                 model_path = ""
             else:
@@ -681,7 +739,10 @@ class StartMenu(Screen):
     @on(Button.Pressed, "#load_project")
     @work
     async def load_project(self):
-        project_path = await self.app.push_screen_wait(SelectDirectory())
+        # Start at the user's home rather than the web server's repository CWD.
+        project_path = await self.app.push_screen_wait(
+            _directory_picker("Select Cheese3D project")
+        )
         if project_path is not None:
             self.app.push_screen(MainScreen(project_path))
 

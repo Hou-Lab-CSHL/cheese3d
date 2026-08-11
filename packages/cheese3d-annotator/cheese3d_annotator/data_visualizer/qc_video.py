@@ -14,7 +14,7 @@ from __future__ import annotations
 import sys, re, math, json, warnings
 from pathlib import Path
 from collections import defaultdict
-from typing import Dict, Tuple, List, Optional
+from typing import Dict, Tuple, List, Optional, Set
 from fnmatch import fnmatch
 
 import numpy as np
@@ -200,6 +200,81 @@ def _project_pts(X_world: np.ndarray, prm: dict) -> np.ndarray:
     p, _ = cv2.projectPoints(X_world.reshape(-1, 3), prm["rvec"], prm["tvec"], prm["K"], prm["dist"])
     return p.reshape(-1, 2)
 
+
+def _camera_code_from_pose_filename(path: Path, camera_codes: List[str]) -> Optional[str]:
+    """Match an Anipose/DLC pose filename to one configured camera code.
+
+    Camera codes are checked longest-first so ``TL`` is not accidentally
+    interpreted as the one-letter camera ``L``.
+    """
+    stem = path.stem
+    for code in sorted(camera_codes, key=len, reverse=True):
+        # DLC scorer text may immediately follow the camera code, while the
+        # character before it remains an underscore in Cheese3D filenames.
+        if re.search(rf"_{re.escape(code)}(?=[A-Z_]|$)", stem):
+            return code
+    return None
+
+
+def _load_pose2d_points(
+    pose2d_dir: Optional[Path], camera_codes: List[str]
+) -> Dict[str, object]:
+    """Load DLC-compatible H5 detections as compact per-camera tables.
+
+    Tables are retained instead of expanding every frame into nested dictionaries;
+    this keeps long, multi-camera sessions from consuming gigabytes of Python
+    object overhead. Unreadable or absent files are skipped so visualization of
+    the 3D result remains available even when original detections were removed.
+    """
+    if pose2d_dir is None or not pose2d_dir.is_dir():
+        return {}
+
+    import pandas as pd
+
+    result: Dict[str, object] = {}
+    for h5_path in sorted(pose2d_dir.glob("*.h5")):
+        cam = _camera_code_from_pose_filename(h5_path, camera_codes)
+        if cam is None or cam in result:
+            continue
+        try:
+            frame_table = pd.read_hdf(h5_path)
+        except Exception as exc:
+            print(f"[warn] Could not load original 2D poses from {h5_path}: {exc}")
+            continue
+
+        # Keep the former direct scorer selection visible for reference; the
+        # generalized loop below also supports two-level and flat tables.
+        # frame_table = frame_table.loc[:, frame_table.columns.levels[0][0]]
+        if isinstance(frame_table.columns, pd.MultiIndex) and frame_table.columns.nlevels >= 3:
+            frame_table = frame_table.loc[:, frame_table.columns.get_level_values(0)[0]]
+
+        # The former eager expansion is intentionally not used because a full
+        # session creates millions of small dictionaries and NumPy arrays:
+        # cam_frames[fr][name] = np.array([x, y], dtype=float)
+        result[cam] = frame_table
+    return result
+
+
+def _pose2d_points_for_frame(frame_table: object, fr: int) -> Dict[str, np.ndarray]:
+    """Extract finite ``(x, y)`` coordinates for one frame from a pose table."""
+    import pandas as pd
+
+    if not isinstance(frame_table, pd.DataFrame) or not 0 <= fr < len(frame_table):
+        return {}
+    if not isinstance(frame_table.columns, pd.MultiIndex):
+        return {}
+
+    row = frame_table.iloc[fr]
+    points: Dict[str, np.ndarray] = {}
+    for name in frame_table.columns.get_level_values(0).unique():
+        try:
+            x, y = float(row[(name, "x")]), float(row[(name, "y")])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if np.isfinite(x) and np.isfinite(y):
+            points[str(name)] = np.array([x, y], dtype=float)
+    return points
+
 # ----------------------------- Keypoints CSV & colors --------------------------
 
 def _parse_keypoint_bases(columns: List[str]) -> List[str]:
@@ -313,6 +388,12 @@ class QCReprojApp:
         Which group to open initially (must be a key in videos_by_group)
     skeleton_config : Optional[Path]
         If provided, read 'skeleton' edges from this YAML (usually config.yaml)
+    keypoint_views : Optional[Dict[str, List[str]]]
+        Allowed long view names for each keypoint. Configured keypoints are hidden
+        from cameras that did not contribute to their triangulation.
+    pose2d_dir : Optional[Path | str]
+        Directory containing original DLC-compatible H5 detections. When present,
+        the viewer draws original points and residual vectors to reprojections.
     """
     def __init__(
         self,
@@ -322,6 +403,8 @@ class QCReprojApp:
         view_code_to_name: Optional[Dict[str, str]] = None,
         group: Optional[str] = None,
         skeleton_config: Optional[Path | List[Tuple[str, str]]] = None,
+        keypoint_views: Optional[Dict[str, List[str]]] = None,
+        pose2d_dir: Optional[Path | str] = None,
     ):
         if not videos_by_group:
             sys.exit("❌ videos_by_group is empty.")
@@ -336,6 +419,11 @@ class QCReprojApp:
             sys.exit(f"❌ pose_3d CSV not found: {self.pose3d_csv}")
 
         self.view_code_to_name = view_code_to_name or {}
+        # An empty mapping intentionally preserves compatibility for callers that
+        # have no per-keypoint view configuration and therefore must show all.
+        self.keypoint_views: Dict[str, Set[str]] = {
+            name: set(views) for name, views in (keypoint_views or {}).items()
+        }
 
         # Choose group & camera ordering (prefer config order)
         self.group_id = group if (group and group in videos_by_group) else next(iter(videos_by_group.keys()))
@@ -353,6 +441,11 @@ class QCReprojApp:
         # Load 3D points (and optional per-frame transforms)
         self.bases, self.X_head_per_frame, self.names_per_frame, self.xform_per_frame = _load_keypoints_csv_with_xforms(self.pose3d_csv)
         self.name2color = _make_color_map(self.bases)
+        # Original 2D detections are loaded once and indexed for fast frame seeks.
+        self.pose2d_points = _load_pose2d_points(
+            Path(pose2d_dir) if pose2d_dir is not None else None,
+            self.cam_codes,
+        )
 
         # Skeleton edges (optional)
         if isinstance(skeleton_config, list):
@@ -392,7 +485,9 @@ class QCReprojApp:
         getattr(qtv, "_dockLayerControls", qtv.dockLayerControls).setVisible(False)
         rows, cols = self._grid_layout(len(self.cam_codes))
         self.pt_layers: dict[str, napari.layers.Points] = {}
+        self.original_pt_layers: dict[str, napari.layers.Points] = {}
         self.sk_layers: dict[str, napari.layers.Shapes] = {}
+        self.residual_layers: dict[str, napari.layers.Shapes] = {}
 
         def _add_video_layer(vr, name, trans_xy):
             # Image layer is 3-D (t,y,x) when rgb=True, so translate needs (0, y, x)
@@ -418,6 +513,18 @@ class QCReprojApp:
                 translate=trans_xy,             # (y, x)
             )
 
+            # Original detections use hollow-looking cyan rings so they remain
+            # visually distinct from the solid colored 3D reprojections.
+            self.original_pt_layers[code] = self.viewer.add_points(
+                data=np.zeros((0, 2), float),
+                size=16,
+                name=f"{code}_original_2d",
+                face_color="transparent",
+                border_color="cyan",
+                border_width=0.15,
+                translate=trans_xy,
+            )
+
             self.sk_layers[code] = self.viewer.add_shapes(
                 data=[],
                 shape_type="path",
@@ -425,6 +532,18 @@ class QCReprojApp:
                 edge_width=2.0,
                 name=f"{code}_skel",
                 translate=trans_xy,             # (y, x)
+            )
+
+
+            # Each yellow path runs from the original 2D location to the 3D
+            # reprojection; its length is the camera-specific residual in pixels.
+            self.residual_layers[code] = self.viewer.add_shapes(
+                data=[],
+                shape_type="path",
+                edge_color="yellow",
+                edge_width=1.5,
+                name=f"{code}_residuals",
+                translate=trans_xy,
             )
 
             # tolerant camera aliasing
@@ -530,10 +649,29 @@ class QCReprojApp:
             keep_mask = np.array([not _is_unwanted(n) for n in curr_names], dtype=bool)
             return [n for n, k in zip(curr_names, keep_mask) if k], uv[keep_mask]
 
+        def _filter_for_camera(
+            cam: str, curr_names: List[str], uv: np.ndarray
+        ) -> tuple[List[str], np.ndarray]:
+            """Keep only keypoints configured for this camera's named view."""
+            if uv.size == 0 or not curr_names:
+                return [], np.zeros((0, 2), float)
+            if not self.keypoint_views:
+                return curr_names, uv
+            view_name = self.view_code_to_name.get(cam, cam)
+            keep_mask = np.array([
+                view_name in self.keypoint_views.get(name, {view_name})
+                for name in curr_names
+            ], dtype=bool)
+            return [name for name, keep in zip(curr_names, keep_mask) if keep], uv[keep_mask]
+
         # For skeleton segments we’ll need name->idx mapping after filtering
         for cam in self.pt_layers.keys():
             uv_full = self.cam_pts.get(cam, {}).get(fr, np.zeros((0, 2), float))
             names_filt, uv = _filter_names_points(names, uv_full)
+            # Former behavior displayed every reconstructed keypoint in every
+            # camera. Keep it documented because it explained misleading offsets:
+            # names_filt, uv = _filter_names_points(names, uv_full)
+            names_filt, uv = _filter_for_camera(cam, names_filt, uv)
 
             # --- Points layer (y, x) with rig_view-like colors ---
             if uv.size == 0:
@@ -546,6 +684,30 @@ class QCReprojApp:
                 self.pt_layers[cam].properties = {"label": labels}
                 colors = np.array([self.name2color.get(n, (1.0, 1.0, 0.0)) for n in names_filt], float)  # default yellow
                 self.pt_layers[cam].face_color = colors
+
+            # Show original detections and connect them to matching reprojections.
+            # Only materialize detections for the displayed frame to keep memory
+            # bounded for recordings containing tens of thousands of frames.
+            original_by_name = _pose2d_points_for_frame(
+                self.pose2d_points.get(cam), fr
+            )
+            original_yx: List[np.ndarray] = []
+            residuals: List[np.ndarray] = []
+            uv_by_name = {name: point for name, point in zip(names_filt, uv)}
+            for name in names_filt:
+                original = original_by_name.get(name)
+                projected = uv_by_name.get(name)
+                if original is None or projected is None:
+                    continue
+                original_yx.append(original[[1, 0]])
+                residuals.append(np.array([
+                    original[[1, 0]], projected[[1, 0]]
+                ], dtype=float))
+            self.original_pt_layers[cam].data = (
+                np.asarray(original_yx, dtype=float)
+                if original_yx else np.zeros((0, 2), dtype=float)
+            )
+            self.residual_layers[cam].data = residuals
 
             # --- Skeleton layer (list of 2-point paths in (y,x)) ---
             segs: List[np.ndarray] = []

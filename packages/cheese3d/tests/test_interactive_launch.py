@@ -1,6 +1,39 @@
 from cheese3d import interactive
 
 
+def test_directory_picker_starts_at_home_not_repository(monkeypatch, tmp_path):
+    """The web UI must expose sibling projects instead of starting in the repo."""
+    monkeypatch.setattr(interactive.Path, "home", classmethod(lambda cls: tmp_path))
+
+    picker = interactive._directory_picker("Choose a project")
+
+    assert picker._location == tmp_path
+    assert picker._title == "Choose a project"
+
+
+def test_directory_picker_has_global_parent_shortcuts():
+    """Backspace must remain available even when the list has lost focus."""
+    bindings = {
+        binding.key: binding
+        for binding in interactive._Cheese3DDirectoryPicker.BINDINGS
+    }
+
+    assert bindings["backspace"].action == "parent_directory"
+    assert bindings["backspace"].priority is True
+    assert bindings["alt+left"].action == "parent_directory"
+
+
+def test_directory_picker_includes_parent_button(monkeypatch, tmp_path):
+    """Mouse users must have a visible control for returning to the parent."""
+    monkeypatch.setattr(interactive.Path, "home", classmethod(lambda cls: tmp_path))
+    picker = interactive._directory_picker()
+
+    input_widgets = list(picker._input_bar())
+
+    assert input_widgets[-1].id == "parent_directory"
+    assert "Parent" in str(input_widgets[-1].label)
+
+
 class ImmediateTimer:
     def __init__(self, _delay, callback, args):
         self.callback = callback

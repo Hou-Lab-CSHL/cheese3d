@@ -761,11 +761,16 @@ class Ch3DProject:
         skeleton = []
         for group in self.keypoint_groups:
             skeleton.extend(group.skeleton)
+        # Preserve the configured long view names because QC must not judge a
+        # keypoint in cameras that were excluded from its triangulation.
+        keypoint_views = {kp.label: list(kp.views) for kp in self.keypoints}
         qc = QCReprojApp(videos_by_group=videos,
                          calibration_path=calibration,
                          pose3d_csv=pose3d,
                          view_code_to_name=view_names,
-                         skeleton_config=skeleton)
+                         skeleton_config=skeleton,
+                         keypoint_views=keypoint_views,
+                         pose2d_dir=anipose_folder / "pose-2d")
         rig = RigViewer(calibration_path=calibration,
                         features_csv=c3d_features,
                         annotation_path=pose3d,
