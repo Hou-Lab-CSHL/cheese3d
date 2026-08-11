@@ -21,6 +21,7 @@ from cheese3d.config import (MultiViewConfig,
                              KeypointGroupConfig,
                              ModelConfig,
                              TriangulationConfig,
+                             VisualizationConfig,
                              ProjectConfig,
                              keypoints_by_group,
                              _DEFAULT_KEYPOINTS)
@@ -199,7 +200,8 @@ def build_model_backend(cfg: ModelConfig | str | Path,
                            crops=crops,
                            **backend_options)
 
-def resolve_pose3d_csv(session_path: str | Path) -> Path:
+def resolve_pose3d_csv(session_path: str | Path,
+                       preferred_terms: Optional[List[str]] = None) -> Path:
     """Return the single Anipose 3-D pose CSV produced for a session.
 
     Anipose normally appends the pose scorer/model name to the recording stem,
@@ -213,6 +215,15 @@ def resolve_pose3d_csv(session_path: str | Path) -> Path:
             "Run triangulation before opening the visualizer."
         )
     if len(csv_files) > 1:
+        # Anipose embeds the DLC shuffle and snapshot in each result filename.
+        # Normalize separators because it writes ``snapshot_best-160`` while
+        # DLC stores the checkpoint as ``snapshot-best-160.pt``.
+        terms = [term.lower().replace("_", "-") for term in (preferred_terms or [])]
+        matching = [path for path in csv_files if all(
+            term in path.stem.lower().replace("_", "-") for term in terms
+        )] if terms else []
+        if len(matching) == 1:
+            return matching[0]
         choices = "\n".join(f"  - {path.name}" for path in csv_files)
         raise RuntimeError(
             f"Multiple 3-D pose CSV files found in {pose3d_dir}; cannot determine "
@@ -252,6 +263,7 @@ class Ch3DProject:
         default_factory=lambda: SyncConfig(["crosscorr", "regression", "sample_rate"])
     )
     triangulation: TriangulationConfig = field(default_factory=TriangulationConfig)
+    visualization: VisualizationConfig = field(default_factory=VisualizationConfig)
     ignore_keypoint_labels: List[str] = field(default_factory=list)
 
     @property
@@ -346,6 +358,7 @@ class Ch3DProject:
                    ephys_param=cfg.ephys_param,
                    sync=cfg.sync,
                    triangulation=cfg.triangulation,
+                   visualization=cfg.visualization,
                    ignore_keypoint_labels=cfg.ignore_keypoint_labels)
 
     @classmethod
@@ -775,7 +788,9 @@ class Ch3DProject:
         }}
         anipose_folder = self.triangulation_path / recording.name
         calibration = anipose_folder / "calibration" / "calibration.toml"
-        pose3d = resolve_pose3d_csv(anipose_folder)
+        preferred_terms = self.model.selected_result_identifiers() \
+            if self.model is not None else []
+        pose3d = resolve_pose3d_csv(anipose_folder, preferred_terms=preferred_terms)
         c3d_features = anipose_folder / "cheese3d" / "cheese3d_features.csv"
         view_names = {cfg.view: view for view, cfg in self.view_config.items()}
         skeleton = []
@@ -790,7 +805,24 @@ class Ch3DProject:
                          view_code_to_name=view_names,
                          skeleton_config=skeleton,
                          keypoint_views=keypoint_views,
-                         pose2d_dir=anipose_folder / "pose-2d")
+                         pose2d_dir=anipose_folder / "pose-2d",
+                         # Existing configs inherit these structured defaults;
+                         # users can tune them under the visualization section.
+                         cache_memory_gb=self.visualization.cache_memory_gb,
+                         preview_scale=self.visualization.preview_scale,
+                         frame_cache_size=self.visualization.frame_cache_size,
+                         slider_debounce_ms=self.visualization.slider_debounce_ms,
+                         cuda_decode=self.visualization.cuda_decode,
+                         cuda_device=self.visualization.cuda_device,
+                         playback_fps=self.fps,
+                         persistent_cache=self.visualization.persistent_mosaic_cache,
+                         persistent_cache_disk_gb=(
+                             self.visualization.persistent_cache_disk_gb
+                         ),
+                         cache_dir=anipose_folder / "visualization-cache",
+                         hide_overlays_during_playback=(
+                             self.visualization.hide_overlays_during_playback
+                         ))
         rig = RigViewer(calibration_path=calibration,
                         features_csv=c3d_features,
                         annotation_path=pose3d,

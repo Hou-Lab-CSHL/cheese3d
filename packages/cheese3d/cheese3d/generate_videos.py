@@ -19,7 +19,8 @@ from matplotlib import colors
 from pathlib import Path
 from seaborn import color_palette
 from tqdm import trange
-from cheese3d.backends.core import monitor_camera_progress
+from cheese3d.backends.core import (monitor_camera_progress,
+                                    shutdown_completed_process_pool)
 
 def get_video_params_cap(cap):
     params = dict()
@@ -241,7 +242,8 @@ def generate_videos_2d(scheme, bodyparts, videos_raw_dir, pose_dir, out_dir,
                     Path(output_file).stem: Path(progress_dir) / f"{Path(output_file).stem}.json"
                     for output_file in jobs
                 }
-                with ProcessPoolExecutor(max_workers=workers, mp_context=context) as pool:
+                pool = ProcessPoolExecutor(max_workers=workers, mp_context=context)
+                try:
                     futures = [pool.submit(
                         _generate_video_2d_job, scheme, bodyparts, pose_file, video_file,
                         output_file, str(progress_files[Path(output_file).stem]),
@@ -249,6 +251,10 @@ def generate_videos_2d(scheme, bodyparts, videos_raw_dir, pose_dir, out_dir,
                     ) for output_file, (pose_file, video_file) in jobs.items()]
                     monitor_camera_progress(futures, progress_files, unit="frame")
                     completed += sum(future.result() for future in futures)
+                finally:
+                    # FFmpeg/OpenCV workers can finish their output futures but
+                    # remain alive during shutdown(wait=True), freezing the GUI.
+                    shutdown_completed_process_pool(pool)
 
     return completed
 

@@ -952,6 +952,11 @@ class MainScreen(Screen):
             epoch = item.get("epoch")
             label = f"epoch {epoch}: {Path(item['path']).name}" if epoch is not None \
                 else Path(item["path"]).name
+            if "shuffle" in item:
+                label = (
+                    f"{item.get('train_fraction_percent', '?')}% train | "
+                    f"shuffle {item['shuffle']} | {label}"
+                )
             options.append((label, item["path"]))
         selector.set_options(options)
         if records:
@@ -971,7 +976,13 @@ class MainScreen(Screen):
         batch_size = int(self.query_one("#tracking_batch_size", Input).value)
         if batch_size <= 0:
             raise ValueError("Tracking batch size must be positive")
-        return {"gpu_ids": gpu_ids, "batch_size": batch_size}
+        settings = {"gpu_ids": gpu_ids, "batch_size": batch_size}
+        if not self._uses_lightning_pose():
+            shuffle = int(self.query_one("#dlc_tracking_shuffle", Input).value)
+            if shuffle <= 0:
+                raise ValueError("DLC tracking shuffle must be positive")
+            settings["shuffle"] = shuffle
+        return settings
 
     def _enable_model_done(self):
         self.query_one("#all_tabs").query_one("ContentTabs").disabled = False
@@ -1042,6 +1053,7 @@ class MainScreen(Screen):
                     self.query_one("#dlc_network_architecture", Select).value
                 ),
                 "train_fraction_percent": number("#dlc_train_fraction_percent"),
+                "training_shuffle": integer("#dlc_training_shuffle"),
                 "max_snapshots_to_keep": integer("#dlc_max_snapshots_to_keep"),
                 "rotation": number("#dlc_rotation"),
                 "scale_min": number("#dlc_scale_min"),
@@ -1055,6 +1067,8 @@ class MainScreen(Screen):
                 raise ValueError("DLC minimum scale must be positive and <= maximum scale")
             if not 1 <= settings["train_fraction_percent"] <= 99:
                 raise ValueError("DLC training percentage must be between 1 and 99")
+            if settings["training_shuffle"] <= 0:
+                raise ValueError("DLC training shuffle must be positive")
             if settings["max_snapshots_to_keep"] <= 0:
                 raise ValueError("DLC maximum snapshots to keep must be positive")
             if settings["crop_width"] <= 0 or settings["crop_height"] <= 0:
@@ -1144,6 +1158,8 @@ class MainScreen(Screen):
                             yield TrainingInput("Training split (%)",
                                                 "dlc_train_fraction_percent",
                                                 "95", "number")
+                            yield TrainingInput("Training shuffle",
+                                                "dlc_training_shuffle", "1", "integer")
                             yield Static(
                                 "The remaining images form the test split (95% train = 5% test).",
                                 classes="training_field_note"
@@ -1176,6 +1192,9 @@ class MainScreen(Screen):
                         tracking_batch = "32" if self._uses_lightning_pose() else "8"
                         yield TrainingInput("Inference batch size", "tracking_batch_size",
                                             tracking_batch, "integer")
+                        if not self._uses_lightning_pose():
+                            yield TrainingInput("DLC training shuffle",
+                                                "dlc_tracking_shuffle", "1", "integer")
                         yield Static(
                             "With multiple IDs (for example 0,1), independent camera videos "
                             "are assigned round-robin to one inference process per GPU.",
@@ -1223,13 +1242,18 @@ class MainScreen(Screen):
         if record is None or self.project.model is None:
             return
         self.project.model.select_checkpoint(path)
+        if "shuffle" in record and not self._uses_lightning_pose():
+            # Selecting weights also selects their DLC model folder. The field
+            # remains editable for advanced/manual configuration recovery.
+            self.query_one("#dlc_tracking_shuffle", Input).value = str(record["shuffle"])
         metrics = record.get("metrics", {})
         metric_text = " | ".join(
             f"{name.split('/')[-1]}: {float(value):.5g}"
             for name, value in sorted(metrics.items())
         ) or "No validation metrics stored in this checkpoint."
         self.query_one("#checkpoint_metrics", Static).update(
-            f"Epoch: {record.get('epoch', 'unknown')} | {metric_text}"
+            f"Epoch: {record.get('epoch', 'unknown')} | "
+            f"Shuffle: {record.get('shuffle', 'n/a')} | {metric_text}"
         )
 
     @on(SelectionList.SelectedChanged, "#select_sessions")
@@ -1387,17 +1411,29 @@ class MainScreen(Screen):
     @on(Button.Pressed, "#track")
     @work(thread=True)
     def track(self):
-        self._disable_pose_in_progress()
-        log = self.query_one("#pose_log")
-        log.clear() # type: ignore
+        """Run inference off-thread while all widget changes stay on Textual's UI thread."""
+        # Formerly the worker thread directly disabled and re-enabled widgets.
+        # Textual widget mutation is not thread-safe and could leave the served
+        # page permanently frozen after inference had already completed.
+        self.app.call_from_thread(self._disable_pose_in_progress)
+        log = self.app.call_from_thread(self.query_one, "#pose_log")
+        self.app.call_from_thread(log.clear)  # type: ignore
         try:
-            settings = self._read_tracking_settings()
+            settings = self.app.call_from_thread(self._read_tracking_settings)
             with _pipeline_output(log):
                 self.project.track(tracking_settings=settings)
-        except (TypeError, ValueError) as error:
-            self.app.call_from_thread(self.app.push_screen, DialogBox(str(error)))
-        self._enable_pose_done()
-        self.app.call_from_thread(self.app.push_screen, DialogBox("2D pose tracking completed!"))
+        except Exception as error:
+            # The former narrow exception handler skipped cleanup for CUDA,
+            # subprocess, and filesystem failures, leaving every pose control disabled.
+            with _pipeline_output(log):
+                traceback.print_exc()
+            message = f"2D pose tracking failed: {error}"
+        else:
+            message = "2D pose tracking completed!"
+        finally:
+            # Always restore the page, including after worker or progress-monitor failure.
+            self.app.call_from_thread(self._enable_pose_done)
+        self.app.call_from_thread(self.app.push_screen, DialogBox(message))
 
     @on(Button.Pressed, "#triangulate")
     @work(thread=True)
@@ -1413,15 +1449,16 @@ class MainScreen(Screen):
     @on(Button.Pressed, "#generate_videos")
     @work(thread=True)
     def generate_videos(self):
-        self._disable_visualize_in_progress()
-        log = self.query_one("#visualize_log")
-        log.clear() # type: ignore
+        """Render QC videos off-thread while mutating widgets on the UI thread."""
+        self.app.call_from_thread(self._disable_visualize_in_progress)
+        log = self.app.call_from_thread(self.query_one, "#visualize_log")
+        self.app.call_from_thread(log.clear)  # type: ignore
         try:
             with _pipeline_output(log):
                 print("Starting video generation ...")
-                max_workers = int(
-                    self.query_one("#video_generation_workers", Input).value
-                )
+                max_workers = int(self.app.call_from_thread(
+                    lambda: self.query_one("#video_generation_workers", Input).value
+                ))
                 if max_workers <= 0:
                     raise ValueError("Video generation CPU core budget must be positive")
                 completed = self.project.generate_videos(max_workers=max_workers)
@@ -1438,7 +1475,9 @@ class MainScreen(Screen):
                 DialogBox(f"Video generation completed: {completed} output(s) available.")
             )
         finally:
-            self._enable_visualize_done()
+            # The former worker-thread widget call could leave the web client
+            # disabled even after every labeled video had been written.
+            self.app.call_from_thread(self._enable_visualize_done)
 
     @on(Button.Pressed, "#visualize")
     @work

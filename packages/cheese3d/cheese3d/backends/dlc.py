@@ -14,7 +14,8 @@ from typing import Optional, List, Dict
 from omegaconf import OmegaConf
 
 from cheese3d.backends.core import (Pose2dBackend, register_pose_backend,
-                                    partition_videos_by_gpu, monitor_camera_progress)
+                                    partition_videos_by_gpu, monitor_camera_progress,
+                                    shutdown_completed_process_pool)
 from cheese3d.config import KeypointConfig
 from cheese3d.utils import maybe, reglob, BoundingBox, VideoFrames, dlc_folder_to_components
 
@@ -184,7 +185,7 @@ class _DLCProgressWriter:
 
 def _dlc_track_gpu_worker(config_path: str, videos: List[tuple[str, str]], output_dir: str,
                           gpu_id: str, batch_size: int,
-                          snapshot_index: Optional[int]) -> int:
+                          snapshot_index: Optional[int], shuffle: int) -> int:
     """Analyze one camera subset in an isolated DLC3 process on one GPU."""
     import deeplabcut as dlc
     print(f"DLC3 GPU {gpu_id} analyzing {len(videos)} video(s)", flush=True)
@@ -193,7 +194,7 @@ def _dlc_track_gpu_worker(config_path: str, videos: List[tuple[str, str]], outpu
             dlc.analyze_videos(
                 config=config_path, videos=[video], destfolder=output_dir,
                 save_as_csv=False, device=f"cuda:{gpu_id}", batch_size=batch_size,
-                snapshot_index=snapshot_index,
+                snapshot_index=snapshot_index, shuffle=shuffle,
             )
     return len(videos)
 
@@ -243,6 +244,8 @@ class DLCBackend(Pose2dBackend):
         self.skeleton = list(skeleton or [])
         self.frames_per_video = frames_per_video
         self._selected_snapshot_index: Optional[int] = None
+        self._selected_shuffle: Optional[int] = None
+        self._selected_snapshot_path: Optional[Path] = None
 
         # Check if project already exists, if not create it
         if not self.project_path.exists():
@@ -498,6 +501,9 @@ class DLCBackend(Pose2dBackend):
         if not 1 <= train_fraction_percent <= 99:
             raise ValueError("DLC training percentage must be between 1 and 99")
         train_fraction = train_fraction_percent / 100.0
+        requested_shuffle = int(settings.get("training_shuffle", 1))
+        if requested_shuffle <= 0:
+            raise ValueError("DLC training shuffle must be positive")
         project_config = yaml.safe_load(self.config_path.read_text()) or {}
         previous_fractions = [float(value) for value in
                               project_config.get("TrainingFraction", [])]
@@ -525,7 +531,8 @@ class DLCBackend(Pose2dBackend):
                 print(f"DLC3 DLCRNet PAF graph: {len(paf_graph)} Cheese3D skeleton edges")
                 created_splits = dlc.create_training_dataset(
                     config=self.config_path, userfeedback=False,
-                    net_type=network_architecture, augmenter_type="imgaug"
+                    net_type=network_architecture, augmenter_type="imgaug",
+                    Shuffles=[requested_shuffle],
                 )
         else:
             created_splits = dlc.create_training_dataset(
@@ -535,8 +542,11 @@ class DLCBackend(Pose2dBackend):
                 # selects any installed DLC3 model and may create shuffle 2+.
                 net_type=network_architecture,
                 augmenter_type="imgaug",
+                Shuffles=[requested_shuffle],
             )
-        created_shuffle = _shuffle_from_created_splits(created_splits)
+        created_shuffle = _shuffle_from_created_splits(
+            created_splits, default=requested_shuffle
+        )
         gpu_ids = [int(item.strip()) for item in str(gpu).split(",") if item.strip()]
         if gpu_ids:
             import torch
@@ -580,37 +590,71 @@ class DLCBackend(Pose2dBackend):
                           save_epochs=settings.get("save_every_n_epochs"),
                           pytorch_cfg_updates=augmentation)
         dlc.evaluate_network(config=self.config_path,
+                             # Evaluation formerly fell back to shuffle 1 even
+                             # when create_training_dataset returned shuffle 3+,
+                             # producing a misleading missing-metadata warning.
+                             shuffles=[created_shuffle],
                              # DLC3 evaluation is single-device even after DDP
                              # training; use the first selected GPU explicitly.
                              device=f"cuda:{gpu_ids[0]}" if gpu_ids else "cpu")
 
     def list_checkpoints(self) -> List[dict]:
-        """List current-iteration DLC3 snapshots with embedded validation metrics."""
+        """List snapshots with their DLC split, shuffle, local index, and metrics."""
         import torch
         config = yaml.safe_load(self.config_path.read_text()) or {}
         iteration = config.get("iteration", 0)
         root = self.project_path / "dlc-models-pytorch" / f"iteration-{iteration}"
         records = []
-        for path in root.rglob("snapshot*.pt") if root.exists() else []:
-            payload = torch.load(path, map_location="cpu", weights_only=False)
-            metadata = payload.get("metadata", {})
-            metrics = dict(metadata.get("metrics", {}))
-            metrics.update({
-                name: value for name, value in metadata.get("losses", {}).items()
-                if name.startswith("eval.")
-            })
-            records.append({"path": str(path), "epoch": metadata.get("epoch"),
-                            "metrics": metrics})
-        records.sort(key=lambda item: (item["epoch"] is None, item["epoch"] or -1))
+        folder_pattern = re.compile(r"trainset(?P<fraction>\d+)shuffle(?P<shuffle>\d+)$")
+        for train_folder in sorted(root.glob("*/train")) if root.exists() else []:
+            match = folder_pattern.search(train_folder.parent.name)
+            if match is None:
+                continue
+            # Match DLC's folder-local snapshot order: normal epochs first and
+            # the best-validation snapshot last, regardless of its epoch.
+            snapshots = sorted(
+                train_folder.glob("snapshot*.pt"),
+                key=lambda path: (
+                    "-best-" in path.name,
+                    int(re.search(r"(\d+)\.pt$", path.name).group(1)),
+                ),
+            )
+            for snapshot_index, path in enumerate(snapshots):
+                payload = torch.load(path, map_location="cpu", weights_only=False)
+                metadata = payload.get("metadata", {})
+                metrics = dict(metadata.get("metrics", {}))
+                metrics.update({
+                    name: value for name, value in metadata.get("losses", {}).items()
+                    if name.startswith("eval.")
+                })
+                records.append({
+                    "path": str(path), "epoch": metadata.get("epoch"),
+                    "metrics": metrics, "shuffle": int(match.group("shuffle")),
+                    "train_fraction_percent": int(match.group("fraction")),
+                    "snapshot_index": snapshot_index,
+                })
+        records.sort(key=lambda item: (item["shuffle"], item["snapshot_index"]))
         return records
 
     def select_checkpoint(self, checkpoint: str | Path) -> None:
         """Map an explicit DLC3 snapshot path to DLC's ordered snapshot index."""
-        paths = [Path(item["path"]).resolve() for item in self.list_checkpoints()]
+        records = self.list_checkpoints()
+        paths = [Path(item["path"]).resolve() for item in records]
         selected = Path(checkpoint).resolve()
         if selected not in paths:
             raise FileNotFoundError(f"DLC3 checkpoint is unavailable: {checkpoint}")
-        self._selected_snapshot_index = paths.index(selected)
+        record = records[paths.index(selected)]
+        self._selected_snapshot_index = int(record["snapshot_index"])
+        self._selected_shuffle = int(record["shuffle"])
+        self._selected_snapshot_path = selected
+
+    def selected_result_identifiers(self) -> List[str]:
+        """Identify Anipose outputs belonging to the GUI-selected DLC weights."""
+        shuffle = getattr(self, "_selected_shuffle", None)
+        snapshot = getattr(self, "_selected_snapshot_path", None)
+        if shuffle is None or snapshot is None:
+            return []
+        return [f"shuffle{shuffle}", snapshot.stem]
 
     def track(self,
               videos: Dict[str, Path],
@@ -622,9 +666,11 @@ class DLCBackend(Pose2dBackend):
         settings = tracking_settings or {}
         gpu_ids = [item.strip() for item in str(settings.get("gpu_ids", "0")).split(",")
                    if item.strip()]
+        shuffle = int(settings.get("shuffle", getattr(self, "_selected_shuffle", None) or 1))
         device = f"cuda:{gpu_ids[0]}" if gpu_ids else "cpu"
         print(f"DLC3 tracking settings: device={device}, "
-              f"batch_size={settings.get('batch_size', 8)}, requested_gpus={gpu_ids}")
+              f"batch_size={settings.get('batch_size', 8)}, requested_gpus={gpu_ids}, "
+              f"shuffle={shuffle}, snapshot_index={self._selected_snapshot_index}")
         output_dir.mkdir(parents=True, exist_ok=True)
         missing_videos = []
         for video in videos.values():
@@ -646,14 +692,19 @@ class DLCBackend(Pose2dBackend):
                     Path(video).stem: Path(progress_dir) / f"{Path(video).stem}.json"
                     for video in video_paths
                 }
-                with ProcessPoolExecutor(max_workers=len(assignments), mp_context=context) as pool:
+                pool = ProcessPoolExecutor(max_workers=len(assignments), mp_context=context)
+                try:
                     futures = [pool.submit(
                         _dlc_track_gpu_worker, str(self.config_path),
                         [(str(video), str(progress_files[video.stem])) for video in assigned],
                         str(output_dir), gpu_id, int(settings.get("batch_size", 8)),
-                        self._selected_snapshot_index,
+                        self._selected_snapshot_index, shuffle,
                     ) for gpu_id, assigned in assignments]
                     monitor_camera_progress(futures, progress_files)
+                finally:
+                    # A blocking context-manager shutdown formerly froze the GUI
+                    # after all CUDA inference futures had already completed.
+                    shutdown_completed_process_pool(pool)
             return True
         dlc.analyze_videos(config=str(self.config_path),
                            videos=video_paths,
@@ -661,6 +712,7 @@ class DLCBackend(Pose2dBackend):
                            save_as_csv=False,
                            device=device,
                            batch_size=settings.get("batch_size", 8),
+                           shuffle=shuffle,
                            # DLC3's PyTorch API uses the underscored parameter;
                            # the former DLC2 spelling is rejected downstream.
                            snapshot_index=self._selected_snapshot_index)

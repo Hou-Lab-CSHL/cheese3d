@@ -64,6 +64,22 @@ def monitor_camera_progress(futures, progress_files: Dict[str, Path],
         for bar in bars.values():
             bar.close()
 
+
+def shutdown_completed_process_pool(pool) -> None:
+    """Retire completed CUDA workers without blocking on interpreter teardown.
+
+    CUDA children can complete their futures but remain alive during the
+    executor's normal ``shutdown(wait=True)``. Results are collected before this
+    helper is called; terminating only idle survivors lets the GUI return.
+    """
+    processes = list(getattr(pool, "_processes", {}).values())
+    pool.shutdown(wait=False, cancel_futures=True)
+    for process in processes:
+        if process.is_alive():
+            process.terminate()
+    for process in processes:
+        process.join(timeout=2)
+
 def register_pose_backend(name: str, backend_cls):
     POSE_BACKEND_REGISTRY[name] = backend_cls
 
@@ -145,6 +161,10 @@ class Pose2dBackend:
     def select_checkpoint(self, checkpoint: str | Path) -> None:
         """Select an explicit checkpoint for subsequent pose tracking."""
         raise NotImplementedError("This backend does not expose checkpoint selection.")
+
+    def selected_result_identifiers(self) -> List[str]:
+        """Return filename terms identifying outputs from the selected checkpoint."""
+        return []
 
     def track(self,
               videos: Dict[str, Path],

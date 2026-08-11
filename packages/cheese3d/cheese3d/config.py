@@ -260,6 +260,20 @@ class TriangulationConfig:
     filter2d: bool = False
     score_threshold: float = 0.9
 
+
+@dataclass
+class VisualizationConfig:
+    """Interactive QC preview performance and memory settings."""
+    cache_memory_gb: float = 32.0
+    preview_scale: float = 0.265
+    frame_cache_size: int = 8
+    slider_debounce_ms: int = 110
+    cuda_decode: bool = False
+    cuda_device: int = 0
+    persistent_mosaic_cache: bool = True
+    persistent_cache_disk_gb: float = 10.0
+    hide_overlays_during_playback: bool = False
+
 _DEFAULT_TRIANGULATION_AXES = [
     [ "z", "nose(top)", "nose(bottom)",],
     [ "x", "eye(front)(left)", "eye(front)(right)",],
@@ -282,6 +296,7 @@ class ProjectConfig:
     sync: SyncConfig = MISSING
     sessions: List[Dict[str, str]] = MISSING
     triangulation: TriangulationConfig = MISSING
+    visualization: VisualizationConfig = field(default_factory=VisualizationConfig)
     views: MultiViewConfig = MISSING
     calibration: Dict[str, str] = MISSING
     keypoints: List[KeypointConfig] = MISSING

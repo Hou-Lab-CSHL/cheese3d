@@ -43,11 +43,13 @@ def test_dlc3_tracking_passes_selected_snapshot_index(monkeypatch, tmp_path):
     backend.experimenter = "tester"
     backend.date = "2026-01-01"
     backend._selected_snapshot_index = 1
+    backend._selected_shuffle = 6
     video = tmp_path / "video.mp4"
     video.touch()
 
     assert backend.track({"view": video}, tmp_path / "pose") is True
     assert calls["snapshot_index"] == 1
+    assert calls["shuffle"] == 6
     assert "snapshotindex" not in calls
     assert calls["device"] == "cuda:0"
     assert calls["batch_size"] == 8
@@ -88,7 +90,9 @@ def test_dlc3_training_uses_selected_network_architecture(monkeypatch, tmp_path)
     })
 
     assert calls["dataset"]["net_type"] == "hrnet_w32"
+    assert calls["dataset"]["Shuffles"] == [1]
     assert calls["train"]["shuffle"] == 1
+    assert calls["evaluate"]["shuffles"] == [1]
     assert calls["train"]["max_snapshots_to_keep"] == 3
     assert calls["train"]["device"] == "cuda"
     assert calls["primary_gpu"] == 0

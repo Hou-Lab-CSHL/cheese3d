@@ -12,7 +12,8 @@ from pathlib import Path
 from typing import Dict, List, Optional, Sequence
 
 from cheese3d.backends.core import (Pose2dBackend, register_pose_backend,
-                                    partition_videos_by_gpu, monitor_camera_progress)
+                                    partition_videos_by_gpu, monitor_camera_progress,
+                                    shutdown_completed_process_pool)
 from cheese3d.config import KeypointConfig
 from cheese3d.utils import BoundingBox
 
@@ -690,7 +691,8 @@ class LightningPoseBackend(Pose2dBackend):
                     video.stem: Path(progress_dir) / f"{video.stem}.json"
                     for video in missing_videos
                 }
-                with ProcessPoolExecutor(max_workers=len(assignments), mp_context=context) as pool:
+                pool = ProcessPoolExecutor(max_workers=len(assignments), mp_context=context)
+                try:
                     futures = [pool.submit(
                         _lp_track_gpu_worker, str(self.project_path),
                         [(str(video), str(progress_files[video.stem])) for video in assigned],
@@ -699,6 +701,10 @@ class LightningPoseBackend(Pose2dBackend):
                         self.scorer,
                     ) for gpu_id, assigned in assignments]
                     monitor_camera_progress(futures, progress_files)
+                finally:
+                    # Do not wait indefinitely for completed CUDA workers to
+                    # finalize their Python interpreters after inference.
+                    shutdown_completed_process_pool(pool)
             return True
         # list of videos that lp model has already created internal preds for
         existing = [self.model.video_preds_dir() / f"{video.stem}.csv"

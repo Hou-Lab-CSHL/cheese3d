@@ -11,9 +11,10 @@ Focus:
 """
 
 from __future__ import annotations
-import sys, re, math, json, warnings
+import sys, re, math, json, warnings, threading, time, os
 from pathlib import Path
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
+from concurrent.futures import Future, ThreadPoolExecutor
 from typing import Dict, Tuple, List, Optional, Set
 from fnmatch import fnmatch
 
@@ -34,6 +35,388 @@ _CAM_ORDER = {"TL": 0, "TC": 1, "TR": 2, "L": 3, "BC": 4, "R": 5}
 
 # Unwanted keypoint name patterns (glob-style). Example: "ref(*)" drops ref(0), ref(anything)...
 _UNWANTED = ["ref(*)"]
+
+
+class _PyAVCudaReader:
+    """Expose PyAV CUDA decoding through the NumPy-like interface Napari needs."""
+
+    def __init__(self, filename: str, device: int = 0):
+        import av
+        from av.codec.hwaccel import HWAccel, hwdevices_available
+
+        if "cuda" not in {str(item).lower() for item in hwdevices_available()}:
+            raise RuntimeError("PyAV's loaded FFmpeg does not advertise CUDA decoding")
+        self._av = av
+        self._container = av.open(
+            filename,
+            hwaccel=HWAccel(
+                "cuda", device=str(device), allow_software_fallback=False
+            ),
+        )
+        self._stream = self._container.streams.video[0]
+        self._fps = float(self._stream.average_rate or 30.0)
+        self._start_time = int(self._stream.start_time or 0)
+        self._length = int(self._stream.frames or 0)
+        if self._length <= 0:
+            raise RuntimeError(f"CUDA video stream does not report frame count: {filename}")
+        self._iterator = iter(self._container.decode(self._stream))
+        self._next_index = 0
+        self.shape = (
+            self._length, int(self._stream.height), int(self._stream.width), 3
+        )
+        self.dtype = np.dtype("uint8")
+
+        # Force one real decode during initialization. Device/driver problems
+        # therefore trigger the caller's CPU fallback before Napari opens.
+        first = next(self._iterator)
+        self._first_frame = first.to_ndarray(format="rgb24")
+        self._next_index = 1
+
+    def __len__(self) -> int:
+        return self._length
+
+    def _seek(self, index: int) -> None:
+        """Seek to the preceding keyframe and resume decoding toward ``index``."""
+        seconds = float(index) / self._fps
+        timestamp = self._start_time + int(seconds / float(self._stream.time_base))
+        self._container.seek(timestamp, stream=self._stream, backward=True, any_frame=False)
+        self._iterator = iter(self._container.decode(self._stream))
+        self._next_index = max(0, index - round(self._fps * 2))
+
+    def __getitem__(self, index: int) -> np.ndarray:
+        """Decode sequential frames cheaply and use timestamp seeking for scrubbing."""
+        index = int(index)
+        if index == 0 and self._first_frame is not None:
+            return self._first_frame
+        if index != self._next_index:
+            self._seek(index)
+        for frame in self._iterator:
+            if frame.pts is not None:
+                decoded_index = round(
+                    (frame.pts - self._start_time) *
+                    float(self._stream.time_base) * self._fps
+                )
+            else:
+                decoded_index = self._next_index
+            self._next_index = decoded_index + 1
+            if decoded_index >= index:
+                return frame.to_ndarray(format="rgb24")
+        raise IndexError(f"Could not decode CUDA video frame {index}")
+
+
+class _CachedPreviewReader:
+    """Provide bounded, prefetched preview frames around a lazy video reader.
+
+    Each camera owns a decode lock because its underlying reader may seek with
+    mutable state, while the shared executor still decodes different cameras in
+    parallel. Napari receives only NumPy frames and remains on the Qt thread.
+    """
+
+    def __init__(self, reader, executor: ThreadPoolExecutor,
+                 scale: float = 0.5, cache_size: int = 8):
+        self.reader = reader
+        self.executor = executor
+        self.scale = float(scale)
+        self.cache_size = max(2, int(cache_size))
+        raw_shape = tuple(reader.shape)
+        self.shape = (
+            raw_shape[0], max(1, round(raw_shape[1] * self.scale)),
+            max(1, round(raw_shape[2] * self.scale)), *raw_shape[3:]
+        )
+        self.dtype = getattr(reader, "dtype", np.dtype("uint8"))
+        self.ndim = len(self.shape)
+        self.size = int(np.prod(self.shape))
+        self._cache: OrderedDict[int, np.ndarray] = OrderedDict()
+        self._futures: Dict[int, Future] = {}
+        self._lock = threading.Lock()
+        self._decode_lock = threading.Lock()
+        self._preload_stop = threading.Event()
+        self._preload_thread: Optional[threading.Thread] = None
+        self._interactive_until = 0.0
+
+    def __len__(self) -> int:
+        return int(self.shape[0])
+
+    def min(self) -> int:
+        """Expose the uint8 intensity range expected by Napari image layers."""
+        return 0
+
+    def max(self) -> int:
+        """Expose the uint8 intensity range without decoding a complete video."""
+        return 255
+
+    def _decode(self, index: int) -> np.ndarray:
+        """Decode one full frame and resize only the interactive preview copy."""
+        with self._decode_lock:
+            frame = np.asarray(self.reader[index])
+        if self.scale != 1.0:
+            frame = cv2.resize(
+                frame, (self.shape[2], self.shape[1]), interpolation=cv2.INTER_AREA
+            )
+        return frame
+
+    def prefetch(self, indices) -> None:
+        """Schedule nearby frames without duplicating cached or active work."""
+        with self._lock:
+            for index in indices:
+                index = int(index)
+                if not 0 <= index < len(self) or index in self._cache \
+                        or index in self._futures:
+                    continue
+                self._futures[index] = self.executor.submit(self._decode, index)
+
+    def cancel_stale_prefetch(self, keep_indices) -> None:
+        """Remove queued seeks made obsolete by rapid timeline scrubbing."""
+        keep = {int(index) for index in keep_indices}
+        with self._lock:
+            for index, future in list(self._futures.items()):
+                if index not in keep and (future.cancel() or future.done()):
+                    # Dropping a completed stale future also releases its frame
+                    # array instead of letting speculative results bypass LRU limits.
+                    self._futures.pop(index, None)
+
+    def _frame(self, index: int) -> np.ndarray:
+        """Return one cached frame, waiting only for its already-prefetched future."""
+        index = int(index)
+        # Give foreground navigation exclusive decode priority for a short
+        # window; preload workers check this timestamp between every frame.
+        self._interactive_until = time.monotonic() + 0.4
+        with self._lock:
+            cached = self._cache.get(index)
+            if cached is not None:
+                self._cache.move_to_end(index)
+                return cached
+        self.prefetch([index])
+        with self._lock:
+            future = self._futures.get(index)
+        frame = future.result() if future is not None else self._decode(index)
+        with self._lock:
+            self._futures.pop(index, None)
+        self._store_frame(index, frame)
+        return frame
+
+    def _store_frame(self, index: int, frame: np.ndarray) -> None:
+        """Insert one decoded preview while enforcing the configured RAM limit."""
+        with self._lock:
+            self._cache[index] = frame
+            self._cache.move_to_end(index)
+            while len(self._cache) > self.cache_size:
+                self._cache.popitem(last=False)
+
+    def start_background_preload(self, camera_name: str,
+                                 preload_slots: threading.Semaphore) -> None:
+        """Decode the timeline sequentially so later arbitrary seeks hit RAM."""
+        if self._preload_thread is not None:
+            return
+
+        def preload() -> None:
+            """Fill this camera's bounded cache without touching Napari widgets."""
+            for index in range(len(self)):
+                if self._preload_stop.is_set():
+                    return
+                while time.monotonic() < self._interactive_until:
+                    if self._preload_stop.wait(timeout=0.02):
+                        return
+                with self._lock:
+                    if index in self._cache:
+                        continue
+                # Only two cameras preload concurrently. Six simultaneous H.264
+                # streams formerly saturated decode and delayed foreground seeks.
+                with preload_slots:
+                    self._store_frame(index, self._decode(index))
+                if index and index % 5000 == 0:
+                    print(f"QC preview preload {camera_name}: {index}/{len(self)} frames")
+            print(f"QC preview preload {camera_name}: complete ({len(self)} frames)")
+
+        self._preload_thread = threading.Thread(
+            target=preload, name=f"cheese3d-preload-{camera_name}", daemon=True
+        )
+        self._preload_thread.start()
+
+    def stop_background_preload(self) -> None:
+        """Request cooperative shutdown when the visualizer closes."""
+        self._preload_stop.set()
+
+    def __getitem__(self, key):
+        """Support Napari's scalar-time slicing while delegating unusual slices."""
+        if isinstance(key, tuple) and key and isinstance(key[0], (int, np.integer)):
+            frame = self._frame(int(key[0]))
+            return frame[key[1:]] if len(key) > 1 else frame
+        if isinstance(key, (int, np.integer)):
+            return self._frame(int(key))
+        # Preserve the underlying reader's behavior for metadata probes or
+        # non-scalar time slices that Napari may issue during layer creation.
+        return self.reader[key]
+
+
+class _MosaicPreviewReader:
+    """Expose all camera previews as one tiled lazy RGB video to Napari."""
+
+    def __init__(self, readers: Dict[str, _CachedPreviewReader],
+                 camera_codes: List[str], rows: int, columns: int):
+        self.readers = readers
+        self.camera_codes = camera_codes
+        self.rows = int(rows)
+        self.columns = int(columns)
+        first = readers[camera_codes[0]]
+        self.cell_height, self.cell_width = first.shape[1:3]
+        self.shape = (
+            min(len(reader) for reader in readers.values()),
+            self.rows * self.cell_height, self.columns * self.cell_width, 3,
+        )
+        self.dtype = np.dtype("uint8")
+        self.ndim = 4
+        self.size = int(np.prod(self.shape))
+
+    def __len__(self) -> int:
+        return self.shape[0]
+
+    def min(self) -> int:
+        return 0
+
+    def max(self) -> int:
+        return 255
+
+    def _frame(self, index: int) -> np.ndarray:
+        """Wait for parallel camera decodes, then compose one GPU texture upload."""
+        for reader in self.readers.values():
+            reader.prefetch([index])
+        canvas = np.zeros(self.shape[1:], dtype=np.uint8)
+        for camera_index, code in enumerate(self.camera_codes):
+            frame = self.readers[code][index]
+            row, column = divmod(camera_index, self.columns)
+            y0, x0 = row * self.cell_height, column * self.cell_width
+            height = min(self.cell_height, frame.shape[0])
+            width = min(self.cell_width, frame.shape[1])
+            canvas[y0:y0 + height, x0:x0 + width] = frame[:height, :width, :3]
+        return canvas
+
+    def __getitem__(self, key):
+        """Implement the scalar timeline slices requested by Napari."""
+        if isinstance(key, tuple) and key and isinstance(key[0], (int, np.integer)):
+            frame = self._frame(int(key[0]))
+            return frame[key[1:]] if len(key) > 1 else frame
+        if isinstance(key, (int, np.integer)):
+            return self._frame(int(key))
+        if isinstance(key, slice):
+            return np.stack([self._frame(index) for index in range(*key.indices(len(self)))])
+        raise TypeError(f"Unsupported mosaic video index: {key!r}")
+
+
+class _PersistentMosaicReader:
+    """Read a completed mosaic memory map or build it once in the background."""
+
+    def __init__(self, source: _MosaicPreviewReader, cache_dir: Path,
+                 source_paths: List[Path], preview_scale: float):
+        self.source = source
+        self.shape, self.dtype = source.shape, np.dtype("uint8")
+        self.ndim, self.size = 4, int(np.prod(self.shape))
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        cache_name = f"camera-mosaic-{round(preview_scale * 1000):03d}.npy"
+        self.cache_path = cache_dir / cache_name
+        self.metadata_path = self.cache_path.with_suffix(".json")
+        self._signature = {
+            "shape": list(self.shape), "preview_scale": float(preview_scale),
+            "sources": [{
+                "path": str(path.resolve()), "size": path.stat().st_size,
+                "mtime_ns": path.stat().st_mtime_ns,
+            } for path in source_paths],
+        }
+        self._mmap = None
+        self._builder: Optional[threading.Thread] = None
+        self._stop = threading.Event()
+        # Disk previews are session-temporary. Clear files left by a crash or
+        # forced shutdown before deciding whether a new map must be built.
+        self._delete_cache_files()
+        if self._is_valid():
+            self._mmap = np.load(self.cache_path, mmap_mode="r")
+            print(f"QC mosaic cache loaded: {self.cache_path}")
+        else:
+            self._start_builder()
+
+    def _delete_cache_files(self) -> None:
+        """Delete only Cheese3D mosaic artifacts within this session cache directory."""
+        self._mmap = None
+        candidates = [self.cache_path, self.metadata_path]
+        candidates.extend(self.cache_path.parent.glob(f".{self.cache_path.name}.*.tmp"))
+        for path in candidates:
+            try:
+                path.unlink(missing_ok=True)
+            except OSError as error:
+                print(f"QC mosaic cache cleanup warning for {path}: {error}")
+
+    def _is_valid(self) -> bool:
+        """Require both an atomic completion marker and matching source metadata."""
+        try:
+            return self.cache_path.is_file() and \
+                json.loads(self.metadata_path.read_text()) == self._signature
+        except (OSError, json.JSONDecodeError):
+            return False
+
+    def _start_builder(self) -> None:
+        """Build a temporary map sequentially and publish it atomically when complete."""
+        temporary = self.cache_path.with_name(
+            f".{self.cache_path.name}.{os.getpid()}.tmp"
+        )
+
+        def build() -> None:
+            """Decode the mosaic once while leaving the Qt event loop responsive."""
+            try:
+                mapped = np.lib.format.open_memmap(
+                    temporary, mode="w+", dtype=self.dtype, shape=self.shape
+                )
+                for index in range(len(self)):
+                    if self._stop.is_set():
+                        return
+                    mapped[index] = self.source[index]
+                    if index and index % 2500 == 0:
+                        mapped.flush()
+                        print(f"QC mosaic cache: {index}/{len(self)} frames")
+                mapped.flush()
+                del mapped
+                temporary.replace(self.cache_path)
+                metadata_tmp = self.metadata_path.with_suffix(".json.tmp")
+                metadata_tmp.write_text(json.dumps(self._signature, sort_keys=True))
+                metadata_tmp.replace(self.metadata_path)
+                self._mmap = np.load(self.cache_path, mmap_mode="r")
+                print(f"QC mosaic cache complete: {self.cache_path}")
+            except Exception as error:
+                print(f"QC mosaic cache build failed; continuing with live decode: {error}")
+            finally:
+                if temporary.exists():
+                    temporary.unlink()
+
+        self._builder = threading.Thread(
+            target=build, name="cheese3d-mosaic-cache", daemon=True
+        )
+        self._builder.start()
+
+    def __len__(self) -> int:
+        return self.shape[0]
+
+    def min(self) -> int:
+        return 0
+
+    def max(self) -> int:
+        return 255
+
+    def __getitem__(self, key):
+        """Use zero-decode memory-map indexing once the persistent cache is ready."""
+        mapped = self._mmap
+        return mapped[key] if mapped is not None else self.source[key]
+
+    def close(self) -> None:
+        """Stop cache creation and remove all disk artifacts when Napari exits."""
+        self._stop.set()
+        if self._builder is not None:
+            self._builder.join(timeout=2)
+        self._delete_cache_files()
+        try:
+            self.cache_path.parent.rmdir()
+        except OSError:
+            # Keep the directory if it contains unrelated user files or a cache
+            # builder is still unwinding; only known artifacts are ever deleted.
+            pass
 
 _COLORMAP = {
     'nose(bottom)': [0.0039, 0.4510, 0.6980, 1.0],
@@ -414,6 +797,17 @@ class QCReprojApp:
         skeleton_config: Optional[Path | List[Tuple[str, str]]] = None,
         keypoint_views: Optional[Dict[str, List[str]]] = None,
         pose2d_dir: Optional[Path | str] = None,
+        preview_scale: float = 0.265,
+        frame_cache_size: int = 8,
+        cache_memory_gb: float = 32.0,
+        slider_debounce_ms: int = 110,
+        cuda_decode: bool = False,
+        cuda_device: int = 0,
+        playback_fps: float = 30.0,
+        persistent_cache: bool = True,
+        persistent_cache_disk_gb: float = 10.0,
+        cache_dir: Optional[Path | str] = None,
+        hide_overlays_during_playback: bool = False,
     ):
         if not videos_by_group:
             sys.exit("❌ videos_by_group is empty.")
@@ -428,6 +822,15 @@ class QCReprojApp:
             sys.exit(f"❌ pose_3d CSV not found: {self.pose3d_csv}")
 
         self.view_code_to_name = view_code_to_name or {}
+        if not 0 < preview_scale <= 1:
+            raise ValueError("preview_scale must be greater than 0 and at most 1")
+        if cache_memory_gb <= 0 or frame_cache_size <= 0 or slider_debounce_ms < 0:
+            raise ValueError(
+                "Visualization cache memory and frame cache must be positive; "
+                "slider debounce must be non-negative"
+            )
+        self.preview_scale = float(preview_scale)
+        self.hide_overlays_during_playback = bool(hide_overlays_during_playback)
         # An empty mapping intentionally preserves compatibility for callers that
         # have no per-keypoint view configuration and therefore must show all.
         self.keypoint_views: Dict[str, Set[str]] = {
@@ -463,11 +866,47 @@ class QCReprojApp:
             self.skeleton_edges = _load_skeleton_edges(skeleton_config)
 
         # Open video readers; gather sizes & timeline length
-        self.readers: dict[str, VideoReaderNP] = {}
+        # Open one lazy reader per camera, then share a bounded executor so
+        # independent camera seeks decode concurrently instead of serially.
+        self._decode_executor = ThreadPoolExecutor(
+            max_workers=max(1, min(len(self.cam_codes), 8)),
+            thread_name_prefix="cheese3d-preview",
+        )
+        self._preload_slots = threading.Semaphore(2)
+        self.readers: dict[str, _CachedPreviewReader] = {}
         counts = []
         ref_w = ref_h = None
         for code, vpath in zip(self.cam_codes, self.vids):
-            rdr = VideoReaderNP(str(vpath))
+            if cuda_decode:
+                try:
+                    raw_reader = _PyAVCudaReader(str(vpath), device=int(cuda_device))
+                    print(f"QC preview {code}: CUDA/NVDEC decoding on GPU {cuda_device}")
+                except Exception as error:
+                    print(
+                        f"QC preview {code}: CUDA decode unavailable ({error}); "
+                        "falling back to CPU"
+                    )
+                    raw_reader = VideoReaderNP(str(vpath))
+            else:
+                raw_reader = VideoReaderNP(str(vpath))
+            raw_shape = tuple(raw_reader.shape)
+            preview_bytes = max(
+                1, round(raw_shape[1] * self.preview_scale) *
+                round(raw_shape[2] * self.preview_scale) * 3
+            )
+            # Use at most 75% of the allowed budget for cached arrays, leaving
+            # headroom for Napari textures, overlays, tables, and Python itself.
+            budget_frames = int(
+                max(0.25, float(cache_memory_gb)) * (1024 ** 3) * 0.75 /
+                (max(1, len(self.cam_codes)) * preview_bytes)
+            )
+            camera_cache_size = max(
+                int(frame_cache_size), min(int(raw_shape[0]), budget_frames)
+            )
+            rdr = _CachedPreviewReader(
+                raw_reader, self._decode_executor,
+                scale=self.preview_scale, cache_size=camera_cache_size,
+            )
             self.readers[code] = rdr
             # try to read frame count from reader; else from cv2 fallback
             n = getattr(rdr, "n_frames", None) or getattr(getattr(rdr, "_reader", None), "n_frames", None)
@@ -479,24 +918,43 @@ class QCReprojApp:
                 if shp is not None and len(shp) >= 3:
                     ref_h, ref_w = int(shp[1]), int(shp[2])
         if ref_w is None or ref_h is None:
-            ref_w, ref_h, _, _ = self._video_props(self.vids[0])
+            raw_w, raw_h, _, _ = self._video_props(self.vids[0])
+            ref_w = max(1, round(raw_w * self.preview_scale))
+            ref_h = max(1, round(raw_h * self.preview_scale))
         self.video_size = (ref_w, ref_h)
         self.T = int(min(counts)) if counts else 1
+        print(
+            f"QC preview: scale={self.preview_scale:g}, cache budget={cache_memory_gb:g} GiB, "
+            f"up to {camera_cache_size} frames per camera"
+        )
 
         # Calibration (scaled to video size) with tolerant camera naming
         raw_cal = _load_calibration_raw(self.calib_path)
         self.calib_map = _build_calib_map(raw_cal, self.video_size)   # keyed by short cam code ('BC','L',...)
+        self.projected_points = self._precompute_reprojections()
 
         # Napari viewer & layers
         self.viewer = napari.Viewer(title=f"QC Back-Projection — {self.group_id}")
+        # Collapse rapid slider events into one displayed frame. Without this,
+        # dragging across 100 positions launches 600 camera seeks that are
+        # obsolete before decoding completes.
+        self._pending_frame = 0
+        self._frame_timer = QtCore.QTimer()
+        self._frame_timer.setSingleShot(True)
+        self._frame_timer.setInterval(int(slider_debounce_ms))
+        self._frame_timer.timeout.connect(self._commit_pending_frame)
+        self._playback_timer = QtCore.QTimer()
+        self._playback_timer.timeout.connect(self._advance_playback_frame)
         qtv = self.viewer.window.qt_viewer
         getattr(qtv, "_dockLayerList", qtv.dockLayerList).setVisible(False)
         getattr(qtv, "_dockLayerControls", qtv.dockLayerControls).setVisible(False)
+        self._add_playback_controls(playback_fps)
         rows, cols = self._grid_layout(len(self.cam_codes))
         self.pt_layers: dict[str, napari.layers.Points] = {}
         self.original_pt_layers: dict[str, napari.layers.Points] = {}
         self.sk_layers: dict[str, napari.layers.Shapes] = {}
         self.residual_layers: dict[str, napari.layers.Shapes] = {}
+        self.camera_translations: Dict[str, np.ndarray] = {}
 
         def _add_video_layer(vr, name, trans_xy):
             # Image layer is 3-D (t,y,x) when rgb=True, so translate needs (0, y, x)
@@ -506,17 +964,45 @@ class QCReprojApp:
             else:
                 self.viewer.add_image(vr, name=name, blending="additive", translate=(0, *trans_xy))
 
+        # Six independent image layers formerly caused six texture uploads and
+        # redraws per slider position. One lazy mosaic retains camera layout but
+        # updates Napari's canvas only once.
+        mosaic_reader = _MosaicPreviewReader(
+            self.readers, self.cam_codes, rows=rows, columns=cols
+        )
+        required_cache_bytes = int(np.prod(mosaic_reader.shape) * np.dtype("uint8").itemsize)
+        disk_limit_bytes = int(float(persistent_cache_disk_gb) * (1024 ** 3))
+        self.persistent_mosaic_reader = None
+        if persistent_cache and required_cache_bytes <= disk_limit_bytes:
+            self.persistent_mosaic_reader = _PersistentMosaicReader(
+                mosaic_reader,
+                Path(cache_dir) if cache_dir is not None else self.pose3d_csv.parent / "visualization-cache",
+                self.vids, self.preview_scale,
+            )
+            mosaic_reader = self.persistent_mosaic_reader
+        elif persistent_cache:
+            print(
+                f"QC persistent mosaic disabled: requires "
+                f"{required_cache_bytes / (1024 ** 3):.2f} GiB, exceeds "
+                f"{persistent_cache_disk_gb:g} GiB disk limit"
+            )
+        self.viewer.add_image(
+            mosaic_reader, name="camera grid", rgb=True, blending="additive"
+        )
+
         for idx, code in enumerate(self.cam_codes):
             vr = self.readers[code]
             r, c = divmod(idx, cols)
             trans_xy = (r * vr.shape[1], c * vr.shape[2])  # (y, x)
+            self.camera_translations[code] = np.asarray(trans_xy, dtype=float)
             label = self.view_code_to_name.get(code, code)
 
-            _add_video_layer(vr, label, trans_xy)
+            # Superseded by the single mosaic layer above:
+            # _add_video_layer(vr, label, trans_xy)
 
             self.pt_layers[code] = self.viewer.add_points(
                 data=np.zeros((0, 2), float),   # (y, x)
-                size=12,
+                size=4,
                 name=f"{code}_kpts",
                 face_color="white",             # replaced per-frame
                 translate=trans_xy,             # (y, x)
@@ -526,7 +1012,7 @@ class QCReprojApp:
             # visually distinct from the solid colored 3D reprojections.
             self.original_pt_layers[code] = self.viewer.add_points(
                 data=np.zeros((0, 2), float),
-                size=16,
+                size=6,
                 name=f"{code}_original_2d",
                 face_color="transparent",
                 border_color="cyan",
@@ -538,7 +1024,7 @@ class QCReprojApp:
                 data=[],
                 shape_type="path",
                 edge_color="white",
-                edge_width=2.0,
+                edge_width=1.25,
                 name=f"{code}_skel",
                 translate=trans_xy,             # (y, x)
             )
@@ -567,14 +1053,44 @@ class QCReprojApp:
                 elif code not in self.calib_map:
                     print(f"[warn] No calibration for '{code}'. Its overlay will remain empty.")
 
+        # The per-camera layers above are retained for source compatibility but
+        # superseded by four global mosaic layers to reduce 24 mutations/frame.
+        for layer_map in (
+            self.pt_layers, self.original_pt_layers,
+            self.sk_layers, self.residual_layers,
+        ):
+            for layer in layer_map.values():
+                layer.visible = False
+        self.mosaic_pt_layer = self.viewer.add_points(
+            np.zeros((0, 2), float), size=4, name="all_reprojected_keypoints",
+            face_color="white",
+        )
+        self.mosaic_original_layer = self.viewer.add_points(
+            np.zeros((0, 2), float), size=6, name="all_original_2d",
+            face_color="transparent", border_color="cyan", border_width=0.15,
+        )
+        self.mosaic_skeleton_layer = self.viewer.add_shapes(
+            data=[], shape_type="path", edge_color="white", edge_width=1.25,
+            name="all_skeletons",
+        )
+        self.mosaic_residual_layer = self.viewer.add_shapes(
+            data=[], shape_type="path", edge_color="yellow", edge_width=1.5,
+            name="all_residuals",
+        )
+
         # Caches & sync
-        self.cam_pts: dict[str, dict[int, np.ndarray]] = defaultdict(dict)
+        # Former per-frame projection dictionary is superseded by the compact
+        # precomputed float32 arrays built before the viewer starts:
+        # self.cam_pts: dict[str, dict[int, np.ndarray]] = defaultdict(dict)
         self.bus = _FrameBus()
         self.viewer.dims.events.current_step.connect(self._on_napari_step)
 
         # First frame + refresh
         self._current_frame = 0
+        self._prefetch_video_frames(0)
         self._update_reprojections(0)
+        for code, reader in self.readers.items():
+            reader.start_background_preload(code, self._preload_slots)
         try:
             self.viewer.reset_view()
         except Exception:
@@ -583,6 +1099,10 @@ class QCReprojApp:
     # ---------------------- PUBLIC EXTERNAL CONTROL API (NEW) -------------------
 
     def current_frame(self) -> int:
+        # Expose a queued slider position so repeated keyboard steps accumulate
+        # correctly during the short debounce window.
+        if hasattr(self, "_frame_timer") and self._frame_timer.isActive():
+            return int(self._pending_frame)
         return int(self._current_frame)
 
     def max_frames(self) -> int:
@@ -590,8 +1110,14 @@ class QCReprojApp:
 
     def set_frame(self, fr: int) -> None:
         fr = int(np.clip(fr, 0, max(1, self.T) - 1))
-        if getattr(self, "_current_frame", None) == fr:
+        if getattr(self, "_current_frame", None) == fr and not self._frame_timer.isActive():
             return
+        self._pending_frame = fr
+        self._frame_timer.start()
+
+    def _commit_pending_frame(self) -> None:
+        """Apply only the most recent externally requested slider position."""
+        fr = int(self._pending_frame)
         try:
             steps = list(self.viewer.dims.current_step)
             steps[0] = fr
@@ -619,37 +1145,132 @@ class QCReprojApp:
         rows = math.ceil(n_cam / cols)
         return rows, cols
 
+    def _add_playback_controls(self, initial_fps: float) -> None:
+        """Add visible Play/Pause and frame-rate controls to the camera viewer."""
+        controls = QtWidgets.QWidget()
+        layout = QtWidgets.QHBoxLayout(controls)
+        layout.setContentsMargins(6, 3, 6, 3)
+        self._play_button = QtWidgets.QPushButton("Play")
+        self._play_button.setCheckable(True)
+        self._fps_spinner = QtWidgets.QDoubleSpinBox()
+        self._fps_spinner.setRange(0.5, 240.0)
+        self._fps_spinner.setDecimals(1)
+        self._fps_spinner.setSingleStep(5.0)
+        self._fps_spinner.setSuffix(" FPS")
+        self._fps_spinner.setValue(float(np.clip(initial_fps, 0.5, 240.0)))
+        layout.addWidget(self._play_button)
+        layout.addWidget(QtWidgets.QLabel("Playback rate:"))
+        layout.addWidget(self._fps_spinner)
+        layout.addStretch(1)
+        self._play_button.toggled.connect(self._toggle_playback)
+        self._fps_spinner.valueChanged.connect(self._update_playback_interval)
+        self.viewer.window.add_dock_widget(
+            controls, area="bottom", name="Camera playback"
+        )
+        self._update_playback_interval(self._fps_spinner.value())
+
+    def _update_playback_interval(self, fps: float) -> None:
+        """Apply a changed GUI frame rate without restarting visualization."""
+        self._playback_timer.setInterval(max(1, round(1000.0 / float(fps))))
+
+    def _toggle_playback(self, playing: bool) -> None:
+        """Start or stop camera playback from the physical GUI button."""
+        self._play_button.setText("Pause" if playing else "Play")
+        if playing:
+            self._playback_anchor_time = time.monotonic()
+            self._playback_anchor_frame = self.current_frame()
+            self._playback_timer.start()
+            if self.hide_overlays_during_playback:
+                for layer in (
+                    self.mosaic_pt_layer, self.mosaic_original_layer,
+                    self.mosaic_skeleton_layer, self.mosaic_residual_layer,
+                ):
+                    layer.visible = False
+        else:
+            self._playback_timer.stop()
+            if self.hide_overlays_during_playback:
+                for layer in (
+                    self.mosaic_pt_layer, self.mosaic_original_layer,
+                    self.mosaic_skeleton_layer, self.mosaic_residual_layer,
+                ):
+                    layer.visible = True
+                self._update_reprojections(self.current_frame())
+
+    def _advance_playback_frame(self) -> None:
+        """Follow source time, dropping frames when rendering cannot reach target FPS."""
+        elapsed = time.monotonic() - self._playback_anchor_time
+        elapsed_frames = int(elapsed * float(self._fps_spinner.value()))
+        next_frame = (self._playback_anchor_frame + elapsed_frames) % max(1, self.T)
+        if next_frame == self.current_frame():
+            return
+        self._pending_frame = next_frame
+        self._frame_timer.stop()
+        self._commit_pending_frame()
+
     # ----------------------------- Sync ---------------------------------------
 
     def _on_napari_step(self, event=None):
         fr = int(self.viewer.dims.current_step[0] if self.viewer.dims.ndim > 0 else 0)
         if fr != self._current_frame:
             self._current_frame = fr
+            self._prefetch_video_frames(fr)
             self._update_reprojections(fr)
             if hasattr(self, "bus"):
                 self.bus.frameChanged.emit(fr)
 
     # -------------------------- Reprojection & update --------------------------
 
-    def _update_reprojections(self, fr: int):
-        # Build current world points & label list
-        Xh    = self.X_head_per_frame.get(fr, np.zeros((0, 3), float))
-        names = self.names_per_frame.get(fr, [])
-        xform = self.xform_per_frame.get(fr, None)
-        Xw    = _apply_head2world_if_present(Xh, xform)
+    def _precompute_reprojections(self) -> Dict[str, np.ndarray]:
+        """Batch all 3D-to-2D projections into compact camera arrays once."""
+        base_index = {name: index for index, name in enumerate(self.bases)}
+        world = np.full((self.T, len(self.bases), 3), np.nan, dtype=np.float64)
+        for frame in range(self.T):
+            names = self.names_per_frame.get(frame, [])
+            points = self.X_head_per_frame.get(frame, np.zeros((0, 3), float))
+            transformed = _apply_head2world_if_present(
+                points, self.xform_per_frame.get(frame)
+            )
+            for name, point in zip(names, transformed):
+                index = base_index.get(name)
+                if index is not None:
+                    world[frame, index] = point
 
-        # Points per camera (cache projections per frame/cam)
-        if Xw.size:
-            for cam in self.pt_layers.keys():
-                if fr not in self.cam_pts.get(cam, {}):
-                    prm = self.calib_map.get(cam)
-                    if prm is None:
-                        self.cam_pts.setdefault(cam, {})[fr] = np.zeros((0, 2), float)
-                        continue
-                    try:
-                        self.cam_pts.setdefault(cam, {})[fr] = _project_pts(Xw, prm)
-                    except Exception:
-                        self.cam_pts.setdefault(cam, {})[fr] = np.zeros((0, 2), float)
+        finite = np.isfinite(world).all(axis=2)
+        flattened = world.reshape(-1, 3)
+        flattened_finite = finite.ravel()
+        projected: Dict[str, np.ndarray] = {}
+        for camera in self.cam_codes:
+            camera_points = np.full(
+                (self.T * len(self.bases), 2), np.nan, dtype=np.float32
+            )
+            parameters = self.calib_map.get(camera)
+            if parameters is not None and flattened_finite.any():
+                camera_points[flattened_finite] = _project_pts(
+                    flattened[flattened_finite], parameters
+                ).astype(np.float32)
+            projected[camera] = camera_points.reshape(self.T, len(self.bases), 2)
+        print(
+            f"QC reprojections precomputed: {self.T} frames × "
+            f"{len(self.bases)} keypoints × {len(projected)} cameras"
+        )
+        return projected
+
+    def _prefetch_video_frames(self, fr: int) -> None:
+        """Decode the current and adjacent frames across all cameras concurrently."""
+        nearby = [index for index in (fr, fr + 1, fr - 1, fr + 2)
+                  if 0 <= index < self.T]
+        for reader in self.readers.values():
+            reader.cancel_stale_prefetch(nearby)
+        # Offset-first scheduling puts every camera's requested frame ahead of
+        # speculative neighbors in the shared executor queue.
+        for index in nearby:
+            for reader in self.readers.values():
+                reader.prefetch([index])
+
+    def _update_reprojections(self, fr: int):
+        """Update four consolidated mosaic overlays for one preprojected frame."""
+        names = self.names_per_frame.get(fr, [])
+        name_indices = [self.bases.index(name) for name in names if name in self.bases]
 
         # Apply unwanted-name filter for this frame
         def _filter_names_points(curr_names: List[str], uv: np.ndarray) -> tuple[List[str], np.ndarray]:
@@ -673,26 +1294,33 @@ class QCReprojApp:
             ], dtype=bool)
             return [name for name, keep in zip(curr_names, keep_mask) if keep], uv[keep_mask]
 
-        # For skeleton segments we’ll need name->idx mapping after filtering
-        for cam in self.pt_layers.keys():
-            uv_full = self.cam_pts.get(cam, {}).get(fr, np.zeros((0, 2), float))
+        all_points: List[np.ndarray] = []
+        all_colors: List[np.ndarray] = []
+        all_labels: List[str] = []
+        all_original: List[np.ndarray] = []
+        all_residuals: List[np.ndarray] = []
+        all_skeletons: List[np.ndarray] = []
+
+        # Accumulate camera coordinates in mosaic space, then mutate each
+        # Napari overlay exactly once after the loop.
+        for cam in self.cam_codes:
+            translation = self.camera_translations[cam]
+            camera_points = self.projected_points.get(cam)
+            uv_full = camera_points[fr, name_indices] if camera_points is not None \
+                else np.zeros((0, 2), float)
             names_filt, uv = _filter_names_points(names, uv_full)
             # Former behavior displayed every reconstructed keypoint in every
             # camera. Keep it documented because it explained misleading offsets:
             # names_filt, uv = _filter_names_points(names, uv_full)
             names_filt, uv = _filter_for_camera(cam, names_filt, uv)
 
-            # --- Points layer (y, x) with rig_view-like colors ---
-            if uv.size == 0:
-                self.pt_layers[cam].data = np.zeros((0, 2), float)
-                self.pt_layers[cam].properties = {}
-            else:
-                pts_yx = uv[:, [1, 0]]                    # (v,u) -> (y,x)
-                self.pt_layers[cam].data = pts_yx
-                labels = np.asarray(names_filt, dtype=object)
-                self.pt_layers[cam].properties = {"label": labels}
-                colors = np.array([self.name2color.get(n, (1.0, 1.0, 0.0)) for n in names_filt], float)  # default yellow
-                self.pt_layers[cam].face_color = colors
+            if uv.size:
+                all_points.extend(uv[:, [1, 0]] + translation)
+                all_labels.extend(names_filt)
+                all_colors.extend(
+                    self.name2color.get(name, (1.0, 1.0, 0.0))
+                    for name in names_filt
+                )
 
             # Show original detections and connect them to matching reprojections.
             # Only materialize detections for the displayed frame to keep memory
@@ -700,6 +1328,11 @@ class QCReprojApp:
             original_by_name = _pose2d_points_for_frame(
                 self.pose2d_points.get(cam), fr
             )
+            if self.preview_scale != 1.0:
+                original_by_name = {
+                    name: point * self.preview_scale
+                    for name, point in original_by_name.items()
+                }
             original_yx: List[np.ndarray] = []
             residuals: List[np.ndarray] = []
             uv_by_name = {name: point for name, point in zip(names_filt, uv)}
@@ -708,15 +1341,13 @@ class QCReprojApp:
                 projected = uv_by_name.get(name)
                 if original is None or projected is None:
                     continue
-                original_yx.append(original[[1, 0]])
+                original_yx.append(original[[1, 0]] + translation)
                 residuals.append(np.array([
-                    original[[1, 0]], projected[[1, 0]]
+                    original[[1, 0]] + translation,
+                    projected[[1, 0]] + translation,
                 ], dtype=float))
-            self.original_pt_layers[cam].data = (
-                np.asarray(original_yx, dtype=float)
-                if original_yx else np.zeros((0, 2), dtype=float)
-            )
-            self.residual_layers[cam].data = residuals
+            all_original.extend(original_yx)
+            all_residuals.extend(residuals)
 
             # --- Skeleton layer (list of 2-point paths in (y,x)) ---
             segs: List[np.ndarray] = []
@@ -729,8 +1360,33 @@ class QCReprojApp:
                     pa, pb = uv[ia], uv[ib]
                     if np.any(np.isnan(pa)) or np.isnan(pb).any():
                         continue
-                    segs.append(np.array([[pa[1], pa[0]], [pb[1], pb[0]]], float))
-            self.sk_layers[cam].data = segs
+                    segs.append(
+                        np.array([[pa[1], pa[0]], [pb[1], pb[0]]], float)
+                        + translation
+                    )
+            all_skeletons.extend(segs)
+
+        self.mosaic_pt_layer.data = np.asarray(all_points, dtype=float).reshape(-1, 2)
+        self.mosaic_pt_layer.properties = {
+            "label": np.asarray(all_labels, dtype=object)
+        }
+        if all_colors:
+            self.mosaic_pt_layer.face_color = np.asarray(all_colors, dtype=float)
+        self.mosaic_original_layer.data = np.asarray(
+            all_original, dtype=float
+        ).reshape(-1, 2)
+        self.mosaic_residual_layer.data = all_residuals
+        self.mosaic_skeleton_layer.data = all_skeletons
 
     def run(self):
-        napari.run()
+        try:
+            napari.run()
+        finally:
+            # Preview workers own no GUI objects and can be cancelled once the
+            # Napari event loop closes.
+            for reader in self.readers.values():
+                reader.stop_background_preload()
+            self._playback_timer.stop()
+            if self.persistent_mosaic_reader is not None:
+                self.persistent_mosaic_reader.close()
+            self._decode_executor.shutdown(wait=False, cancel_futures=True)

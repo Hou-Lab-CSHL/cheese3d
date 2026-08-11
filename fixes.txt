@@ -16,3 +16,7 @@
 ## allows use of other networks aside from resnet50
 ## added N save and N eval epoch
 ## added maximum snapshots to keep
+# napri optimization
+## Napari visualization now decodes six cameras concurrently and caches downscaled neighboring frames for faster timeline navigation.
+## Visualization now uses a temporary ≤10 GiB disk mosaic plus up to 32 GiB RAM, while retaining all overlays during playback.
+## Stale cache files are cleared on startup, and completed/partial cache artifacts are deleted when Napari close
