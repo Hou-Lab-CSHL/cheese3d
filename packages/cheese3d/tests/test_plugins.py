@@ -56,6 +56,7 @@ def test_builtin_plugins_are_registered():
     assert get_pose_backend_class("eks") is EKSBackend
     assert get_pose_backend_class("lightning_pose") is LightningPoseBackend
 
+
 @pytest.mark.unit
 def test_backend_extras_are_mutually_exclusive():
     pyproject = Path(__file__).parents[1] / "pyproject.toml"

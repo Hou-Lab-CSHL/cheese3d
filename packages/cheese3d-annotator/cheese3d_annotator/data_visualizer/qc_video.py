@@ -344,12 +344,21 @@ def _load_keypoints_csv_with_xforms(csv_path: Path):
 
 def _apply_head2world_if_present(Xh: np.ndarray, xform: Optional[tuple[np.ndarray, np.ndarray]]) -> np.ndarray:
     """
-    Mirror rig_view: X_world = R_wh.T @ (X_head + c_h)
+    Reverse Anipose's saved head-coordinate correction exactly.
+
+    Anipose stores ``X_head = X_world.dot(M.T) - center`` and reconstructs
+    world coordinates with ``(X_head + center).dot(inv(M.T))``. Although ``M``
+    resembles a rotation matrix, Anipose normalizes its axes without fully
+    orthogonalizing them; replacing the inverse with a transpose therefore
+    creates a systematic one-sided reprojection shift.
     """
     if Xh.size == 0 or xform is None:
         return Xh
-    R_wh, c_h = xform
-    return (R_wh.T @ (Xh + c_h).T).T
+    M, center = xform
+    # Former behavior assumed M was perfectly orthogonal. It is retained as
+    # documentation because this shortcut caused the approximately 20 px shift:
+    # return (M.T @ (Xh + center).T).T
+    return (Xh + center).dot(np.linalg.inv(M.T))
 
 
 def _make_color_map(bases: List[str]) -> Dict[str, np.ndarray]:

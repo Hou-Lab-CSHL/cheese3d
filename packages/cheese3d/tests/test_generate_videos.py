@@ -38,7 +38,7 @@ def test_generated_video_uses_raw_video_stem(monkeypatch, tmp_path):
         lambda *_args, **_kwargs: (["nose"], None, None),
     )
 
-    def fake_visualize(_scheme, _bodyparts, _points, _scores, _video, output):
+    def fake_visualize(_scheme, _bodyparts, _points, _scores, _video, output, **_kwargs):
         Path(output).touch()
         outputs.append(Path(output))
 

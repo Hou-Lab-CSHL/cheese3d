@@ -2,3 +2,18 @@
 # broswer gui by default, retain --terminal as fall back 
 # Fixed video generation so DLC pose files correctly match raw videos and the GUI only reports success when outputs exsts
 # adjusted directory seletion
+# Reason and fix: Cheese3D incorrectly treated Anipose’s imperfectly orthogonal axes matrix as a pure rotation, causing a ~20 px shift; the viewer now uses Anipose’s exact inverse(M.T) transformation
+# added stop training early
+# Added lighting pose trainning
+# added quality of life utilities for gui
+## training settings
+## multi-gpu inferenc, multi-gpu trainning doesn't really work
+## multi-process video generation (all but two cores and adjustable)
+## added train fraction option; allow for direct control of some trainning parameters
+## added some options for image argumentation
+## added trainning display
+## added select model option
+# completely abandoned dlc <3.0
+## allows use of other networks aside from resnet50
+## added N save and N eval epoch
+## added maximum snapshots to keep

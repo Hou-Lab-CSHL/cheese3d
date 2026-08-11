@@ -145,7 +145,8 @@ def build_model_backend(cfg: ModelConfig | str | Path,
                         root: Path,
                         sessions: Dict[RecordingKey, Dict[str, Path]],
                         view_cfg: MultiViewConfig,
-                        keypoints: List[KeypointConfig]):
+                        keypoints: List[KeypointConfig],
+                        keypoint_groups=None):
     if isinstance(cfg, str) or isinstance(cfg, Path):
         videos = []
         crops = []
@@ -158,7 +159,10 @@ def build_model_backend(cfg: ModelConfig | str | Path,
         root = root / name / "backend"
         backend_cls = get_pose_backend_class("dlc")
 
-        return backend_cls.from_existing(existing_project, root, videos, keypoints, crops)
+        return backend_cls.from_existing(
+            existing_project, root, videos, keypoints, crops,
+            skeleton=[edge for group in (keypoint_groups or []) for edge in group.skeleton],
+        )
     else:
         if cfg.name is None:
             return None
@@ -180,12 +184,20 @@ def build_model_backend(cfg: ModelConfig | str | Path,
             ]
         backend_cls = get_pose_backend_class(cfg.backend_type)
 
+        backend_options = dict(cfg.backend_options)
+        if cfg.backend_type == "dlc":
+            # DLC's skeleton was formerly left as its two placeholder edges.
+            # Flatten Cheese3D's anatomical groups for DLC visualization and PAFs.
+            backend_options["skeleton"] = [
+                edge for group in (keypoint_groups or []) for edge in group.skeleton
+            ]
+
         return backend_cls(name=cfg.name,
                            root_dir=root / cfg.name / "backend",
                            videos=videos,
                            keypoints=keypoints,
                            crops=crops,
-                           **cfg.backend_options)
+                           **backend_options)
 
 def resolve_pose3d_csv(session_path: str | Path) -> Path:
     """Return the single Anipose 3-D pose CSV produced for a session.
@@ -313,7 +325,8 @@ class Ch3DProject:
                                             relative_path(cfg.model_root, root / cfg.name)),
                                         sessions=sessions,
                                         view_cfg=cfg.views,
-                                        keypoints=cfg.keypoints)
+                                        keypoints=cfg.keypoints,
+                                        keypoint_groups=cfg.keypoint_groups)
         view_regex = get_group_pattern(ProjectConfig.build_regex(cfg.video_regex), "view")
 
         return cls(name=cfg.name,
@@ -495,12 +508,13 @@ class Ch3DProject:
         viewer.show(block=True)
         self._import_labels()
 
-    def train(self, gpu, iterate_dataset = True):
+    def train(self, gpu, iterate_dataset=True, training_settings=None):
+        """Train the selected backend with optional GUI/CLI settings."""
         self._import_labels()
         if self.model is None:
             raise RuntimeError("Cannot train model when pose model does not exist "
                                "(hint: maybe you forgot to set `model.name` in the config?")
-        self.model.train(gpu, iterate_dataset)
+        self.model.train(gpu, iterate_dataset, training_settings)
 
     def _setup_anipose(self):
         if self.model is None:
@@ -609,7 +623,8 @@ class Ch3DProject:
             from anipose.calibrate import calibrate_all
             calibrate_all(self._load_anipose_cfg())
 
-    def track(self, session: Optional[str] = None):
+    def track(self, session: Optional[str] = None, tracking_settings=None):
+        """Track selected sessions with explicit inference resource settings."""
         if self.model is None:
             raise RuntimeError("Cannot track when pose model does not exist "
                                "(hint: maybe you forgot to set `model.name` in the config?)")
@@ -625,7 +640,8 @@ class Ch3DProject:
                                 "calibration" / "calibration.toml")
             handled = self.model.track(videos=videos,
                                        output_dir=output_dir,
-                                       calibration_path=calibration_path)
+                                       calibration_path=calibration_path,
+                                       tracking_settings=tracking_settings)
             if not handled:
                 from anipose.pose_videos import process_session
                 rprint("[bold yellow]WARNING:[/bold yellow] Pose backend did not handle "
@@ -673,7 +689,8 @@ class Ch3DProject:
                 if not csv_output.exists():
                     c3d_features_df.to_csv(csv_output, index=False, index_label=None)
 
-    def generate_videos(self):
+    def generate_videos(self, max_workers: Optional[int] = None):
+        """Generate QC videos using adjustable camera-level CPU parallelism."""
         from anipose.project_2d import process_session as project_2d_session
         from cheese3d.generate_videos import generate_videos_2d
         from cheese3d.generate_videos import generate_compare_video
@@ -701,7 +718,8 @@ class Ch3DProject:
 
             rprint(f"[bold]Labeling videos in 2D: {recording.name}[/bold]")
             completed += generate_videos_2d(
-                scheme, bodyparts, videos_raw_dir, pose_2d_dir, videos_labeled_dir
+                scheme, bodyparts, videos_raw_dir, pose_2d_dir, videos_labeled_dir,
+                max_workers=max_workers,
             )
             if self.triangulation.filter2d:
                 rprint(f"[bold]Labeling filtered videos in 2D: {recording.name}[/bold]")
@@ -709,7 +727,8 @@ class Ch3DProject:
                                                 bodyparts,
                                                 videos_raw_dir,
                                                 pose_2d_filt_dir,
-                                                videos_labeled_filt_dir)
+                                                videos_labeled_filt_dir,
+                                                max_workers=max_workers)
             calib_toml = calib_dir / "calibration.toml"
             pose_3d_csvs = sorted(pose_3d_dir.glob("*.csv"))
             if len(pose_3d_csvs) > 0 and calib_toml.exists():
@@ -725,7 +744,8 @@ class Ch3DProject:
                                                 bodyparts,
                                                 videos_raw_dir,
                                                 pose_2d_proj_dir,
-                                                videos_2d_proj_dir)
+                                                videos_2d_proj_dir,
+                                                max_workers=max_workers)
             if videos_labeled_dir.exists() and videos_2d_proj_dir.exists():
                 rprint(f"[bold]Stitching labeled videos together: {recording.name}[/bold]")
                 completed += generate_compare_video(videos_raw_dir,

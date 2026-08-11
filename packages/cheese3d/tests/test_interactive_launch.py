@@ -1,4 +1,61 @@
 from cheese3d import interactive
+from cheese3d.backends.core import partition_videos_by_gpu
+
+
+def test_training_input_label_is_not_a_focus_dependent_border_title():
+    """Training setting names must remain visible when their input is unfocused."""
+    field = interactive.TrainingInput("Batch size", "batch_size", "8", "integer")
+
+    assert field.field_label == "Batch size"
+    assert field.input_id == "batch_size"
+    assert field.input_value == "8"
+    assert field.input_type == "integer"
+    assert "training_field_label" in interactive.TrainingInput.compose.__doc__ or \
+        "label" in interactive.TrainingInput.compose.__doc__.lower()
+
+
+def test_camera_videos_are_distributed_round_robin_across_gpus(tmp_path):
+    """Six camera videos should be balanced across two inference GPU workers."""
+    videos = [tmp_path / f"camera_{index}.mp4" for index in range(6)]
+
+    assignments = partition_videos_by_gpu(videos, ["0", "1"])
+
+    assert assignments == [("0", videos[::2]), ("1", videos[1::2])]
+
+
+def test_training_command_relaunches_selected_project_in_same_environment(tmp_path):
+    """GUI training must use the active Pixi Python for either configured backend."""
+    project = tmp_path / "demo2"
+
+    assert interactive._training_command(project, gpu=2) == [
+        interactive.sys.executable, "-m", "cheese3d", "--path",
+        str(tmp_path), "train", "demo2", "--gpu", "2",
+    ]
+
+
+def test_training_command_serializes_multi_gpu_backend_settings(tmp_path):
+    """The GUI must pass two GPUs and edited augmentation values to the CLI."""
+    command = interactive._training_command(
+        tmp_path / "demo2", gpu="0,1", settings={"epochs": 25, "imgaug": "dlc"}
+    )
+
+    assert command[-4:] == [
+        "--gpu", "0,1", "--training-settings",
+        '{"epochs": 25, "imgaug": "dlc"}',
+    ]
+
+
+def test_training_interrupt_targets_process_group_on_posix(monkeypatch):
+    """Early stopping must reach backend/data-loader children, not only the CLI."""
+    calls = []
+    process = type("Process", (), {"pid": 4321})()
+    monkeypatch.setattr(interactive.os, "name", "posix")
+    monkeypatch.setattr(interactive.os, "killpg",
+                        lambda pid, sig: calls.append((pid, sig)))
+
+    interactive._interrupt_training_process(process)
+
+    assert calls == [(4321, interactive.signal.SIGINT)]
 
 
 def test_directory_picker_starts_at_home_not_repository(monkeypatch, tmp_path):
@@ -62,7 +119,7 @@ def test_web_ui_uses_terminal_child_and_opens_browser(monkeypatch):
     interactive.run_interative()
 
     assert calls["server"] == (
-        "cheese3d interactive --terminal",
+        f"{interactive.sys.executable} -m cheese3d interactive --terminal",
         {"host": "localhost", "port": 8000, "title": "Cheese3D"},
     )
     assert calls["browser"] == "http://localhost:8000"

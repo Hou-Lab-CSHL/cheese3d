@@ -4,6 +4,10 @@ from pathlib import Path
 from contextlib import contextmanager, redirect_stdout, redirect_stderr
 from threading import Timer
 import os
+import json
+import signal
+import shlex
+import subprocess
 import sys
 import traceback
 import webbrowser
@@ -42,6 +46,26 @@ from cheese3d.config import _DEFAULT_VIDEO_REGEX
 from cheese3d.utils import maybe, reglob
 from cheese3d.project import Ch3DProject, RecordingKey
 from cheese3d.config import ProjectConfig, ModelConfig
+from cheese3d.backends.dlc import DLC3_PYTORCH_MODELS
+
+
+def _training_command(project_path: str | Path, gpu: str = "0",
+                      settings: Optional[dict] = None) -> List[str]:
+    """Build the same-backend Cheese3D CLI command used by GUI training."""
+    project_path = Path(project_path)
+    command = [sys.executable, "-m", "cheese3d", "--path",
+               str(project_path.parent), "train", project_path.name, "--gpu", str(gpu)]
+    if settings:
+        command.extend(["--training-settings", json.dumps(settings)])
+    return command
+
+
+def _interrupt_training_process(process: subprocess.Popen) -> None:
+    """Interrupt a trainer and all of its data-loader/backend descendants."""
+    if os.name == "posix":
+        os.killpg(process.pid, signal.SIGINT)
+    else:
+        process.send_signal(signal.SIGINT)
 
 
 class _Cheese3DDirectoryPicker(SelectDirectory):
@@ -247,6 +271,24 @@ class LabeledInput(Input):
 
     def watch_label(self, label):
         self.border_title = label
+
+
+class TrainingInput(VerticalGroup):
+    """Training input with a permanently visible label above the field."""
+
+    def __init__(self, label: str, input_id: str, value: str,
+                 input_type: str = "text"):
+        super().__init__(classes="training_field")
+        self.field_label = label
+        self.input_id = input_id
+        self.input_value = value
+        self.input_type = input_type
+
+    def compose(self) -> ComposeResult:
+        """Render the label independently of the input's focus state."""
+        yield Static(self.field_label, classes="training_field_label")
+        yield Input(value=self.input_value, id=self.input_id, type=self.input_type)
+
 
 class KeyValuePair(VerticalGroup):
 
@@ -867,6 +909,11 @@ class MainScreen(Screen):
 
     def __init__(self, project_path: str | Path):
         self.project = Ch3DProject.from_path(project_path)
+        # The GUI launches training in a process, rather than its own worker
+        # thread, so both DLC and LP can be interrupted without killing the UI.
+        self._training_process: Optional[subprocess.Popen] = None
+        self._training_stop_requested = False
+        self._checkpoint_records: Dict[str, dict] = {}
         super().__init__()
 
     def on_mount(self) -> None:
@@ -895,6 +942,37 @@ class MainScreen(Screen):
         select_list.add_options([(path.name, path, select)
                                  for path, select in zip(sessions, in_project)])
 
+    def _refresh_checkpoint_list(self) -> None:
+        """Populate pose checkpoint choices and show their validation metrics."""
+        selector = self.query_one("#pose_checkpoint", Select)
+        records = self.project.model.list_checkpoints() if self.project.model else []
+        self._checkpoint_records = {item["path"]: item for item in records}
+        options = []
+        for item in records:
+            epoch = item.get("epoch")
+            label = f"epoch {epoch}: {Path(item['path']).name}" if epoch is not None \
+                else Path(item["path"]).name
+            options.append((label, item["path"]))
+        selector.set_options(options)
+        if records:
+            # Default visibly to the newest available checkpoint; the change
+            # handler then makes that exact choice active in the backend.
+            selector.value = records[-1]["path"]
+        else:
+            self.query_one("#checkpoint_metrics", Static).update(
+                "No trained checkpoints were found for this backend."
+            )
+
+    def _read_tracking_settings(self) -> dict:
+        """Validate pose-inference device IDs and batch size from the GUI."""
+        gpu_ids = self.query_one("#tracking_gpus", Input).value.strip()
+        if gpu_ids and any(not item.strip().isdigit() for item in gpu_ids.split(",")):
+            raise ValueError("Tracking GPU IDs must be comma-separated integers")
+        batch_size = int(self.query_one("#tracking_batch_size", Input).value)
+        if batch_size <= 0:
+            raise ValueError("Tracking batch size must be positive")
+        return {"gpu_ids": gpu_ids, "batch_size": batch_size}
+
     def _enable_model_done(self):
         self.query_one("#all_tabs").query_one("ContentTabs").disabled = False
         for button in self.query_one("#model_buttons").children:
@@ -904,6 +982,84 @@ class MainScreen(Screen):
         self.query_one("#all_tabs").query_one("ContentTabs").disabled = True
         for button in self.query_one("#model_buttons").children:
             button.disabled = True
+
+    def _set_training_controls(self, training: bool) -> None:
+        """Expose only the stop control while a DLC or LP trainer is active."""
+        # Former model-wide disabling also disabled the enclosing tab, making an
+        # early-stop button impossible to reach while training was in progress.
+        self.query_one("#all_tabs").query_one("ContentTabs").disabled = False
+        for button in self.query_one("#training_buttons").children:
+            button.disabled = training
+        self.query_one("#stop_train", Button).disabled = not training
+
+    def _uses_lightning_pose(self) -> bool:
+        """Select backend-specific controls without importing the other backend."""
+        return self.project.model is not None and \
+            self.project.model.__class__.__name__ == "LightningPoseBackend"
+
+    def _read_training_settings(self) -> tuple[str, dict]:
+        """Validate and collect common plus backend-specific training controls."""
+        def integer(widget_id: str) -> int:
+            return int(self.query_one(widget_id, Input).value)
+
+        def number(widget_id: str) -> float:
+            return float(self.query_one(widget_id, Input).value)
+
+        gpu_ids = self.query_one("#training_gpus", Input).value.strip()
+        if not gpu_ids or any(not item.strip().isdigit() for item in gpu_ids.split(",")):
+            raise ValueError("GPU IDs must be comma-separated integers, for example 0,1")
+        settings = {
+            "epochs": integer("#training_epochs"),
+            "batch_size": integer("#training_batch_size"),
+            "learning_rate": number("#training_learning_rate"),
+            "save_every_n_epochs": integer("#training_save_epochs"),
+            "validate_every_n_epochs": integer("#training_val_epochs"),
+        }
+        if settings["epochs"] <= 0 or settings["batch_size"] <= 0 \
+                or settings["learning_rate"] <= 0 \
+                or settings["save_every_n_epochs"] <= 0 \
+                or settings["validate_every_n_epochs"] <= 0:
+            raise ValueError(
+                "Epochs, batch size, learning rate, save interval, and validation "
+                "interval must be positive"
+            )
+        if self._uses_lightning_pose():
+            settings.update({
+                "imgaug": str(self.query_one("#lp_imgaug", Select).value),
+                "horizontal_flip": self.query_one("#lp_hflip", Checkbox).value,
+                "train_prob": number("#lp_train_prob"),
+                "val_prob": number("#lp_val_prob"),
+                "unfreezing_epoch": integer("#lp_unfreezing_epoch"),
+                "early_stopping": self.query_one("#lp_early_stopping", Checkbox).value,
+                "early_stop_patience": integer("#lp_early_stop_patience"),
+            })
+            if settings["train_prob"] < 0 or settings["val_prob"] < 0 \
+                    or settings["train_prob"] + settings["val_prob"] > 1:
+                raise ValueError("Lightning Pose train + validation fractions must be <= 1")
+        else:
+            settings.update({
+                "network_architecture": str(
+                    self.query_one("#dlc_network_architecture", Select).value
+                ),
+                "train_fraction_percent": number("#dlc_train_fraction_percent"),
+                "max_snapshots_to_keep": integer("#dlc_max_snapshots_to_keep"),
+                "rotation": number("#dlc_rotation"),
+                "scale_min": number("#dlc_scale_min"),
+                "scale_max": number("#dlc_scale_max"),
+                "crop_width": integer("#dlc_crop_width"),
+                "crop_height": integer("#dlc_crop_height"),
+                "motion_blur": self.query_one("#dlc_motion_blur", Checkbox).value,
+                "gaussian_noise": number("#dlc_gaussian_noise"),
+            })
+            if settings["scale_min"] <= 0 or settings["scale_min"] > settings["scale_max"]:
+                raise ValueError("DLC minimum scale must be positive and <= maximum scale")
+            if not 1 <= settings["train_fraction_percent"] <= 99:
+                raise ValueError("DLC training percentage must be between 1 and 99")
+            if settings["max_snapshots_to_keep"] <= 0:
+                raise ValueError("DLC maximum snapshots to keep must be positive")
+            if settings["crop_width"] <= 0 or settings["crop_height"] <= 0:
+                raise ValueError("DLC crop width and height must be positive")
+        return gpu_ids, settings
 
     def _enable_pose_done(self):
         self.query_one("#all_tabs").query_one("ContentTabs").disabled = False
@@ -943,10 +1099,88 @@ class MainScreen(Screen):
                             with HorizontalGroup(id="model_buttons"):
                                 yield Button("Extract frames", id="extract")
                                 yield Button("Label frames", id="label")
-                                yield Button("Train network", id="train")
                         yield TextualStdout(id="model_log")
+                with TabPane(title="training", id="training"):
+                    with VerticalScroll():
+                        yield Static("Common training settings")
+                        yield TrainingInput("GPU IDs (comma-separated)", "training_gpus", "0")
+                        default_epochs = "300" if self._uses_lightning_pose() else "200"
+                        default_batch = "16" if self._uses_lightning_pose() else "8"
+                        default_lr = "0.001" if self._uses_lightning_pose() else "0.0005"
+                        yield TrainingInput("Epochs", "training_epochs", default_epochs,
+                                            "integer")
+                        yield TrainingInput("Batch size", "training_batch_size", default_batch,
+                                            "integer")
+                        yield TrainingInput("Learning rate", "training_learning_rate", default_lr,
+                                            "number")
+                        default_save = "25" if self._uses_lightning_pose() else "25"
+                        default_val = "5" if self._uses_lightning_pose() else "10"
+                        yield TrainingInput("Save every N epochs", "training_save_epochs",
+                                            default_save, "integer")
+                        yield TrainingInput("Validate every N epochs", "training_val_epochs",
+                                            default_val, "integer")
+                        yield Static("Data augmentation and backend settings")
+                        if self._uses_lightning_pose():
+                            yield Static("Augmentation preset", classes="training_field_label")
+                            yield Select([("DLC-style", "dlc"), ("Default", "default")],
+                                         value="dlc", id="lp_imgaug")
+                            yield Checkbox("Random horizontal flip", id="lp_hflip")
+                            yield TrainingInput("Training fraction", "lp_train_prob", "0.95", "number")
+                            yield TrainingInput("Validation fraction", "lp_val_prob", "0.05", "number")
+                            yield TrainingInput("Backbone unfreezing epoch", "lp_unfreezing_epoch",
+                                                "20", "integer")
+                            yield Checkbox("Early stopping", id="lp_early_stopping")
+                            yield TrainingInput("Early-stop patience", "lp_early_stop_patience",
+                                                "3", "integer")
+                        else:
+                            yield Static("DLC3 network architecture",
+                                         classes="training_field_label")
+                            # The selector is independent of checkpoint selection:
+                            # this chooses the network built for a new training run.
+                            yield Select.from_values(
+                                DLC3_PYTORCH_MODELS, value="resnet_50",
+                                allow_blank=False, id="dlc_network_architecture"
+                            )
+                            yield TrainingInput("Training split (%)",
+                                                "dlc_train_fraction_percent",
+                                                "95", "number")
+                            yield Static(
+                                "The remaining images form the test split (95% train = 5% test).",
+                                classes="training_field_note"
+                            )
+                            yield TrainingInput("Maximum snapshots to keep",
+                                                "dlc_max_snapshots_to_keep",
+                                                "5", "integer")
+                            yield TrainingInput("Rotation range (degrees)", "dlc_rotation", "30", "number")
+                            yield TrainingInput("Minimum scale", "dlc_scale_min", "0.5", "number")
+                            yield TrainingInput("Maximum scale", "dlc_scale_max", "1.25", "number")
+                            yield TrainingInput("Crop width", "dlc_crop_width", "448", "integer")
+                            yield TrainingInput("Crop height", "dlc_crop_height", "448", "integer")
+                            yield Checkbox("Motion blur", value=True, id="dlc_motion_blur")
+                            yield TrainingInput("Gaussian noise standard deviation",
+                                                "dlc_gaussian_noise", "12.75", "number")
+                        with HorizontalGroup(id="training_buttons"):
+                            yield Button("Train network", id="train", variant="success")
+                            yield Button("Stop training", id="stop_train",
+                                         variant="error", disabled=True)
+                        yield TextualStdout(id="training_log")
                 with TabPane(title="pose tracking", id="pose"):
                     with Vertical():
+                        yield Static("Tracking checkpoint", classes="training_field_label")
+                        yield Select([], id="pose_checkpoint", prompt="Select checkpoint")
+                        yield Static("Select a checkpoint to view validation metrics.",
+                                     id="checkpoint_metrics")
+                        yield Static("Inference settings", classes="training_field_label")
+                        yield TrainingInput("GPU IDs (videos split across GPUs)",
+                                            "tracking_gpus", "0")
+                        tracking_batch = "32" if self._uses_lightning_pose() else "8"
+                        yield TrainingInput("Inference batch size", "tracking_batch_size",
+                                            tracking_batch, "integer")
+                        yield Static(
+                            "With multiple IDs (for example 0,1), independent camera videos "
+                            "are assigned round-robin to one inference process per GPU.",
+                            id="tracking_gpu_note",
+                        )
                         with CenterMiddle(classes="buttons_group"):
                             with HorizontalGroup(id="pose_buttons"):
                                 yield Button("Calibrate", id="calibrate")
@@ -959,6 +1193,15 @@ class MainScreen(Screen):
                             with HorizontalGroup(id="visualize_buttons"):
                                 yield Button("Visualize (interactive)", id="visualize")
                                 yield Button("Generate videos", id="generate_videos")
+                        default_video_workers = str(max(1, (os.cpu_count() or 1) - 2))
+                        yield TrainingInput("Video generation CPU core budget",
+                                            "video_generation_workers",
+                                            default_video_workers, "integer")
+                        yield Static(
+                            "Default uses all detected CPU cores except two. Camera processes "
+                            "share the remaining budget through multithreaded FFmpeg encoders.",
+                            id="video_worker_note",
+                        )
                         yield TextualStdout(id="visualize_log")
         yield Footer()
 
@@ -969,6 +1212,25 @@ class MainScreen(Screen):
             self._refresh_summary()
         elif msg.pane.id == "sessions":
             self._refresh_recording_list()
+        elif msg.pane.id == "pose":
+            self._refresh_checkpoint_list()
+
+    @on(Select.Changed, "#pose_checkpoint")
+    def select_pose_checkpoint(self, msg: Select.Changed) -> None:
+        """Activate the selected weights and display associated validation metrics."""
+        path = str(msg.value)
+        record = self._checkpoint_records.get(path)
+        if record is None or self.project.model is None:
+            return
+        self.project.model.select_checkpoint(path)
+        metrics = record.get("metrics", {})
+        metric_text = " | ".join(
+            f"{name.split('/')[-1]}: {float(value):.5g}"
+            for name, value in sorted(metrics.items())
+        ) or "No validation metrics stored in this checkpoint."
+        self.query_one("#checkpoint_metrics", Static).update(
+            f"Epoch: {record.get('epoch', 'unknown')} | {metric_text}"
+        )
 
     @on(SelectionList.SelectedChanged, "#select_sessions")
     def update_selected_sessions(self, msg: SelectionList.SelectedChanged):
@@ -1028,13 +1290,88 @@ class MainScreen(Screen):
     @on(Button.Pressed, "#train")
     @work(thread=True)
     def train_model(self):
-        self._disable_model_in_progress()
-        log = self.query_one("#model_log")
+        """Run training in an interruptible child process for either backend."""
+        self._training_stop_requested = False
+        self._set_training_controls(True)
+        log = self.query_one("#training_log")
         log.clear() # type: ignore
-        with _pipeline_output(log):
-            self.project.train(0)
-        self._enable_model_done()
-        self.app.call_from_thread(self.app.push_screen, DialogBox("Model training completed!"))
+        project_path = self.project.path
+        try:
+            gpu_ids, settings = self._read_training_settings()
+        except ValueError as error:
+            self._set_training_controls(False)
+            self.app.call_from_thread(self.app.push_screen, DialogBox(str(error)))
+            return
+        command = _training_command(project_path, gpu=gpu_ids, settings=settings)
+        terminal = None
+        try:
+            try:
+                # Textual Serve owns stdout, while /dev/tty is the terminal that
+                # launched Cheese3D and must continue showing training progress.
+                terminal = open("/dev/tty", "w", buffering=1) if os.name == "posix" \
+                    else sys.__stderr__
+            except OSError:
+                terminal = sys.__stderr__
+            output = _TeeOutput(log, terminal)
+            output.write(f"Starting training subprocess: {shlex.join(command)}\n")
+            child_environment = os.environ.copy()
+            child_environment["PYTHONUNBUFFERED"] = "1"
+            # A new process group lets Stop training reach DataLoader and backend
+            # descendants as well as the direct Cheese3D CLI child.
+            self._training_process = subprocess.Popen(
+                command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                text=True, bufsize=1, env=child_environment,
+                start_new_session=(os.name == "posix")
+            )
+            # Former inherited output disappeared into Textual Serve. Forward
+            # every unbuffered line to both the GUI model log and launching TTY.
+            if self._training_process.stdout is not None:
+                for line in iter(self._training_process.stdout.readline, ""):
+                    output.write(line)
+                self._training_process.stdout.close()
+            return_code = self._training_process.wait()
+            stopped = self._training_stop_requested
+        except Exception:
+            traceback.print_exc(file=sys.__stderr__)
+            return_code = -1
+            stopped = self._training_stop_requested
+        finally:
+            self._training_process = None
+            self._set_training_controls(False)
+            if terminal not in (None, sys.__stdout__, sys.__stderr__):
+                terminal.close()
+
+        if stopped:
+            message = "Model training stopped early. Existing checkpoints were kept."
+        elif return_code == 0:
+            message = "Model training completed!"
+        else:
+            message = f"Model training failed (exit code {return_code}); see terminal output."
+        self.app.call_from_thread(self.app.push_screen, DialogBox(message))
+
+    @on(Button.Pressed, "#stop_train")
+    def stop_training(self) -> None:
+        """Request graceful early stopping of the active DLC or LP subprocess."""
+        process = self._training_process
+        if process is None or process.poll() is not None:
+            return
+        self._training_stop_requested = True
+        # The training reader thread will forward the backend's interrupt output
+        # to the GUI and terminal after this immediate on-screen notification.
+        stop_message = "Stopping training early (sending SIGINT)..."
+        model_log = self.query_one("#training_log", TextualStdout)
+        # Bypass TextualStdout's worker-thread adapter because button handlers
+        # already execute on Textual's UI thread.
+        RichLog.write(model_log, stop_message)
+        try:
+            with open("/dev/tty", "w", buffering=1) as terminal:
+                terminal.write(f"{stop_message}\n")
+        except OSError:
+            print(stop_message, file=sys.__stderr__, flush=True)
+        # Preserve the former uninterrupted training path as the default; this
+        # branch runs only when the user explicitly presses the new stop button.
+        _interrupt_training_process(process)
+        self.query_one("#stop_train", Button).disabled = True
 
     @on(Button.Pressed, "#calibrate")
     @work(thread=True)
@@ -1053,8 +1390,12 @@ class MainScreen(Screen):
         self._disable_pose_in_progress()
         log = self.query_one("#pose_log")
         log.clear() # type: ignore
-        with _pipeline_output(log):
-            self.project.track()
+        try:
+            settings = self._read_tracking_settings()
+            with _pipeline_output(log):
+                self.project.track(tracking_settings=settings)
+        except (TypeError, ValueError) as error:
+            self.app.call_from_thread(self.app.push_screen, DialogBox(str(error)))
         self._enable_pose_done()
         self.app.call_from_thread(self.app.push_screen, DialogBox("2D pose tracking completed!"))
 
@@ -1078,7 +1419,12 @@ class MainScreen(Screen):
         try:
             with _pipeline_output(log):
                 print("Starting video generation ...")
-                completed = self.project.generate_videos()
+                max_workers = int(
+                    self.query_one("#video_generation_workers", Input).value
+                )
+                if max_workers <= 0:
+                    raise ValueError("Video generation CPU core budget must be positive")
+                completed = self.project.generate_videos(max_workers=max_workers)
         except Exception as exc:
             with _pipeline_output(log):
                 traceback.print_exc()
@@ -1138,7 +1484,15 @@ def run_interative(web_mode = True, open_browser = True):
         url = "http://localhost:8000"
         # The served child must use terminal mode; otherwise the default web
         # mode would recursively start another Textual server.
-        server = Server("cheese3d interactive --terminal",
+        # Reuse this process's Python so the served child cannot fall back to a
+        # different PATH entry (for example Pixi without Lightning Pose).
+        child_command = shlex.join([
+            sys.executable, "-m", "cheese3d", "interactive", "--terminal"
+        ])
+        # Former behavior is retained for diagnosis; PATH could resolve it to
+        # `.pixi/envs/default/bin/cheese3d` even after launching from Conda:
+        # child_command = "cheese3d interactive --terminal"
+        server = Server(child_command,
                         host="localhost",
                         port=8000,
                         title="Cheese3D")

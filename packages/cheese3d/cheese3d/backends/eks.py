@@ -76,15 +76,18 @@ class EKSBackend(Pose2dBackend):
         for model in self.models.values():
             model.extract_frames(videos)
 
-    def train(self, gpu, iterate_dataset: bool = True):
+    def train(self, gpu, iterate_dataset: bool = True,
+              training_settings: Optional[dict] = None):
+        """Forward shared training settings to each selected EKS submodel."""
         for model_name, model in self._selected_train_models().items():
             print(f"Training EKS submodel: {model_name}")
-            model.train(gpu, iterate_dataset)
+            model.train(gpu, iterate_dataset, training_settings)
 
     def track(self,
               videos: Dict[str, Path],
               output_dir: Path,
-              calibration_path: Optional[Path] = None) -> bool:
+              calibration_path: Optional[Path] = None,
+              tracking_settings: Optional[dict] = None) -> bool:
         output_dir.mkdir(parents=True, exist_ok=True)
         output_key = output_dir.parent.name
         expected_outputs = [output_dir / f"{Path(video).stem}.h5" for video in videos.values()]
@@ -100,7 +103,8 @@ class EKSBackend(Pose2dBackend):
             print(f"using model {model_name}")
             model.track(videos=videos,
                         output_dir=sub_output_dir,
-                        calibration_path=calibration_path)
+                        calibration_path=calibration_path,
+                        tracking_settings=tracking_settings)
             model_csvs[model_name] = self._normalize_outputs(model_name,
                                                              videos,
                                                              sub_output_dir)

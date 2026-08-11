@@ -1,6 +1,7 @@
 import os
 import typer
 import rich
+import json
 import questionary
 from pathlib import Path
 from typing import Annotated, Optional, List
@@ -56,6 +57,49 @@ def import_model(
     project = _build_project(path, name, configs, config_overrides, model_import=model)
     project._export_labels()
     rich.print(f"Done importing {Path(model).stem} :white_check_mark:")
+
+
+@cli.command(name="convert-dlc-labels")
+def convert_dlc_labels(
+    dlc_project: Annotated[str, typer.Argument(
+        help="DLC project directory containing labeled-data"
+    )],
+    output_model: Annotated[str, typer.Argument(
+        help="Destination Lightning Pose model directory"
+    )],
+    model_name: Annotated[str, typer.Option(
+        help="Lightning Pose model name stored in config.yaml"
+    )] = "cheese3d-lightning-pose",
+    image_height: Annotated[int, typer.Option(
+        help="LP training resize height; must be a multiple of 128"
+    )] = 512,
+    image_width: Annotated[int, typer.Option(
+        help="LP training resize width; must be a multiple of 128"
+    )] = 640,
+):
+    """Convert DLC labeled frames into a trainable Lightning Pose model folder."""
+    from cheese3d.backends.lightning_pose import (
+        convert_dlc_labels_to_lightning_pose,
+        create_lightning_pose_training_config,
+    )
+
+    # The standalone command discovers the union of DLC keypoints. Cheese3D's
+    # configured backend passes an explicit canonical order during project load.
+    conversion = convert_dlc_labels_to_lightning_pose(
+        dlc_project_path=dlc_project,
+        lightning_pose_project_path=output_model,
+    )
+    config_path = create_lightning_pose_training_config(
+        project_path=output_model,
+        conversion=conversion,
+        model_name=model_name,
+        image_height=image_height,
+        image_width=image_width,
+    )
+    rich.print(
+        f"Converted {conversion['num_frames']} frames and "
+        f"{conversion['num_keypoints']} keypoints into {config_path} :white_check_mark:"
+    )
 
 @cli.command()
 def summarize(
@@ -134,10 +178,13 @@ def label(
 def train(
     ctx: typer.Context,
     name: Annotated[str, typer.Argument(help="Name of project")] = ".",
-    gpu: Annotated[int, typer.Option(help="GPU ID(s) to use")] = 0,
+    gpu: Annotated[str, typer.Option(help="Comma-separated GPU IDs, e.g. 0,1")] = "0",
     iterate_dataset: Annotated[bool, typer.Option(
         help="Create a new dataset iteration before training"
     )] = True,
+    training_settings: Annotated[Optional[str], typer.Option(
+        help="JSON training and augmentation settings from the GUI"
+    )] = None,
     config_overrides: Annotated[Optional[List[str]], typer.Argument(
         help="Config overrides passed to Hydra (https://hydra.cc/docs/intro/)"
     )] = None
@@ -146,7 +193,8 @@ def train(
     path = ctx.obj["path"]
     configs = ctx.obj["configs"]
     project = _build_project(path, name, configs, config_overrides)
-    project.train(gpu, iterate_dataset)
+    parsed_settings = json.loads(training_settings) if training_settings else None
+    project.train(gpu, iterate_dataset, parsed_settings)
     rich.print("Training complete :spaceship:")
 
 @cli.command()
@@ -232,6 +280,9 @@ def analyze(
 def generate_videos(
     ctx: typer.Context,
     name: Annotated[str, typer.Argument(help="Name of project")] = ".",
+    workers: Annotated[Optional[int], typer.Option(
+        help="CPU core budget; default is detected CPU count minus two"
+    )] = None,
     config_overrides: Annotated[Optional[List[str]], typer.Argument(
         help="Config overrides passed to Hydra (https://hydra.cc/docs/intro/)"
     )] = None
@@ -240,7 +291,7 @@ def generate_videos(
     path = ctx.obj["path"]
     configs = ctx.obj["configs"]
     project = _build_project(path, name, configs, config_overrides)
-    completed = project.generate_videos()
+    completed = project.generate_videos(max_workers=workers)
     rich.print(f"Video generation completed: {completed} output(s) available. :white_check_mark:")
 
 @cli.command()

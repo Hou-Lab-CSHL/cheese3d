@@ -5,7 +5,9 @@ import pytest
 
 from cheese3d.backends.lightning_pose import (is_lightning_pose_video,
                                                preprocess_lightning_pose_video,
-                                               read_lp_preds)
+                                               read_lp_preds,
+                                               convert_dlc_labels_to_lightning_pose,
+                                               create_lightning_pose_training_config)
 
 @pytest.mark.unit
 def test_read_lightning_pose_predictions_filters_metadata_columns(tmp_path):
@@ -59,3 +61,47 @@ def test_preprocess_lightning_pose_video_uses_app_ffmpeg_settings(monkeypatch, t
         "-preset", "medium", "-crf", "23", "-vf", "setsar=1", "-an",
         "-y", str(output_path),
     ]]
+
+
+@pytest.mark.unit
+def test_dlc_labels_convert_to_portable_lightning_pose_data(tmp_path):
+    """DLC tables with different schemas merge without losing images or rows."""
+    dlc_project = tmp_path / "dlc"
+    for folder_name, bodyparts in (("cam_L", ["nose", "ear"]),
+                                   ("cam_R", ["nose"])):
+        label_dir = dlc_project / "labeled-data" / folder_name
+        label_dir.mkdir(parents=True)
+        image_name = f"{folder_name}.png"
+        (label_dir / image_name).write_bytes(b"image")
+        columns = pd.MultiIndex.from_tuples([
+            ("tester", bodypart, coord)
+            for bodypart in bodyparts for coord in ("x", "y")
+        ])
+        index = pd.MultiIndex.from_tuples([
+            ("labeled-data", folder_name, image_name)
+        ])
+        pd.DataFrame([[float(i) for i in range(len(columns))]],
+                     index=index, columns=columns).to_hdf(
+                         label_dir / "CollectedData_tester.h5", key="df"
+                     )
+
+    output = tmp_path / "lp"
+    summary = convert_dlc_labels_to_lightning_pose(
+        dlc_project, output, keypoint_names=["nose", "ear"]
+    )
+    config_path = create_lightning_pose_training_config(
+        output, summary, model_name="converted"
+    )
+    converted = pd.read_csv(summary["csv_file"], header=[0, 1, 2], index_col=0)
+    raw_csv_lines = summary["csv_file"].read_text().splitlines()
+
+    assert summary["num_frames"] == 2
+    assert summary["num_keypoints"] == 2
+    assert list(converted.columns.get_level_values(1).unique()) == ["nose", "ear"]
+    assert pd.isna(converted.loc["labeled-data/cam_R/cam_R.png",
+                                 ("lightning_pose", "ear", "x")])
+    # The first training sample must immediately follow LP's three header rows.
+    assert raw_csv_lines[3].startswith("labeled-data/")
+    assert "image" not in converted.index
+    assert all((summary["data_dir"] / path).is_file() for path in converted.index)
+    assert config_path.is_file()

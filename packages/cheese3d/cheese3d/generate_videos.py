@@ -7,6 +7,10 @@ import re
 import cv2
 import queue
 import threading
+import json
+import tempfile
+import multiprocessing
+from concurrent.futures import ProcessPoolExecutor
 import skvideo.io
 import numpy as np
 import pandas as pd
@@ -15,6 +19,7 @@ from matplotlib import colors
 from pathlib import Path
 from seaborn import color_palette
 from tqdm import trange
+from cheese3d.backends.core import monitor_camera_progress
 
 def get_video_params_cap(cap):
     params = dict()
@@ -93,14 +98,14 @@ def label_frame(img, points, scheme, bodyparts, bp_to_color):
     return img
 
 def visualize_labels(scheme, bodyparts, points, scores, vid_fname, outname,
-                     colormap="colorblind"):
+                     colormap="colorblind", progress_file=None, encoder_threads=1):
     bp_to_color = color_scheme(scheme, cmap=colormap)
     cap = cv2.VideoCapture(vid_fname)
     fps = cap.get(cv2.CAP_PROP_FPS)
     writer = skvideo.io.FFmpegWriter(outname, inputdict={
         '-framerate': str(fps),
     }, outputdict={
-        '-vcodec': 'h264', '-qp': '28',
+        '-vcodec': 'h264', '-qp': '28', '-threads': str(max(1, encoder_threads)),
         '-pix_fmt': 'yuv420p',
         '-vf': 'pad=ceil(iw/2)*2:ceil(ih/2)*2'
     })
@@ -120,6 +125,13 @@ def visualize_labels(scheme, bodyparts, points, scores, vid_fname, outname,
         frame_points = points[:, :, ix]
         img = label_frame(img, frame_points, scheme, bodyparts, bp_to_color)
         writer.writeFrame(img)
+        if progress_file is not None and (ix % 10 == 0 or ix + 1 == last):
+            # Atomic updates let the Textual parent render one bar per camera
+            # without parsing or inheriting child-process tqdm output.
+            progress_path = Path(progress_file)
+            temporary = progress_path.with_suffix(".tmp")
+            temporary.write_text(json.dumps({"completed": ix + 1, "total": last}))
+            temporary.replace(progress_path)
     cap.release()
     writer.close()
 
@@ -158,7 +170,23 @@ def _read_pose_2d(h5_path, bodyparts_hint=None):
 
     return bodyparts, points, scores
 
-def generate_videos_2d(scheme, bodyparts, videos_raw_dir, pose_dir, out_dir):
+def _generate_video_2d_job(scheme, bodyparts, pose_file, video_file, output_file,
+                           progress_file=None, encoder_threads=1):
+    """Render one camera overlay in an isolated CPU worker process."""
+    _, points, scores = _read_pose_2d(pose_file, bodyparts_hint=bodyparts)
+    print(f"Rendering {Path(video_file).name} -> {Path(output_file).name}", flush=True)
+    if progress_file is None:
+        visualize_labels(scheme, bodyparts, points, scores, video_file, output_file,
+                         encoder_threads=encoder_threads)
+    else:
+        visualize_labels(scheme, bodyparts, points, scores, video_file, output_file,
+                         progress_file=progress_file, encoder_threads=encoder_threads)
+    return int(Path(output_file).exists())
+
+
+def generate_videos_2d(scheme, bodyparts, videos_raw_dir, pose_dir, out_dir,
+                        max_workers=None):
+    """Generate independent camera overlays concurrently across CPU cores."""
     pose_dir = Path(pose_dir)
     out_dir = Path(out_dir)
     labels_fnames = sorted(pose_dir.glob('*.h5'), key=lambda p: p.name)
@@ -167,6 +195,7 @@ def generate_videos_2d(scheme, bodyparts, videos_raw_dir, pose_dir, out_dir):
         return 0
     out_dir.mkdir(parents=True, exist_ok=True)
     completed = 0
+    jobs = {}
     for fname in labels_fnames:
         basename = fname.stem
         vid_path = _find_matching_video(basename, videos_raw_dir)
@@ -180,11 +209,46 @@ def generate_videos_2d(scheme, bodyparts, videos_raw_dir, pose_dir, out_dir):
             abs(get_nframes(out_fname) - get_nframes(vid_path)) < 100):
             completed += 1
             continue
-        _, points, scores = _read_pose_2d(str(fname), bodyparts_hint=bodyparts)
-        print(out_fname)
-        visualize_labels(scheme, bodyparts, points, scores, vid_path, out_fname)
-        if os.path.exists(out_fname):
-            completed += 1
+        # Multiple DLC snapshots can match one raw camera video. Preserve the
+        # former first-match behavior while preventing concurrent output races.
+        jobs.setdefault(out_fname, (str(fname), vid_path))
+
+    if jobs:
+        cpu_budget = max(1, int(max_workers or max(1, (os.cpu_count() or 1) - 2)))
+        # Each active camera needs at least one overlay thread and one encoder
+        # thread, so do not launch more processes than half the CPU budget.
+        workers = min(len(jobs), max(1, cpu_budget // 2))
+        # Reserve one core per Python/OpenCV overlay process, then divide the
+        # remaining requested cores among their concurrent FFmpeg encoders.
+        encoder_threads = max(1, (cpu_budget - workers) // workers)
+        estimated_cores = workers * (1 + encoder_threads)
+        print(
+            f"Rendering {len(jobs)} camera video(s) with {workers} process(es), "
+            f"{encoder_threads} FFmpeg thread(s) each (~{estimated_cores} CPU cores)"
+        )
+        if workers == 1:
+            for output_file, (pose_file, video_file) in jobs.items():
+                completed += _generate_video_2d_job(
+                    scheme, bodyparts, pose_file, video_file, output_file,
+                    encoder_threads=encoder_threads,
+                )
+        else:
+            # Spawn is required because this function runs in a Textual worker
+            # thread; forking a process after OpenCV/FFmpeg initialization can hang.
+            context = multiprocessing.get_context("spawn")
+            with tempfile.TemporaryDirectory(prefix="cheese3d-video-progress-") as progress_dir:
+                progress_files = {
+                    Path(output_file).stem: Path(progress_dir) / f"{Path(output_file).stem}.json"
+                    for output_file in jobs
+                }
+                with ProcessPoolExecutor(max_workers=workers, mp_context=context) as pool:
+                    futures = [pool.submit(
+                        _generate_video_2d_job, scheme, bodyparts, pose_file, video_file,
+                        output_file, str(progress_files[Path(output_file).stem]),
+                        encoder_threads,
+                    ) for output_file, (pose_file, video_file) in jobs.items()]
+                    monitor_camera_progress(futures, progress_files, unit="frame")
+                    completed += sum(future.result() for future in futures)
 
     return completed
 

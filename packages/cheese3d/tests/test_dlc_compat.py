@@ -1,0 +1,169 @@
+import yaml
+from pathlib import Path
+
+from cheese3d.backends.dlc import (
+    DLC3_PYTORCH_MODELS,
+    DLCBackend,
+    _enforce_dlc3_project_config,
+    _include_compatible_labeled_data,
+    _paf_graph_from_skeleton,
+    _shuffle_from_created_splits,
+)
+
+
+def test_dlc3_config_removes_legacy_pose_fields_and_uses_pytorch(tmp_path):
+    """Imported DLC2 pose options must not enter DLC3 project validation."""
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        "Task: demo\nengine: tensorflow\niteration: 4\nweight_decay: 0.0001\n"
+    )
+
+    removed = _enforce_dlc3_project_config(
+        config_path, {"Task", "engine", "iteration", "config_version"}
+    )
+    migrated = yaml.safe_load(config_path.read_text())
+
+    assert removed == ["weight_decay"]
+    assert migrated == {
+        "Task": "demo", "engine": "pytorch", "iteration": 4,
+        "config_version": 0,
+    }
+
+
+def test_dlc3_tracking_passes_selected_snapshot_index(monkeypatch, tmp_path):
+    """DLC3 PyTorch tracking requires `snapshot_index`, not DLC2's spelling."""
+    calls = {}
+    monkeypatch.setattr(
+        "deeplabcut.analyze_videos",
+        lambda **kwargs: calls.update(kwargs),
+    )
+    backend = DLCBackend.__new__(DLCBackend)
+    backend.root_dir = tmp_path
+    backend.name = "model"
+    backend.experimenter = "tester"
+    backend.date = "2026-01-01"
+    backend._selected_snapshot_index = 1
+    video = tmp_path / "video.mp4"
+    video.touch()
+
+    assert backend.track({"view": video}, tmp_path / "pose") is True
+    assert calls["snapshot_index"] == 1
+    assert "snapshotindex" not in calls
+    assert calls["device"] == "cuda:0"
+    assert calls["batch_size"] == 8
+
+
+def test_dlc3_training_uses_selected_network_architecture(monkeypatch, tmp_path):
+    """The Training-tab model choice must replace the old fixed ResNet-50."""
+    calls = {}
+    monkeypatch.setattr(
+        "deeplabcut.pose_estimation_pytorch.available_models",
+        lambda: ["resnet_50", "hrnet_w32"],
+    )
+    monkeypatch.setattr(
+        "deeplabcut.create_training_dataset",
+        lambda **kwargs: calls.setdefault("dataset", kwargs),
+    )
+    monkeypatch.setattr(
+        "deeplabcut.train_network",
+        lambda **kwargs: calls.setdefault("train", kwargs),
+    )
+    monkeypatch.setattr(
+        "deeplabcut.evaluate_network",
+        lambda **kwargs: calls.setdefault("evaluate", kwargs),
+    )
+    monkeypatch.setattr("torch.cuda.set_device", lambda device: calls.setdefault("primary_gpu", device))
+    backend = DLCBackend.__new__(DLCBackend)
+    backend.root_dir = tmp_path
+    backend.name = "model"
+    backend.experimenter = "tester"
+    backend.date = "2026-01-01"
+    backend.project_path.mkdir(parents=True)
+    backend.config_path.write_text("Task: demo\n")
+
+    backend.train("0", iterate_dataset=False, training_settings={
+        "network_architecture": "hrnet_w32", "epochs": 1, "batch_size": 1,
+        "save_every_n_epochs": 1, "train_fraction_percent": 80,
+        "max_snapshots_to_keep": 3,
+    })
+
+    assert calls["dataset"]["net_type"] == "hrnet_w32"
+    assert calls["train"]["shuffle"] == 1
+    assert calls["train"]["max_snapshots_to_keep"] == 3
+    assert calls["train"]["device"] == "cuda"
+    assert calls["primary_gpu"] == 0
+    assert yaml.safe_load(backend.config_path.read_text())["TrainingFraction"] == [0.8]
+
+
+def test_single_animal_model_selector_includes_dlcrnet_with_cheese3d_pafs():
+    """DLCRNet remains selectable when Cheese3D can supply its skeleton as PAFs."""
+    assert "dlcrnet_stride16_ms5" in DLC3_PYTORCH_MODELS
+    assert _paf_graph_from_skeleton(
+        ["nose", "eye", "ear"], [["nose", "eye"], ["eye", "ear"]]
+    ) == [[0, 1], [1, 2]]
+
+
+def test_created_training_split_selects_new_shuffle():
+    """A changed train fraction may create shuffle 2+, which training must use."""
+    assert _shuffle_from_created_splits([(0.7, 2, ([0], [1]))]) == 2
+
+
+def test_all_compatible_label_folders_enter_dlc_dataset_selection(tmp_path):
+    """Imported labels without source videos must still enter DLC's merger."""
+    project = tmp_path / "project"
+    (project / "videos").mkdir(parents=True)
+    labels_root = project / "labeled-data"
+    columns = __import__("pandas").MultiIndex.from_product(
+        [["tester"], ["nose", "tail"], ["x", "y"]],
+        names=["scorer", "bodyparts", "coords"],
+    )
+    for folder_name in ("camera", "imported"):
+        folder = labels_root / folder_name
+        folder.mkdir(parents=True)
+        (folder / "img001.png").touch()
+        frame = __import__("pandas").DataFrame(
+            [[1.0, 2.0, 3.0, 4.0]], columns=columns,
+            index=__import__("pandas").MultiIndex.from_tuples(
+                [("labeled-data", folder_name, "img001.png")]
+            ),
+        )
+        frame.to_hdf(folder / "CollectedData_tester.h5", key="df")
+    config_path = project / "config.yaml"
+    config_path.write_text(yaml.safe_dump({
+        "project_path": str(project), "scorer": "tester",
+        "bodyparts": ["nose", "tail"],
+        "video_sets": {str(project / "videos" / "camera.mp4"): {"crop": "0, 1, 0, 1"}},
+    }))
+
+    summary = _include_compatible_labeled_data(config_path)
+    updated = yaml.safe_load(config_path.read_text())
+
+    assert summary == {"folders": 2, "images": 2, "skipped": []}
+    assert {Path(path).stem for path in updated["video_sets"]} == {"camera", "imported"}
+
+
+def test_compatible_bodyparts_can_use_a_different_column_order(tmp_path):
+    """DLC reindexes bodyparts, so HDF ordering must not exclude valid labels."""
+    project = tmp_path / "project"
+    folder = project / "labeled-data" / "imported"
+    folder.mkdir(parents=True)
+    (folder / "img.png").touch()
+    pandas = __import__("pandas")
+    frame = pandas.DataFrame(
+        [[1.0, 2.0, 3.0, 4.0]],
+        columns=pandas.MultiIndex.from_product(
+            [["tester"], ["tail", "nose"], ["x", "y"]],
+            names=["scorer", "bodyparts", "coords"],
+        ),
+        index=pandas.MultiIndex.from_tuples(
+            [("labeled-data", "imported", "img.png")]
+        ),
+    )
+    frame.to_hdf(folder / "CollectedData_tester.h5", key="df")
+    config_path = project / "config.yaml"
+    config_path.write_text(yaml.safe_dump({
+        "project_path": str(project), "scorer": "tester",
+        "bodyparts": ["nose", "tail"], "video_sets": {},
+    }))
+
+    assert _include_compatible_labeled_data(config_path)["images"] == 1

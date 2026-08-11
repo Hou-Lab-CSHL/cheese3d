@@ -63,6 +63,23 @@ MainScreen .buttons_group > HorizontalGroup {
 MainScreen #model_log {
     margin: 1;
 }
+MainScreen .training_field {
+    height: auto;
+    margin: 0 1 1 1;
+}
+MainScreen .training_field_label {
+    height: 1;
+    margin: 0 1;
+    color: $text;
+    text-style: bold;
+}
+MainScreen #training Select {
+    margin: 0 1 1 1;
+}
+MainScreen #training_log {
+    min-height: 10;
+    margin: 1;
+}
 MainScreen TabbedContent {
     margin: 1 0 0 0;
 }

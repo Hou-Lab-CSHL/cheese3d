@@ -4,14 +4,19 @@ channels = ["conda-forge", "apple"]
 platforms = ["linux-64", "osx-arm64"]
 
 [environments]
+# Keep the established DLC environment as the default; Lightning Pose remains
+# isolated in `lp` because both frameworks must not share one Python process.
 default = { features = ["dlc"] }
+dlc = { features = ["dlc"] }
 docs = { features = ["docs"] }
 dev = { features = ["dev"] }
 dev-dlc = { features = ["dev", "dlc"] }
-dev-lp = { features = ["dev", "lp-cu12"] }
-dev-lp-cu13 = { features = ["dev", "lp-cu13"] }
-lp = { features = ["lp-cu12"] }
-lp-cu13 = { features = ["lp-cu13"] }
+# CUDA environments are Linux-only; restricting their solve platforms lets
+# Pixi select official CUDA wheels without trying to find macOS CUDA builds.
+dev-lp = { features = ["dev", "lp-cu12"], platforms = ["linux-64"] }
+dev-lp-cu13 = { features = ["dev", "lp-cu13"], platforms = ["linux-64"] }
+lp = { features = ["lp-cu12"], platforms = ["linux-64"] }
+lp-cu13 = { features = ["lp-cu13"], platforms = ["linux-64"] }
 
 [tasks.build]
 args = [ "name" ]
@@ -49,9 +54,29 @@ cmd = "cd packages/cheese3d && pixi run -e dev pytest -m {{ group }}"
 [tasks.test-cov]
 cmd = "cd packages/cheese3d && pixi run -e dev pytest --cov=cheese3d --cov-report=html"
 
+[tasks.demo2-summary]
+cmd = "pixi run -e lp cheese3d --path /data/disk2/home/tony summarize demo2"
+description = "Validate and summarize demo2 with the default Lightning Pose backend."
+
+[tasks.demo2-interactive]
+cmd = "pixi run -e lp cheese3d --path /data/disk2/home/tony interactive"
+description = "Open demo2 in Cheese3D's browser GUI using Lightning Pose."
+
+[tasks.demo2-train]
+args = [{ arg = "gpu", default = "0" }]
+cmd = "pixi run -e lp cheese3d --path /data/disk2/home/tony train demo2 --gpu {{ gpu }}"
+description = "Train demo2's converted DLC labels with Lightning Pose."
+
 [activation.env]
-LD_LIBRARY_PATH = "$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
+# Do not prepend `$LD_LIBRARY_PATH` here. Entering `pixi shell -e lp` from the
+# default DLC shell would retain DLC's CUDA/cuDNN libraries and mix them with LP.
+# LD_LIBRARY_PATH = "$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
 PYTHONNOUSERSITE = "1"
+# Keep generated caches on disk2 inside the Pixi workspace and avoid unwritable
+# package/home cache locations when Cheese3D launches GUI child processes.
+MPLCONFIGDIR = "$PIXI_PROJECT_ROOT/.pixi/cache/matplotlib"
+NUMBA_CACHE_DIR = "$PIXI_PROJECT_ROOT/.pixi/cache/numba"
+XDG_CACHE_HOME = "$PIXI_PROJECT_ROOT/.pixi/cache/xdg"
 
 [dependencies]
 python = "3.11.*"
@@ -87,18 +112,45 @@ pytest-cov = ">=4.1.0,<6.0.0"
 
 [feature.dlc.pypi-dependencies]
 cheese3d = { path = "packages/cheese3d", editable = true, extras = ["dlc", "cuda12"] }
+# Pin the DLC3/PyTorch pair used to validate skeleton PAFs, shuffle selection,
+# checkpoint retention, and multi-GPU inference. A fresh relock must not silently
+# move to a newer DLC internal configuration API or a different CUDA Torch build.
+deeplabcut = "==3.0.1"
+torch = "==2.10.0"
+torchvision = "==0.25.0"
 
 [feature.dlc.constraints]
 numpy = "<2.0.0"
 
 [feature.lp-cu12.pypi-dependencies]
 cheese3d = { path = "packages/cheese3d", editable = true, extras = ["lp", "cuda12"] }
+# Lightning Pose leaves PyTorch unbounded, so PyPI otherwise selects a CUDA 13
+# release while JAX remains CUDA 12. Pin the matching official CUDA 12.6 pair.
+torch = { version = "==2.7.1", index = "https://download.pytorch.org/whl/cu126" }
+torchvision = { version = "==0.22.1", index = "https://download.pytorch.org/whl/cu126" }
+# EKS and Lightning Pose 2.2 are validated with the last JAX release accepted by
+# ensemble-kalman-smoother; pinning prevents a CUDA plugin/runtime mismatch.
+jax = { version = "==0.4.36", extras = ["cuda12"] }
+
+[feature.lp-cu12.dependencies]
+# Lightning Pose 2.2 declares NumPy >=2; make the conda and PyPI solvers agree.
+numpy = ">=2.0,<2.3"
 
 [feature.lp-cu12.activation.env]
 TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD = "1"
+# Replace any library path inherited from a currently active DLC Pixi shell so
+# Lightning Pose can load only this environment's matched CUDA/cuDNN libraries.
+LD_LIBRARY_PATH = "$CONDA_PREFIX/lib"
 
 [feature.lp-cu13.pypi-dependencies]
 cheese3d = { path = "packages/cheese3d", editable = true, extras = ["lp", "cuda13"] }
+jax = { version = "==0.4.36", extras = ["cuda12"] }
+
+[feature.lp-cu13.dependencies]
+# Keep CUDA variants on the same LP-compatible numeric stack.
+numpy = ">=2.0,<2.3"
 
 [feature.lp-cu13.activation.env]
 TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD = "1"
+# Keep the experimental CUDA 13 environment isolated for the same reason.
+LD_LIBRARY_PATH = "$CONDA_PREFIX/lib"
