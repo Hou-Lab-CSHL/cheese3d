@@ -17,6 +17,13 @@ dev-lp = { features = ["dev", "lp-cu12"], platforms = ["linux-64"] }
 dev-lp-cu13 = { features = ["dev", "lp-cu13"], platforms = ["linux-64"] }
 lp = { features = ["lp-cu12"], platforms = ["linux-64"] }
 lp-cu13 = { features = ["lp-cu13"], platforms = ["linux-64"] }
+# SLEAP has its own PyTorch/UI dependency graph and must never share the DLC or
+# Lightning Pose process; enter it explicitly with `pixi shell -e sleap`.
+sleap = { features = ["sleap"], platforms = ["linux-64"] }
+dev-sleap = { features = ["dev", "sleap"], platforms = ["linux-64"] }
+# Keep JAX triangulation in one small CUDA 12 environment so every pose backend,
+# including CUDA 13 Lightning Pose, can use the GPU without mixing cuDNN stacks.
+triangulation-gpu = { features = ["triangulation-gpu"], platforms = ["linux-64"] }
 
 [tasks.build]
 args = [ "name" ]
@@ -144,7 +151,10 @@ LD_LIBRARY_PATH = "$CONDA_PREFIX/lib"
 
 [feature.lp-cu13.pypi-dependencies]
 cheese3d = { path = "packages/cheese3d", editable = true, extras = ["lp", "cuda13"] }
-jax = { version = "==0.4.36", extras = ["cuda12"] }
+# CUDA 12 JAX bundles cuDNN beside PyTorch's CUDA 13 cuDNN and causes
+# CUDNN_STATUS_SUBLIBRARY_VERSION_MISMATCH. EKS remains available through its
+# CPU JAX backend while Lightning Pose training uses the CUDA 13 PyTorch stack.
+jax = "==0.4.36"
 
 [feature.lp-cu13.dependencies]
 # Keep CUDA variants on the same LP-compatible numeric stack.
@@ -154,3 +164,29 @@ numpy = ">=2.0,<2.3"
 TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD = "1"
 # Keep the experimental CUDA 13 environment isolated for the same reason.
 LD_LIBRARY_PATH = "$CONDA_PREFIX/lib"
+
+[feature.sleap.pypi-dependencies]
+# Pin the ecosystem combination published in SLEAP's 1.6 compatibility table.
+cheese3d = { path = "packages/cheese3d", editable = true, extras = ["sleap"] }
+sleap = "==1.6.1"
+sleap-io = "==0.6.4"
+sleap-nn = "==0.1.0"
+# Keep SLEAP's CUDA stack isolated and reproducible instead of inheriting the
+# DLC CUDA 12.6 or experimental Lightning Pose CUDA 13 wheel selection.
+torch = { version = "==2.7.1", index = "https://download.pytorch.org/whl/cu128" }
+torchvision = { version = "==0.22.1", index = "https://download.pytorch.org/whl/cu128" }
+
+[feature.sleap.activation.env]
+PYTHONNOUSERSITE = "1"
+LD_LIBRARY_PATH = "$CONDA_PREFIX/lib"
+
+[feature.sleap.dependencies]
+# SLEAP-IO 0.6.4 requires PyAV below 16; scope the constraint to this isolated
+# environment so the existing DLC/LP environments retain their resolved build.
+av = ">=10,<16"
+
+[feature.triangulation-gpu.pypi-dependencies]
+# This worker intentionally excludes DLC, Lightning Pose, and PyTorch: only
+# Aniposelib's JAX linear triangulation needs a CUDA runtime in this process.
+cheese3d = { path = "packages/cheese3d", editable = true, extras = ["cuda12"] }
+jax = { version = "==0.4.36", extras = ["cuda12"] }

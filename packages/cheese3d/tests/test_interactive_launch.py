@@ -1,5 +1,15 @@
 from cheese3d import interactive
 from cheese3d.backends.core import partition_videos_by_gpu
+from cheese3d.interactive import _build_lp_dlc_augmentation_config
+
+
+def test_lp_gui_exposes_all_supported_backbone_families():
+    """The selector must include CNN, animal-pretrained, and DINO choices."""
+    choices = set(interactive.LIGHTNING_POSE_BACKBONES)
+
+    assert {"resnet18", "resnet50_animal_ap10k", "efficientnet_b2",
+            "vits_dinov2", "vitb_sam"} <= choices
+    assert len(choices) == len(interactive.LIGHTNING_POSE_BACKBONES)
 
 
 def test_training_input_label_is_not_a_focus_dependent_border_title():
@@ -21,6 +31,33 @@ def test_camera_videos_are_distributed_round_robin_across_gpus(tmp_path):
     assignments = partition_videos_by_gpu(videos, ["0", "1"])
 
     assert assignments == [("0", videos[::2]), ("1", videos[1::2])]
+
+
+def test_lp_dlc_augmentation_gui_defaults_match_lightning_pose_preset():
+    """Editable GUI defaults must reproduce LP 2.2's built-in DLC augmentation."""
+    values = {
+        "rotation_probability": 0.4, "rotation_degrees": 25,
+        "motion_blur_probability": 0.5, "motion_blur_kernel": 5,
+        "motion_blur_angle": 90, "dropout_probability": 0.5,
+        "dropout_pixel_probability": 0.02, "dropout_size_percent": 0.3,
+        "dropout_per_channel_probability": 0.5, "salt_probability": 0.5,
+        "pepper_probability": 0.5, "salt_pepper_pixel_probability": 0.01,
+        "salt_pepper_size_min": 0.05, "salt_pepper_size_max": 0.1,
+        "elastic_probability": 0.5, "elastic_alpha_min": 0,
+        "elastic_alpha_max": 10, "elastic_sigma": 5,
+        "histogram_probability": 0.1, "clahe_probability": 0.1,
+        "emboss_probability": 0.1, "emboss_alpha_max": 0.5,
+        "emboss_strength_min": 0.5, "emboss_strength_max": 1.5,
+        "crop_probability": 0.4, "crop_percent": 0.15,
+    }
+
+    config = _build_lp_dlc_augmentation_config(values)
+
+    assert config["Affine"] == {"p": 0.4, "kwargs": {"rotate": [-25.0, 25.0]}}
+    assert config["MotionBlur"]["kwargs"]["k"] == 5
+    assert config["CoarseDropout"]["kwargs"]["p"] == 0.02
+    assert config["ElasticTransformation"]["kwargs"]["alpha"] == [0.0, 10.0]
+    assert config["CropAndPad"]["kwargs"]["percent"] == [-0.15, 0.15]
 
 
 def test_training_command_relaunches_selected_project_in_same_environment(tmp_path):
@@ -119,7 +156,8 @@ def test_web_ui_uses_terminal_child_and_opens_browser(monkeypatch):
     interactive.run_interative()
 
     assert calls["server"] == (
-        f"{interactive.sys.executable} -m cheese3d interactive --terminal",
+        f"{interactive.sys.executable} -m cheese3d --path "
+        f"{interactive.Path.home()} interactive --terminal",
         {"host": "localhost", "port": 8000, "title": "Cheese3D"},
     )
     assert calls["browser"] == "http://localhost:8000"
@@ -130,6 +168,9 @@ def test_terminal_ui_remains_available(monkeypatch):
     calls = {}
 
     class FakeApp:
+        def __init__(self, start_directory=None):
+            calls["start_directory"] = start_directory
+
         def run(self):
             calls["ran"] = True
 
@@ -138,6 +179,29 @@ def test_terminal_ui_remains_available(monkeypatch):
     interactive.run_interative(web_mode=False)
 
     assert calls["ran"] is True
+    assert calls["start_directory"] == interactive.Path.home()
+
+
+def test_web_ui_propagates_explicit_project_root_to_terminal_child(monkeypatch, tmp_path):
+    """The served child must not lose --path and reopen at an unrelated directory."""
+    calls = {}
+
+    class FakeServer:
+        def __init__(self, command, **_kwargs):
+            calls["command"] = command
+
+        def serve(self):
+            pass
+
+    monkeypatch.setattr(interactive, "Server", FakeServer)
+    interactive.run_interative(
+        start_directory=tmp_path, open_browser=False,
+    )
+
+    assert calls["command"] == (
+        f"{interactive.sys.executable} -m cheese3d --path {tmp_path} "
+        "interactive --terminal"
+    )
 
 
 def test_pipeline_output_mirrors_gui_and_terminal(monkeypatch):

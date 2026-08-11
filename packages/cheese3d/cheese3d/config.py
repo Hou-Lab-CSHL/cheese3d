@@ -255,15 +255,24 @@ _DEFAULT_VIDEO_REGEX = {
 
 @dataclass
 class TriangulationConfig:
+    """Settings for Anipose triangulation and its isolated JAX accelerator."""
     axes: List[List[str]] = MISSING
     ref_point: str = MISSING
     filter2d: bool = False
     score_threshold: float = 0.9
+    # Run linear triangulation in the shared CUDA worker when it is installed.
+    use_gpu: bool = True
+    # CUDA_VISIBLE_DEVICES is narrowed to this physical GPU inside the worker.
+    gpu_device: int = 0
+    # A missing/unavailable NVIDIA driver must not make existing projects unusable.
+    gpu_fallback_to_cpu: bool = True
 
 
 @dataclass
 class VisualizationConfig:
     """Interactive QC preview performance and memory settings."""
+    # Only keypoints at or above this confidence are drawn in generated videos.
+    keypoint_probability_threshold: float = 0.1
     cache_memory_gb: float = 32.0
     preview_scale: float = 0.265
     frame_cache_size: int = 8

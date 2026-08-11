@@ -32,6 +32,7 @@ def test_generated_video_uses_raw_video_stem(monkeypatch, tmp_path):
     video.touch()
     pose.touch()
     outputs = []
+    thresholds = []
 
     monkeypatch.setattr(
         "cheese3d.generate_videos._read_pose_2d",
@@ -41,10 +42,44 @@ def test_generated_video_uses_raw_video_stem(monkeypatch, tmp_path):
     def fake_visualize(_scheme, _bodyparts, _points, _scores, _video, output, **_kwargs):
         Path(output).touch()
         outputs.append(Path(output))
+        thresholds.append(_kwargs["probability_threshold"])
 
     monkeypatch.setattr("cheese3d.generate_videos.visualize_labels", fake_visualize)
 
-    completed = generate_videos_2d([], ["nose"], raw_dir, pose_dir, out_dir)
+    completed = generate_videos_2d(
+        [], ["nose"], raw_dir, pose_dir, out_dir, probability_threshold=0.7
+    )
 
     assert completed == 1
     assert outputs == [out_dir / "recording_TL.mp4"]
+    assert thresholds == [0.7]
+
+
+def test_changed_probability_threshold_regenerates_cached_video(monkeypatch, tmp_path):
+    """A new GUI p cutoff must not silently reuse an overlay made with the old cutoff."""
+    raw_dir, pose_dir, out_dir = (tmp_path / name for name in ("raw", "pose", "out"))
+    raw_dir.mkdir()
+    pose_dir.mkdir()
+    video = raw_dir / "recording_TL.avi"
+    pose = pose_dir / "recording_TL.h5"
+    video.touch()
+    pose.touch()
+    rendered = []
+    monkeypatch.setattr(
+        "cheese3d.generate_videos._read_pose_2d",
+        lambda *_args, **_kwargs: (["nose"], None, None),
+    )
+    monkeypatch.setattr("cheese3d.generate_videos.get_nframes", lambda _path: 100)
+
+    def fake_visualize(_scheme, _bodyparts, _points, _scores, _video, output, **kwargs):
+        """Record the cutoff carried into the camera renderer."""
+        Path(output).touch()
+        rendered.append(kwargs["probability_threshold"])
+
+    monkeypatch.setattr("cheese3d.generate_videos.visualize_labels", fake_visualize)
+    generate_videos_2d([], ["nose"], raw_dir, pose_dir, out_dir,
+                       probability_threshold=0.2)
+    generate_videos_2d([], ["nose"], raw_dir, pose_dir, out_dir,
+                       probability_threshold=0.8)
+
+    assert rendered == [0.2, 0.8]

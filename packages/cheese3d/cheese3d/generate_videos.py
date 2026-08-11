@@ -99,7 +99,9 @@ def label_frame(img, points, scheme, bodyparts, bp_to_color):
     return img
 
 def visualize_labels(scheme, bodyparts, points, scores, vid_fname, outname,
-                     colormap="colorblind", progress_file=None, encoder_threads=1):
+                     colormap="colorblind", progress_file=None, encoder_threads=1,
+                     probability_threshold=0.1):
+    """Render keypoints whose likelihood meets the configured probability cutoff."""
     bp_to_color = color_scheme(scheme, cmap=colormap)
     cap = cv2.VideoCapture(vid_fname)
     fps = cap.get(cv2.CAP_PROP_FPS)
@@ -114,7 +116,9 @@ def visualize_labels(scheme, bodyparts, points, scores, vid_fname, outname,
     scores = scores.copy()
     scores[np.isnan(scores)] = 0
     scores[np.isnan(points[:, 0, :])] = 0
-    good = scores > 0.1
+    # Former rendering used an undocumented hard-coded `p > 0.1` comparison.
+    # Include equality so a GUI cutoff has the usual minimum-confidence meaning.
+    good = scores >= probability_threshold
     points = points.copy()
     points[:, 0, :][~good] = np.nan
     points[:, 1, :][~good] = np.nan
@@ -172,21 +176,24 @@ def _read_pose_2d(h5_path, bodyparts_hint=None):
     return bodyparts, points, scores
 
 def _generate_video_2d_job(scheme, bodyparts, pose_file, video_file, output_file,
-                           progress_file=None, encoder_threads=1):
+                           progress_file=None, encoder_threads=1,
+                           probability_threshold=0.1):
     """Render one camera overlay in an isolated CPU worker process."""
     _, points, scores = _read_pose_2d(pose_file, bodyparts_hint=bodyparts)
     print(f"Rendering {Path(video_file).name} -> {Path(output_file).name}", flush=True)
     if progress_file is None:
         visualize_labels(scheme, bodyparts, points, scores, video_file, output_file,
-                         encoder_threads=encoder_threads)
+                         encoder_threads=encoder_threads,
+                         probability_threshold=probability_threshold)
     else:
         visualize_labels(scheme, bodyparts, points, scores, video_file, output_file,
-                         progress_file=progress_file, encoder_threads=encoder_threads)
+                         progress_file=progress_file, encoder_threads=encoder_threads,
+                         probability_threshold=probability_threshold)
     return int(Path(output_file).exists())
 
 
 def generate_videos_2d(scheme, bodyparts, videos_raw_dir, pose_dir, out_dir,
-                        max_workers=None):
+                        max_workers=None, probability_threshold=0.1):
     """Generate independent camera overlays concurrently across CPU cores."""
     pose_dir = Path(pose_dir)
     out_dir = Path(out_dir)
@@ -195,6 +202,13 @@ def generate_videos_2d(scheme, bodyparts, videos_raw_dir, pose_dir, out_dir,
         print(f"No pose HDF5 files found in {pose_dir}")
         return 0
     out_dir.mkdir(parents=True, exist_ok=True)
+    threshold_marker = out_dir / ".keypoint-probability-threshold"
+    try:
+        cached_threshold = float(threshold_marker.read_text().strip())
+    except (OSError, ValueError):
+        cached_threshold = None
+    threshold_changed = (cached_threshold is None or
+                         not np.isclose(cached_threshold, probability_threshold))
     completed = 0
     jobs = {}
     for fname in labels_fnames:
@@ -206,7 +220,7 @@ def generate_videos_2d(scheme, bodyparts, videos_raw_dir, pose_dir, out_dir,
         # Name labeled videos after the raw videos. The comparison-video stage
         # uses those names, and pose filenames may contain a DLC scorer suffix.
         out_fname = str(out_dir / (Path(vid_path).stem + '.mp4'))
-        if (os.path.exists(out_fname) and
+        if (not threshold_changed and os.path.exists(out_fname) and
             abs(get_nframes(out_fname) - get_nframes(vid_path)) < 100):
             completed += 1
             continue
@@ -232,6 +246,7 @@ def generate_videos_2d(scheme, bodyparts, videos_raw_dir, pose_dir, out_dir,
                 completed += _generate_video_2d_job(
                     scheme, bodyparts, pose_file, video_file, output_file,
                     encoder_threads=encoder_threads,
+                    probability_threshold=probability_threshold,
                 )
         else:
             # Spawn is required because this function runs in a Textual worker
@@ -247,7 +262,7 @@ def generate_videos_2d(scheme, bodyparts, videos_raw_dir, pose_dir, out_dir,
                     futures = [pool.submit(
                         _generate_video_2d_job, scheme, bodyparts, pose_file, video_file,
                         output_file, str(progress_files[Path(output_file).stem]),
-                        encoder_threads,
+                        encoder_threads, probability_threshold,
                     ) for output_file, (pose_file, video_file) in jobs.items()]
                     monitor_camera_progress(futures, progress_files, unit="frame")
                     completed += sum(future.result() for future in futures)
@@ -256,6 +271,8 @@ def generate_videos_2d(scheme, bodyparts, videos_raw_dir, pose_dir, out_dir,
                     # remain alive during shutdown(wait=True), freezing the GUI.
                     shutdown_completed_process_pool(pool)
 
+    # The sidecar makes a changed GUI threshold regenerate otherwise-valid MP4s.
+    threshold_marker.write_text(f"{float(probability_threshold):.12g}\n")
     return completed
 
 def write_frame_thread(writer, q):

@@ -320,13 +320,19 @@ def visualize(
 
 @cli.command()
 def interactive(
+    ctx: typer.Context,
     web: Annotated[bool, typer.Option(
         "--web/--terminal",
         help="Open the GUI in a separate browser window (default), or use the terminal UI."
     )] = True,
 ):
     """Run the interactive GUI in a separate browser window by default."""
-    run_interative(web_mode=web)
+    requested_path = Path(ctx.obj["path"]).expanduser().resolve()
+    # With no explicit --path, the CLI default is the repository CWD; retain the
+    # GUI's user-facing home default instead of reopening inside the source tree.
+    start_directory = (Path.home() if str(ctx.obj["path"]) == DEFAULT_PATH
+                       else requested_path)
+    run_interative(web_mode=web, start_directory=start_directory)
 
 @cli.command()
 def checkpoint(

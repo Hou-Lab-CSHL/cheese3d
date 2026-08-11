@@ -1,0 +1,461 @@
+"""SLEAP 1.6 single-instance backend for Cheese3D."""
+
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+from concurrent.futures import ProcessPoolExecutor
+from pathlib import Path
+from typing import Dict, List, Optional
+
+import numpy as np
+import pandas as pd
+import yaml
+
+from cheese3d.backends.core import (
+    Pose2dBackend,
+    monitor_camera_progress,
+    partition_videos_by_gpu,
+    register_pose_backend,
+    shutdown_completed_process_pool,
+)
+from cheese3d.config import KeypointConfig
+from cheese3d.utils import BoundingBox
+
+
+SLEAP_BACKBONES = (
+    "unet", "unet_medium_rf", "unet_large_rf",
+    "convnext_tiny", "convnext_small", "convnext_base", "convnext_large",
+    "swint_tiny", "swint_small", "swint_base",
+)
+
+
+def _make_skeleton(keypoint_names: List[str], edges: List[List[str]]):
+    """Construct a SLEAP skeleton while ignoring edges absent from this view set."""
+    import sleap_io as sio
+
+    skeleton = sio.Skeleton(name="cheese3d")
+    skeleton.add_nodes(keypoint_names)
+    names = set(keypoint_names)
+    for edge in edges:
+        if len(edge) == 2 and edge[0] in names and edge[1] in names:
+            skeleton.add_edge(edge[0], edge[1])
+    return skeleton
+
+
+def _annotation_records(label_dirs: Dict[str, Path], keypoint_names: List[str]) -> dict:
+    """Read Cheese3D annotations into image-folder records used to build SLP."""
+    records = {}
+    for folder_name, folder in label_dirs.items():
+        annotation_path = Path(folder) / "annotations.yaml"
+        if not annotation_path.is_file():
+            continue
+        annotations = yaml.safe_load(annotation_path.read_text()) or {}
+        image_names = sorted({
+            image_name
+            for keypoint in keypoint_names
+            for image_name in (annotations.get(keypoint) or {})
+            if (Path(folder) / image_name).is_file()
+        })
+        for image_name in image_names:
+            points = []
+            for keypoint in keypoint_names:
+                values = (annotations.get(keypoint) or {}).get(image_name) or []
+                point = values[0] if values and values[0] else [None, None]
+                points.append([
+                    np.nan if point[0] is None else float(point[0]),
+                    np.nan if point[1] is None else float(point[1]),
+                ])
+            records[(folder_name, image_name)] = (Path(folder) / image_name, points)
+    return records
+
+
+def _dlc_records(project_path: Path, keypoint_names: List[str]) -> dict:
+    """Read compatible DLC label folders without importing DeepLabCut itself."""
+    records = {}
+    labeled_root = Path(project_path) / "labeled-data"
+    for folder in sorted(labeled_root.glob("*")) if labeled_root.is_dir() else []:
+        tables = sorted(folder.glob("CollectedData_*.h5"))
+        if not tables:
+            continue
+        try:
+            labels = pd.read_hdf(tables[0])
+            bodyparts = set(map(str, labels.columns.get_level_values("bodyparts")))
+        except (KeyError, OSError, ValueError):
+            continue
+        if not set(keypoint_names).issubset(bodyparts):
+            continue
+        scorer = labels.columns.get_level_values(0)[0]
+        for index, row in labels.iterrows():
+            image_name = str(index[-1] if isinstance(index, tuple) else index)
+            image_path = folder / Path(image_name).name
+            if not image_path.is_file():
+                continue
+            points = []
+            for keypoint in keypoint_names:
+                points.append([
+                    float(row[(scorer, keypoint, "x")]),
+                    float(row[(scorer, keypoint, "y")]),
+                ])
+            records[(folder.name, image_path.name)] = (image_path, points)
+    return records
+
+
+def create_sleap_labels(records: dict, output_path: Path, keypoint_names: List[str],
+                        skeleton_edges: List[List[str]]) -> int:
+    """Write portable image-sequence SLEAP labels from normalized records."""
+    import sleap_io as sio
+
+    skeleton = _make_skeleton(keypoint_names, skeleton_edges)
+    labeled_frames = []
+    videos = []
+    by_folder = {}
+    for (folder_name, image_name), value in records.items():
+        by_folder.setdefault(folder_name, []).append((image_name, value))
+    for folder_name, items in sorted(by_folder.items()):
+        items.sort(key=lambda item: item[0])
+        filenames = [str(value[0]) for _, value in items]
+        video = sio.Video.from_filename(filenames)
+        videos.append(video)
+        for frame_idx, (_, (_, points)) in enumerate(items):
+            instance = sio.Instance.from_numpy(np.asarray(points, dtype=float), skeleton)
+            labeled_frames.append(sio.LabeledFrame(
+                video=video, frame_idx=frame_idx, instances=[instance]
+            ))
+    labels = sio.Labels(
+        labeled_frames=labeled_frames, videos=videos, skeletons=[skeleton]
+    )
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    sio.save_slp(labels, str(output_path), embed=False, verbose=False)
+    return len(labeled_frames)
+
+
+def create_sleap_training_config(project_path: Path, model_name: str,
+                                 keypoint_names: List[str]) -> Path:
+    """Create the SLEAP-NN single-instance configuration used by the GUI."""
+    from omegaconf import OmegaConf
+    from sleap_nn.config.data_config import (
+        AugmentationConfig, DataConfig, GeometricConfig, PreprocessingConfig,
+    )
+    from sleap_nn.config.model_config import (
+        BackboneConfig, HeadConfig, ModelConfig, SingleInstanceConfig,
+        SingleInstanceConfMapsConfig, UNetMediumRFConfig,
+    )
+    from sleap_nn.config.trainer_config import TrainerConfig
+    from sleap_nn.config.training_job_config import TrainingJobConfig
+
+    config = TrainingJobConfig(
+        name=model_name,
+        data_config=DataConfig(
+            train_labels_path=[str(project_path / "labels.slp")],
+            validation_fraction=0.1,
+            preprocessing=PreprocessingConfig(ensure_grayscale=True),
+            augmentation_config=AugmentationConfig(geometric=GeometricConfig()),
+        ),
+        model_config=ModelConfig(
+            backbone_config=BackboneConfig(unet=UNetMediumRFConfig()),
+            head_configs=HeadConfig(single_instance=SingleInstanceConfig(
+                confmaps=SingleInstanceConfMapsConfig(
+                    part_names=keypoint_names, sigma=5.0, output_stride=1,
+                )
+            )),
+        ),
+        trainer_config=TrainerConfig(
+            save_ckpt=True, ckpt_dir=str(project_path / "models"),
+            run_name=model_name, max_epochs=100,
+        ),
+    )
+    config_path = project_path / "config.yaml"
+    OmegaConf.save(config.to_sleap_nn_cfg(), config_path)
+    return config_path
+
+
+def _set_sleap_backbone(cfg, backbone: str) -> None:
+    """Replace the one-of SLEAP backbone configuration from a GUI preset."""
+    from omegaconf import OmegaConf
+    from sleap_nn.config.model_config import (
+        BackboneConfig, ConvNextBaseConfig, ConvNextConfig, ConvNextLargeConfig,
+        ConvNextSmallConfig, SwinTBaseConfig, SwinTConfig, SwinTSmallConfig,
+        UNetConfig, UNetLargeRFConfig, UNetMediumRFConfig,
+    )
+
+    factories = {
+        "unet": lambda: BackboneConfig(unet=UNetConfig()),
+        "unet_medium_rf": lambda: BackboneConfig(unet=UNetMediumRFConfig()),
+        "unet_large_rf": lambda: BackboneConfig(unet=UNetLargeRFConfig()),
+        "convnext_tiny": lambda: BackboneConfig(convnext=ConvNextConfig()),
+        "convnext_small": lambda: BackboneConfig(convnext=ConvNextSmallConfig()),
+        "convnext_base": lambda: BackboneConfig(convnext=ConvNextBaseConfig()),
+        "convnext_large": lambda: BackboneConfig(convnext=ConvNextLargeConfig()),
+        "swint_tiny": lambda: BackboneConfig(swint=SwinTConfig()),
+        "swint_small": lambda: BackboneConfig(swint=SwinTSmallConfig()),
+        "swint_base": lambda: BackboneConfig(swint=SwinTBaseConfig()),
+    }
+    if backbone not in factories:
+        raise ValueError(f"Unsupported SLEAP backbone: {backbone}")
+    cfg.model_config.backbone_config = OmegaConf.structured(factories[backbone]())
+
+
+def _sleap_predictions_to_h5(slp_path: Path, h5_path: Path, scorer: str) -> Path:
+    """Preserve SLEAP per-node scores in Cheese3D's DLC-compatible HDF5."""
+    import sleap_io as sio
+
+    labels = sio.load_slp(str(slp_path), open_videos=False)
+    keypoint_names = [node.name for node in labels.skeletons[0].nodes]
+    columns = pd.MultiIndex.from_tuples([
+        (scorer, keypoint, coord)
+        for keypoint in keypoint_names for coord in ("x", "y", "likelihood")
+    ], names=["scorer", "bodyparts", "coords"])
+    frame_count = 0
+    if labels.videos:
+        try:
+            frame_count = int(labels.videos[0].shape[0])
+        except (AttributeError, TypeError, ValueError):
+            pass
+    if labels.labeled_frames:
+        frame_count = max(frame_count, max(lf.frame_idx for lf in labels) + 1)
+    frame = pd.DataFrame(np.nan, index=range(frame_count), columns=columns)
+    for labeled_frame in labels:
+        if not labeled_frame.instances:
+            continue
+        instance = labeled_frame.instances[0]
+        points = instance.numpy()
+        scores = instance.points["score"] if "score" in instance.points.dtype.names \
+            else np.ones(len(points))
+        for index, keypoint in enumerate(keypoint_names):
+            frame.loc[labeled_frame.frame_idx, (scorer, keypoint, "x")] = points[index, 0]
+            frame.loc[labeled_frame.frame_idx, (scorer, keypoint, "y")] = points[index, 1]
+            frame.loc[labeled_frame.frame_idx, (scorer, keypoint, "likelihood")] = scores[index]
+    h5_path.parent.mkdir(parents=True, exist_ok=True)
+    frame.to_hdf(h5_path, key="df_with_missing", format="table", mode="w")
+    return h5_path
+
+
+def _sleap_track_worker(project_path: str, videos: List[tuple[str, str]], output_dir: str,
+                        gpu_id: str, batch_size: int, checkpoint: str,
+                        scorer: str, peak_threshold: float) -> int:
+    """Track one balanced camera subset in an isolated SLEAP CUDA process."""
+    os.environ["CUDA_VISIBLE_DEVICES"] = gpu_id
+    checkpoint_path = Path(checkpoint)
+    model_dir = checkpoint_path.parent
+    for video_value, progress_value in videos:
+        video = Path(video_value)
+        progress = Path(progress_value)
+        progress.write_text(json.dumps({"completed": 0, "total": 1}))
+        output_slp = Path(output_dir) / f"{video.stem}.predictions.slp"
+        command = [
+            sys.executable, "-m", "sleap_nn.cli", "track",
+            "--data_path", str(video), "--model_paths", str(model_dir),
+            "--output_path", str(output_slp), "--device", "cuda:0",
+            "--batch_size", str(batch_size),
+            "--backbone_ckpt_path", str(checkpoint_path),
+            "--peak_threshold", str(peak_threshold),
+        ]
+        subprocess.run(command, check=True)
+        _sleap_predictions_to_h5(
+            output_slp, Path(output_dir) / f"{video.stem}.h5", scorer
+        )
+        progress.write_text(json.dumps({"completed": 1, "total": 1}))
+    return len(videos)
+
+
+class SLEAPBackend(Pose2dBackend):
+    """Cheese3D adapter for SLEAP-NN's single-instance pipeline."""
+
+    def __init__(self, name: str, root_dir: Path, videos: List[Path],
+                 keypoints: List[KeypointConfig],
+                 crops: Optional[List[BoundingBox]] = None,
+                 skeleton: Optional[List[List[str]]] = None,
+                 dlc_project_path: Optional[str | Path] = None,
+                 scorer: Optional[str] = None, **_options):
+        super().__init__()
+        self.name = name
+        self.root_dir = Path(root_dir).absolute()
+        self.root_dir.mkdir(parents=True, exist_ok=True)
+        self.videos = videos
+        self.keypoints = keypoints
+        self.crops = crops
+        self.skeleton = skeleton or []
+        self.scorer = scorer or f"SLEAP_{name}"
+        self.dlc_project_path = Path(dlc_project_path).resolve() \
+            if dlc_project_path else None
+        self._selected_checkpoint: Optional[Path] = None
+        if not self.config_path.is_file():
+            create_sleap_training_config(
+                self.project_path, self.name,
+                [keypoint.label for keypoint in self.keypoints],
+            )
+        if not self.labels_path.is_file():
+            records = _dlc_records(
+                self.dlc_project_path, [keypoint.label for keypoint in self.keypoints]
+            ) if self.dlc_project_path else {}
+            create_sleap_labels(
+                records, self.labels_path,
+                [keypoint.label for keypoint in self.keypoints], self.skeleton,
+            )
+
+    @property
+    def project_path(self) -> Path:
+        """Return the isolated SLEAP backend folder."""
+        return self.root_dir
+
+    @property
+    def config_path(self) -> Path:
+        """Return the SLEAP-NN YAML configuration path."""
+        return self.project_path / "config.yaml"
+
+    @property
+    def labels_path(self) -> Path:
+        """Return the portable SLEAP label package path."""
+        return self.project_path / "labels.slp"
+
+    @classmethod
+    def from_existing(cls, project_path: Path, root_dir: Path, *args, **kwargs):
+        """Importing arbitrary SLEAP projects is deferred until format stabilization."""
+        raise NotImplementedError("Importing an existing SLEAP model is not implemented yet.")
+
+    def import_c3d_labels(self, videos: Dict[str, Path]):
+        """Merge optional DLC seed labels with current Cheese3D annotations."""
+        names = [keypoint.label for keypoint in self.keypoints]
+        records = _dlc_records(self.dlc_project_path, names) \
+            if self.dlc_project_path else {}
+        records.update(_annotation_records(videos, names))
+        count = create_sleap_labels(records, self.labels_path, names, self.skeleton)
+        print(f"SLEAP label package contains {count} single-instance images.")
+
+    def export_c3d_labels(self, videos: Dict[str, Path]):
+        """Keep Cheese3D annotations authoritative during initial SLEAP support."""
+        # SLEAP's native correction GUI is not invoked by Cheese3D yet, so there
+        # are no backend-side user labels to copy back at this stage.
+        return None
+
+    def extract_frames(self, videos: Optional[List[Path]] = None):
+        """Use Cheese3D's existing manual frame picker for SLEAP projects."""
+        raise NotImplementedError("Use Cheese3D manual frame extraction for SLEAP.")
+
+    def train(self, gpu, iterate_dataset: bool = True,
+              training_settings: Optional[dict] = None):
+        """Apply GUI settings and run SLEAP-NN with inherited terminal output."""
+        from omegaconf import OmegaConf
+
+        settings = training_settings or {}
+        cfg = OmegaConf.load(self.config_path)
+        backbone = str(settings.get("backbone", "unet_medium_rf"))
+        _set_sleap_backbone(cfg, backbone)
+        cfg.data_config.validation_fraction = float(
+            settings.get("validation_fraction_percent", 10)
+        ) / 100.0
+        cfg.data_config.use_augmentations_train = bool(
+            settings.get("use_augmentation", True)
+        )
+        geometric = cfg.data_config.augmentation_config.geometric
+        geometric.rotation_min = float(settings.get("rotation_min", -15))
+        geometric.rotation_max = float(settings.get("rotation_max", 15))
+        geometric.scale_min = float(settings.get("scale_min", 0.9))
+        geometric.scale_max = float(settings.get("scale_max", 1.1))
+        geometric.translate_width = float(settings.get("translate", 0.0))
+        geometric.translate_height = float(settings.get("translate", 0.0))
+        trainer = cfg.trainer_config
+        trainer.max_epochs = int(settings.get("epochs", trainer.max_epochs))
+        trainer.train_data_loader.batch_size = int(settings.get("batch_size", 4))
+        trainer.val_data_loader.batch_size = int(settings.get("val_batch_size", 4))
+        trainer.optimizer.lr = float(settings.get("learning_rate", 1e-4))
+        trainer.optimizer_name = str(settings.get("optimizer", "Adam"))
+        trainer.min_train_steps_per_epoch = int(settings.get("min_steps_per_epoch", 200))
+        exact_steps = int(settings.get("steps_per_epoch", 0))
+        trainer.train_steps_per_epoch = exact_steps or None
+        trainer.early_stopping.stop_training_on_plateau = bool(
+            settings.get("early_stopping", True)
+        )
+        trainer.early_stopping.patience = int(settings.get("early_stop_patience", 10))
+        trainer.model_ckpt.save_top_k = int(settings.get("save_top_k", 3))
+        trainer.model_ckpt.save_last = bool(settings.get("save_last", True))
+        trainer.eval.enabled = True
+        trainer.eval.frequency = int(settings.get("validate_every_n_epochs", 1))
+        gpu_ids = [int(value.strip()) for value in str(gpu).split(",") if value.strip()]
+        trainer.trainer_accelerator = "gpu" if gpu_ids else "cpu"
+        trainer.trainer_devices = len(gpu_ids) if gpu_ids else 1
+        trainer.trainer_device_indices = gpu_ids or None
+        trainer.trainer_strategy = "ddp" if len(gpu_ids) > 1 else "auto"
+        OmegaConf.save(cfg, self.config_path)
+        print(f"SLEAP training backbone: {backbone}")
+        print(f"SLEAP training settings: {settings}")
+        command = [sys.executable, "-m", "sleap_nn.cli", "train", str(self.config_path)]
+        subprocess.run(command, cwd=self.project_path, check=True)
+
+    def list_checkpoints(self) -> List[dict]:
+        """Return SLEAP checkpoints with callback validation metrics when present."""
+        import torch
+
+        records = []
+        for path in sorted((self.project_path / "models").rglob("*.ckpt")):
+            payload = torch.load(path, map_location="cpu", weights_only=False)
+            metrics = {}
+            for callback in payload.get("callbacks", {}).values():
+                monitor = callback.get("monitor")
+                score = callback.get("current_score", callback.get("best_model_score"))
+                if monitor and score is not None:
+                    metrics[str(monitor)] = float(score)
+            records.append({
+                "path": str(path), "epoch": payload.get("epoch"), "metrics": metrics,
+            })
+        return records
+
+    def select_checkpoint(self, checkpoint: str | Path) -> None:
+        """Select a SLEAP checkpoint for subsequent camera inference."""
+        selected = Path(checkpoint).resolve()
+        if selected not in [Path(item["path"]).resolve() for item in self.list_checkpoints()]:
+            raise FileNotFoundError(f"SLEAP checkpoint is unavailable: {checkpoint}")
+        self._selected_checkpoint = selected
+
+    def selected_result_identifiers(self) -> List[str]:
+        """Identify triangulation outputs belonging to selected SLEAP weights."""
+        return [self._selected_checkpoint.stem] if self._selected_checkpoint else []
+
+    def track(self, videos: Dict[str, Path], output_dir: Path,
+              calibration_path: Optional[Path] = None,
+              tracking_settings: Optional[dict] = None) -> bool:
+        """Distribute independent camera videos across selected SLEAP GPUs."""
+        settings = tracking_settings or {}
+        checkpoint = self._selected_checkpoint
+        if checkpoint is None:
+            records = self.list_checkpoints()
+            if not records:
+                raise RuntimeError("Train SLEAP or select an existing checkpoint first.")
+            checkpoint = Path(records[-1]["path"])
+        gpu_ids = [value.strip() for value in str(settings.get("gpu_ids", "0")).split(",")
+                   if value.strip()]
+        batch_size = int(settings.get("batch_size", 8))
+        peak_threshold = float(settings.get("peak_threshold", 0.2))
+        if not 0.0 <= peak_threshold <= 1.0:
+            raise ValueError("SLEAP peak threshold must be between 0 and 1")
+        output_dir.mkdir(parents=True, exist_ok=True)
+        progress_files = {
+            name: Path(output_dir) / f".{Path(video).stem}.sleap-progress.json"
+            for name, video in videos.items()
+        }
+        assignments = partition_videos_by_gpu(list(videos.values()), gpu_ids)
+        name_by_video = {Path(video): name for name, video in videos.items()}
+        context = __import__("multiprocessing").get_context("spawn")
+        pool = ProcessPoolExecutor(max_workers=len(assignments), mp_context=context)
+        futures = []
+        for gpu_id, assigned in assignments:
+            worker_videos = [
+                (str(video), str(progress_files[name_by_video[Path(video)]]))
+                for video in assigned
+            ]
+            futures.append(pool.submit(
+                _sleap_track_worker, str(self.project_path), worker_videos,
+                str(output_dir), gpu_id, batch_size, str(checkpoint), self.scorer,
+                peak_threshold,
+            ))
+        try:
+            monitor_camera_progress(futures, progress_files, unit="video")
+        finally:
+            shutdown_completed_process_pool(pool)
+        return True
+
+
+register_pose_backend("sleap", SLEAPBackend)

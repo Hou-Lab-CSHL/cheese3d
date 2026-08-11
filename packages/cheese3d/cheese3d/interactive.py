@@ -3,8 +3,10 @@ from typing import Callable, Optional, List, Tuple
 from pathlib import Path
 from contextlib import contextmanager, redirect_stdout, redirect_stderr
 from threading import Timer
+import errno
 import os
 import json
+import re
 import signal
 import shlex
 import subprocess
@@ -48,6 +50,24 @@ from cheese3d.project import Ch3DProject, RecordingKey
 from cheese3d.config import ProjectConfig, ModelConfig
 from cheese3d.backends.dlc import DLC3_PYTORCH_MODELS
 
+# Keep this dependency-free list aligned with Lightning Pose 2.2 so the GUI can
+# open in DLC-only environments without importing torch or Lightning Pose.
+LIGHTNING_POSE_BACKBONES = (
+    "resnet18", "resnet34", "resnet50", "resnet101", "resnet152",
+    "resnet50_animal_apose", "resnet50_animal_ap10k",
+    "resnet50_human_jhmdb", "resnet50_human_res_rle",
+    "resnet50_human_top_res", "resnet50_human_hand",
+    "efficientnet_b0", "efficientnet_b1", "efficientnet_b2",
+    "vits_dino", "vits_dinov2", "vits_dinov3",
+    "vitb_dino", "vitb_dinov2", "vitb_dinov3", "vitb_imagenet", "vitb_sam",
+)
+# Mirror SLEAP-NN 0.1.0 presets without importing its PyTorch stack in the DLC UI.
+SLEAP_BACKBONES = (
+    "unet", "unet_medium_rf", "unet_large_rf",
+    "convnext_tiny", "convnext_small", "convnext_base", "convnext_large",
+    "swint_tiny", "swint_small", "swint_base",
+)
+
 
 def _training_command(project_path: str | Path, gpu: str = "0",
                       settings: Optional[dict] = None) -> List[str]:
@@ -66,6 +86,93 @@ def _interrupt_training_process(process: subprocess.Popen) -> None:
         os.killpg(process.pid, signal.SIGINT)
     else:
         process.send_signal(signal.SIGINT)
+
+
+def _build_lp_dlc_augmentation_config(values: dict) -> dict:
+    """Build Lightning Pose's DLC-style imgaug dictionary from GUI values."""
+    probability_names = [name for name in values if name.endswith("_probability")]
+    for name in probability_names:
+        if not 0.0 <= float(values[name]) <= 1.0:
+            raise ValueError(f"{name.replace('_', ' ')} must be between 0 and 1")
+    if float(values["rotation_degrees"]) < 0:
+        raise ValueError("Rotation range must be non-negative")
+    if int(values["motion_blur_kernel"]) <= 0:
+        raise ValueError("Motion-blur kernel must be positive")
+    if float(values["salt_pepper_size_min"]) > float(values["salt_pepper_size_max"]):
+        raise ValueError("Salt/pepper minimum size must be <= maximum size")
+    if float(values["elastic_alpha_min"]) > float(values["elastic_alpha_max"]):
+        raise ValueError("Elastic alpha minimum must be <= maximum")
+    if float(values["emboss_strength_min"]) > float(values["emboss_strength_max"]):
+        raise ValueError("Emboss strength minimum must be <= maximum")
+
+    rotation = float(values["rotation_degrees"])
+    blur_angle = float(values["motion_blur_angle"])
+    crop = float(values["crop_percent"])
+    # This dictionary mirrors Lightning Pose 2.2's `dlc` preset while making
+    # every transform probability and strength editable in Cheese3D.
+    return {
+        "Affine": {
+            "p": float(values["rotation_probability"]),
+            "kwargs": {"rotate": [-rotation, rotation]},
+        },
+        "MotionBlur": {
+            "p": float(values["motion_blur_probability"]),
+            "kwargs": {
+                "k": int(values["motion_blur_kernel"]),
+                "angle": [-blur_angle, blur_angle],
+            },
+        },
+        "CoarseDropout": {
+            "p": float(values["dropout_probability"]),
+            "kwargs": {
+                "p": float(values["dropout_pixel_probability"]),
+                "size_percent": float(values["dropout_size_percent"]),
+                "per_channel": float(values["dropout_per_channel_probability"]),
+            },
+        },
+        "CoarseSalt": {
+            "p": float(values["salt_probability"]),
+            "kwargs": {
+                "p": float(values["salt_pepper_pixel_probability"]),
+                "size_percent": [float(values["salt_pepper_size_min"]),
+                                 float(values["salt_pepper_size_max"])],
+            },
+        },
+        "CoarsePepper": {
+            "p": float(values["pepper_probability"]),
+            "kwargs": {
+                "p": float(values["salt_pepper_pixel_probability"]),
+                "size_percent": [float(values["salt_pepper_size_min"]),
+                                 float(values["salt_pepper_size_max"])],
+            },
+        },
+        "ElasticTransformation": {
+            "p": float(values["elastic_probability"]),
+            "kwargs": {
+                "alpha": [float(values["elastic_alpha_min"]),
+                          float(values["elastic_alpha_max"])],
+                "sigma": float(values["elastic_sigma"]),
+            },
+        },
+        "AllChannelsHistogramEqualization": {
+            "p": float(values["histogram_probability"]), "kwargs": {},
+        },
+        "AllChannelsCLAHE": {
+            "p": float(values["clahe_probability"]), "kwargs": {},
+        },
+        "Emboss": {
+            "p": float(values["emboss_probability"]),
+            "kwargs": {
+                "alpha": [0.0, float(values["emboss_alpha_max"])],
+                "strength": [float(values["emboss_strength_min"]),
+                             float(values["emboss_strength_max"])],
+            },
+        },
+        "CropAndPad": {
+            "p": float(values["crop_probability"]),
+            "kwargs": {"percent": [-crop, crop], "keep_size": False},
+        },
+    }
 
 
 class _Cheese3DDirectoryPicker(SelectDirectory):
@@ -104,7 +211,8 @@ class _Cheese3DDirectoryPicker(SelectDirectory):
         self.action_parent_directory()
 
 
-def _directory_picker(title: str = "Select directory") -> SelectDirectory:
+def _directory_picker(title: str = "Select directory",
+                      location: Optional[str | Path] = None) -> SelectDirectory:
     """Create an unrestricted picker starting outside the repository checkout.
 
     The Textual web server inherits the repository as its working directory, so
@@ -115,7 +223,12 @@ def _directory_picker(title: str = "Select directory") -> SelectDirectory:
     # Former behavior is preserved here for context; it made the repository the
     # initial location whenever Cheese3D was launched from its source checkout.
     # return SelectDirectory()
-    return _Cheese3DDirectoryPicker(location=Path.home(), title=title)
+    start = Path.home() if location is None else Path(location).expanduser().resolve()
+    # A stale/moved CLI path should recover to home rather than making the
+    # picker library silently substitute the web server's repository CWD.
+    if not start.is_dir():
+        start = Path.home()
+    return _Cheese3DDirectoryPicker(location=start, title=title)
 
 _REGEX_HELP_MSG = """
 A utility to help with building named grouped
@@ -237,6 +350,64 @@ class _TeeOutput:
 
     def isatty(self) -> bool:
         return bool(getattr(self.terminal, "isatty", lambda: False)())
+
+
+class _TrainingProgressOutput:
+    """Stream metric progress while suppressing routine distributed-rank noise."""
+
+    _rank_noise = re.compile(
+        r"(?:\[?rank\s*\d+\]?|global_rank|local_rank|member:\s*\d+/\d+|"
+        r"initializing distributed|distributed backend)", re.IGNORECASE
+    )
+    _important = re.compile(
+        r"(?:traceback|error|exception|warning|epoch|loss|validation|val[_ /]|"
+        r"train[_ /]|lr[= :]|gpu|%\||it/s)", re.IGNORECASE
+    )
+    _nccl_shutdown_noise = re.compile(
+        r"(?:failed to check the .should dump. flag on tcpstore|"
+        r"tcpstore.*sendbytes failed.*broken pipe)", re.IGNORECASE
+    )
+
+    def __init__(self, destination: _TeeOutput):
+        self.destination = destination
+        self.buffer = ""
+        self.suppress_native_stack = False
+
+    def _emit(self, separator: str) -> None:
+        """Forward one complete log/progress record unless it is rank boilerplate."""
+        record, self.buffer = self.buffer, ""
+        if not record:
+            return
+        # PyTorch can emit a native stack after rank zero has already closed the
+        # TCPStore during an otherwise successful DDP shutdown. Suppress only
+        # that exact teardown warning and its immediately following C++ frames;
+        # genuine Python, CUDA, and NCCL training failures remain visible.
+        if self._nccl_shutdown_noise.search(record):
+            self.suppress_native_stack = True
+            return
+        if self.suppress_native_stack and re.match(
+                r"^(?:\x1b\[[0-9;]*m)*\s*(?:frame #\d+:|"
+                r"exception raised from sendbytes\b|\s*$)",
+                record, re.IGNORECASE):
+            return
+        self.suppress_native_stack = False
+        if self._rank_noise.search(record) and not self._important.search(record):
+            return
+        self.destination.write(record + separator)
+
+    def feed(self, text: str) -> None:
+        """Split both newline logs and tqdm carriage-return updates immediately."""
+        for character in text:
+            if character == "\n":
+                self._emit("\n")
+            elif character == "\r":
+                self._emit("\r")
+            else:
+                self.buffer += character
+
+    def flush(self) -> None:
+        """Forward the final unterminated subprocess record."""
+        self._emit("\n")
 
 
 @contextmanager
@@ -704,7 +875,12 @@ class ModelWizard(Horizontal):
 
     def compose(self) -> ComposeResult:
         yield LabeledInput(label="model dir", value="model", placeholder="Model and label sub-directory")
-        yield Select.from_values(("create", "import"), allow_blank=False, value="create")
+        yield Select.from_values(("create", "import"), allow_blank=False,
+                                 value="create", id="model_mode")
+        # The selected backend must match the Pixi environment used to launch
+        # Cheese3D; keeping it in project YAML makes backend choice explicit.
+        yield Select.from_values(("dlc", "lightning_pose", "sleap"),
+                                 allow_blank=False, value="dlc", id="model_backend")
         self.name_or_path = LabeledInput(label="model name", id="name_or_path", placeholder="Name of your model")
         yield self.name_or_path
         self.choose_path = Button("Choose path", disabled=True)
@@ -726,6 +902,8 @@ class ModelWizard(Horizontal):
     @on(Select.Changed)
     @work
     async def select_mode(self, event: Select.Changed) -> None:
+        if event.select.id != "model_mode":
+            return
         if event.select.value == "create":
             self.name_or_path.label = "model name"
             self.name_or_path.placeholder = "Name of your model"
@@ -753,9 +931,10 @@ class ModelWizard(Horizontal):
         self.post_message(ModelWizard.Ready(ready))
 
     def get_config(self):
-        if self.query_one("Select").value == "create":
+        if self.query_one("#model_mode", Select).value == "create":
             return {
-                "name": self.name_or_path.value
+                "name": self.name_or_path.value,
+                "backend_type": str(self.query_one("#model_backend", Select).value),
             }
         else:
             return {
@@ -781,9 +960,13 @@ class StartMenu(Screen):
     @on(Button.Pressed, "#load_project")
     @work
     async def load_project(self):
-        # Start at the user's home rather than the web server's repository CWD.
+        # Use the directory propagated through the web-server child rather than
+        # whichever CWD Textual Serve happened to inherit for this connection.
         project_path = await self.app.push_screen_wait(
-            _directory_picker("Select Cheese3D project")
+            _directory_picker(
+                "Select Cheese3D project",
+                location=getattr(self.app, "start_directory", Path.home()),
+            )
         )
         if project_path is not None:
             self.app.push_screen(MainScreen(project_path))
@@ -814,7 +997,10 @@ class CreateWizardLoading(ModalScreen):
             yaml_config.ephys_param = ephys_config["ephys_param"]
         # overwrite model
         if "name" in model_config:
-            yaml_config.model = ModelConfig(model_config["name"])
+            yaml_config.model = ModelConfig(
+                model_config["name"],
+                backend_type=model_config.get("backend_type", "dlc"),
+            )
         # write yaml
         with Path(".") / config["name"] / "config.yaml" as f:
             OmegaConf.save(yaml_config, f)
@@ -977,7 +1163,12 @@ class MainScreen(Screen):
         if batch_size <= 0:
             raise ValueError("Tracking batch size must be positive")
         settings = {"gpu_ids": gpu_ids, "batch_size": batch_size}
-        if not self._uses_lightning_pose():
+        if self._uses_sleap():
+            peak_threshold = float(self.query_one("#sleap_peak_threshold", Input).value)
+            if not 0 <= peak_threshold <= 1:
+                raise ValueError("SLEAP peak threshold must be between 0 and 1")
+            settings["peak_threshold"] = peak_threshold
+        if not self._uses_lightning_pose() and not self._uses_sleap():
             shuffle = int(self.query_one("#dlc_tracking_shuffle", Input).value)
             if shuffle <= 0:
                 raise ValueError("DLC tracking shuffle must be positive")
@@ -1008,6 +1199,24 @@ class MainScreen(Screen):
         return self.project.model is not None and \
             self.project.model.__class__.__name__ == "LightningPoseBackend"
 
+    def _uses_sleap(self) -> bool:
+        """Select SLEAP controls without importing SLEAP in other environments."""
+        return self.project.model is not None and \
+            self.project.model.__class__.__name__ == "SLEAPBackend"
+
+    def _lightning_pose_backbone(self) -> str:
+        """Return the project's configured LP backbone for the GUI default."""
+        # Reading YAML directly avoids importing LP in a DLC-only environment
+        # and preserves a backbone selected during an earlier training run.
+        config_path = Path(self.project.model.project_path) / "config.yaml"
+        try:
+            configured = OmegaConf.select(OmegaConf.load(config_path), "model.backbone")
+            if configured in LIGHTNING_POSE_BACKBONES:
+                return str(configured)
+        except (OSError, ValueError, TypeError):
+            pass
+        return "resnet50_animal_ap10k"
+
     def _read_training_settings(self) -> tuple[str, dict]:
         """Validate and collect common plus backend-specific training controls."""
         def integer(widget_id: str) -> int:
@@ -1035,8 +1244,46 @@ class MainScreen(Screen):
                 "interval must be positive"
             )
         if self._uses_lightning_pose():
+            augmentation_preset = str(self.query_one("#lp_imgaug", Select).value)
+            if augmentation_preset == "dlc":
+                augmentation_values = {
+                    "rotation_probability": number("#lp_aug_rotation_probability"),
+                    "rotation_degrees": number("#lp_aug_rotation_degrees"),
+                    "motion_blur_probability": number("#lp_aug_motion_blur_probability"),
+                    "motion_blur_kernel": integer("#lp_aug_motion_blur_kernel"),
+                    "motion_blur_angle": number("#lp_aug_motion_blur_angle"),
+                    "dropout_probability": number("#lp_aug_dropout_probability"),
+                    "dropout_pixel_probability": number("#lp_aug_dropout_pixel_probability"),
+                    "dropout_size_percent": number("#lp_aug_dropout_size_percent"),
+                    "dropout_per_channel_probability": number(
+                        "#lp_aug_dropout_per_channel_probability"
+                    ),
+                    "salt_probability": number("#lp_aug_salt_probability"),
+                    "pepper_probability": number("#lp_aug_pepper_probability"),
+                    "salt_pepper_pixel_probability": number(
+                        "#lp_aug_salt_pepper_pixel_probability"
+                    ),
+                    "salt_pepper_size_min": number("#lp_aug_salt_pepper_size_min"),
+                    "salt_pepper_size_max": number("#lp_aug_salt_pepper_size_max"),
+                    "elastic_probability": number("#lp_aug_elastic_probability"),
+                    "elastic_alpha_min": number("#lp_aug_elastic_alpha_min"),
+                    "elastic_alpha_max": number("#lp_aug_elastic_alpha_max"),
+                    "elastic_sigma": number("#lp_aug_elastic_sigma"),
+                    "histogram_probability": number("#lp_aug_histogram_probability"),
+                    "clahe_probability": number("#lp_aug_clahe_probability"),
+                    "emboss_probability": number("#lp_aug_emboss_probability"),
+                    "emboss_alpha_max": number("#lp_aug_emboss_alpha_max"),
+                    "emboss_strength_min": number("#lp_aug_emboss_strength_min"),
+                    "emboss_strength_max": number("#lp_aug_emboss_strength_max"),
+                    "crop_probability": number("#lp_aug_crop_probability"),
+                    "crop_percent": number("#lp_aug_crop_percent"),
+                }
+                augmentation = _build_lp_dlc_augmentation_config(augmentation_values)
+            else:
+                augmentation = augmentation_preset
             settings.update({
-                "imgaug": str(self.query_one("#lp_imgaug", Select).value),
+                "backbone": str(self.query_one("#lp_backbone", Select).value),
+                "imgaug": augmentation,
                 "horizontal_flip": self.query_one("#lp_hflip", Checkbox).value,
                 "train_prob": number("#lp_train_prob"),
                 "val_prob": number("#lp_val_prob"),
@@ -1047,6 +1294,34 @@ class MainScreen(Screen):
             if settings["train_prob"] < 0 or settings["val_prob"] < 0 \
                     or settings["train_prob"] + settings["val_prob"] > 1:
                 raise ValueError("Lightning Pose train + validation fractions must be <= 1")
+        elif self._uses_sleap():
+            settings.update({
+                "backbone": str(self.query_one("#sleap_backbone", Select).value),
+                "validation_fraction_percent": number("#sleap_validation_percent"),
+                "val_batch_size": integer("#sleap_val_batch_size"),
+                "optimizer": str(self.query_one("#sleap_optimizer", Select).value),
+                "min_steps_per_epoch": integer("#sleap_min_steps_per_epoch"),
+                "steps_per_epoch": integer("#sleap_steps_per_epoch"),
+                "save_top_k": integer("#sleap_save_top_k"),
+                "save_last": self.query_one("#sleap_save_last", Checkbox).value,
+                "early_stopping": self.query_one("#sleap_early_stopping", Checkbox).value,
+                "early_stop_patience": integer("#sleap_early_stop_patience"),
+                "use_augmentation": self.query_one("#sleap_augmentation", Checkbox).value,
+                "rotation_min": number("#sleap_rotation_min"),
+                "rotation_max": number("#sleap_rotation_max"),
+                "scale_min": number("#sleap_scale_min"),
+                "scale_max": number("#sleap_scale_max"),
+                "translate": number("#sleap_translate"),
+            })
+            if not 1 <= settings["validation_fraction_percent"] <= 50:
+                raise ValueError("SLEAP validation percentage must be between 1 and 50")
+            if settings["val_batch_size"] <= 0 or settings["min_steps_per_epoch"] <= 0 \
+                    or settings["steps_per_epoch"] < 0 or settings["save_top_k"] <= 0:
+                raise ValueError("SLEAP batch/step/checkpoint values are invalid")
+            if settings["rotation_min"] > settings["rotation_max"]:
+                raise ValueError("SLEAP minimum rotation must be <= maximum rotation")
+            if settings["scale_min"] <= 0 or settings["scale_min"] > settings["scale_max"]:
+                raise ValueError("SLEAP minimum scale must be positive and <= maximum scale")
         else:
             settings.update({
                 "network_architecture": str(
@@ -1085,6 +1360,38 @@ class MainScreen(Screen):
         for button in self.query_one("#pose_buttons").children:
             button.disabled = True
 
+    def _refresh_after_inference(self, _result=None) -> None:
+        """Force a complete browser repaint after closing the inference modal."""
+        # Textual Serve clients can retain stale disabled widget styles after a
+        # long worker turn even though Python state is already enabled. Refresh
+        # the tab container, screen, and application after the modal is removed.
+        tabs = self.query_one("#all_tabs")
+        tabs.refresh(layout=True, repaint=True)
+        self.refresh(layout=True, repaint=True)
+        self.app.refresh(layout=True, repaint=True)
+
+    def _complete_inference_ui(self, message: str) -> None:
+        """Atomically restore controls and present the inference completion UI."""
+        self._enable_pose_done()
+        self._refresh_after_inference()
+        # The callback runs after dismissal, when the underlying page is visible
+        # again, and fixes the stale web-client state that a browser reload did not.
+        self.app.push_screen(
+            DialogBox(message, button_text="Done — refresh GUI"),
+            callback=self._refresh_after_inference,
+        )
+
+    def _complete_visualization_ui(self, message: str) -> None:
+        """Restore and repaint the browser after the external viewer closes."""
+        self._enable_visualize_done()
+        # Reuse the full tab/screen/application repaint because Napari blocks the
+        # Textual event loop while its independent window is open.
+        self._refresh_after_inference()
+        self.app.push_screen(
+            DialogBox(message, button_text="Done — refresh GUI"),
+            callback=self._refresh_after_inference,
+        )
+
     def _enable_visualize_done(self):
         self.query_one("#all_tabs").query_one("ContentTabs").disabled = False
         for button in self.query_one("#visualize_buttons").children:
@@ -1118,9 +1425,12 @@ class MainScreen(Screen):
                     with VerticalScroll():
                         yield Static("Common training settings")
                         yield TrainingInput("GPU IDs (comma-separated)", "training_gpus", "0")
-                        default_epochs = "300" if self._uses_lightning_pose() else "200"
-                        default_batch = "16" if self._uses_lightning_pose() else "8"
-                        default_lr = "0.001" if self._uses_lightning_pose() else "0.0005"
+                        default_epochs = "300" if self._uses_lightning_pose() else \
+                            ("100" if self._uses_sleap() else "200")
+                        default_batch = "16" if self._uses_lightning_pose() else \
+                            ("4" if self._uses_sleap() else "8")
+                        default_lr = "0.001" if self._uses_lightning_pose() else \
+                            ("0.0001" if self._uses_sleap() else "0.0005")
                         yield TrainingInput("Epochs", "training_epochs", default_epochs,
                                             "integer")
                         yield TrainingInput("Batch size", "training_batch_size", default_batch,
@@ -1135,10 +1445,81 @@ class MainScreen(Screen):
                                             default_val, "integer")
                         yield Static("Data augmentation and backend settings")
                         if self._uses_lightning_pose():
+                            yield Static("Model backbone", classes="training_field_label")
+                            # Changing this selection creates a different model
+                            # architecture with its own compatible checkpoints.
+                            yield Select(
+                                [(name, name) for name in LIGHTNING_POSE_BACKBONES],
+                                value=self._lightning_pose_backbone(),
+                                id="lp_backbone",
+                            )
+                            yield Static(
+                                "ViT/DINO backbones automatically use square 512×512 input.",
+                                classes="training_field_label",
+                            )
                             yield Static("Augmentation preset", classes="training_field_label")
-                            yield Select([("DLC-style", "dlc"), ("Default", "default")],
+                            yield Select([("DLC-style (customizable)", "dlc"),
+                                          ("Default (resize only)", "default")],
                                          value="dlc", id="lp_imgaug")
                             yield Checkbox("Random horizontal flip", id="lp_hflip")
+                            yield Static(
+                                "DLC-style augmentation controls (ignored by resize-only Default)",
+                                classes="training_field_label",
+                            )
+                            yield TrainingInput("Rotation probability", "lp_aug_rotation_probability",
+                                                "0.4", "number")
+                            yield TrainingInput("Rotation range (degrees)", "lp_aug_rotation_degrees",
+                                                "25", "number")
+                            yield TrainingInput("Motion blur probability",
+                                                "lp_aug_motion_blur_probability", "0.5", "number")
+                            yield TrainingInput("Motion blur kernel (pixels)",
+                                                "lp_aug_motion_blur_kernel", "5", "integer")
+                            yield TrainingInput("Motion blur angle range (degrees)",
+                                                "lp_aug_motion_blur_angle", "90", "number")
+                            yield TrainingInput("Coarse dropout probability",
+                                                "lp_aug_dropout_probability", "0.5", "number")
+                            yield TrainingInput("Dropout pixel probability",
+                                                "lp_aug_dropout_pixel_probability", "0.02", "number")
+                            yield TrainingInput("Dropout block size fraction",
+                                                "lp_aug_dropout_size_percent", "0.3", "number")
+                            yield TrainingInput("Dropout per-channel probability",
+                                                "lp_aug_dropout_per_channel_probability",
+                                                "0.5", "number")
+                            yield TrainingInput("Coarse salt probability",
+                                                "lp_aug_salt_probability", "0.5", "number")
+                            yield TrainingInput("Coarse pepper probability",
+                                                "lp_aug_pepper_probability", "0.5", "number")
+                            yield TrainingInput("Salt/pepper pixel probability",
+                                                "lp_aug_salt_pepper_pixel_probability",
+                                                "0.01", "number")
+                            yield TrainingInput("Salt/pepper minimum block fraction",
+                                                "lp_aug_salt_pepper_size_min", "0.05", "number")
+                            yield TrainingInput("Salt/pepper maximum block fraction",
+                                                "lp_aug_salt_pepper_size_max", "0.1", "number")
+                            yield TrainingInput("Elastic transform probability",
+                                                "lp_aug_elastic_probability", "0.5", "number")
+                            yield TrainingInput("Elastic alpha minimum",
+                                                "lp_aug_elastic_alpha_min", "0", "number")
+                            yield TrainingInput("Elastic alpha maximum",
+                                                "lp_aug_elastic_alpha_max", "10", "number")
+                            yield TrainingInput("Elastic sigma", "lp_aug_elastic_sigma",
+                                                "5", "number")
+                            yield TrainingInput("Histogram equalization probability",
+                                                "lp_aug_histogram_probability", "0.1", "number")
+                            yield TrainingInput("CLAHE probability", "lp_aug_clahe_probability",
+                                                "0.1", "number")
+                            yield TrainingInput("Emboss probability", "lp_aug_emboss_probability",
+                                                "0.1", "number")
+                            yield TrainingInput("Emboss maximum alpha",
+                                                "lp_aug_emboss_alpha_max", "0.5", "number")
+                            yield TrainingInput("Emboss minimum strength",
+                                                "lp_aug_emboss_strength_min", "0.5", "number")
+                            yield TrainingInput("Emboss maximum strength",
+                                                "lp_aug_emboss_strength_max", "1.5", "number")
+                            yield TrainingInput("Crop/pad probability", "lp_aug_crop_probability",
+                                                "0.4", "number")
+                            yield TrainingInput("Crop/pad maximum fraction", "lp_aug_crop_percent",
+                                                "0.15", "number")
                             yield TrainingInput("Training fraction", "lp_train_prob", "0.95", "number")
                             yield TrainingInput("Validation fraction", "lp_val_prob", "0.05", "number")
                             yield TrainingInput("Backbone unfreezing epoch", "lp_unfreezing_epoch",
@@ -1146,6 +1527,51 @@ class MainScreen(Screen):
                             yield Checkbox("Early stopping", id="lp_early_stopping")
                             yield TrainingInput("Early-stop patience", "lp_early_stop_patience",
                                                 "3", "integer")
+                        elif self._uses_sleap():
+                            yield Static("Single-instance model backbone",
+                                         classes="training_field_label")
+                            yield Select.from_values(
+                                SLEAP_BACKBONES, value="unet_medium_rf",
+                                allow_blank=False, id="sleap_backbone",
+                            )
+                            yield TrainingInput("Validation split (%)",
+                                                "sleap_validation_percent", "10", "number")
+                            yield TrainingInput("Validation batch size",
+                                                "sleap_val_batch_size", "4", "integer")
+                            yield Static("Optimizer", classes="training_field_label")
+                            yield Select.from_values(
+                                ("Adam", "AdamW"), value="Adam", allow_blank=False,
+                                id="sleap_optimizer",
+                            )
+                            yield TrainingInput("Minimum steps per epoch",
+                                                "sleap_min_steps_per_epoch", "200", "integer")
+                            yield TrainingInput("Exact steps per epoch (0 = automatic)",
+                                                "sleap_steps_per_epoch", "0", "integer")
+                            yield TrainingInput("Keep best N checkpoints",
+                                                "sleap_save_top_k", "3", "integer")
+                            yield Checkbox("Also save last checkpoint", value=True,
+                                           id="sleap_save_last")
+                            yield Checkbox("Early stopping", value=True,
+                                           id="sleap_early_stopping")
+                            yield TrainingInput("Early-stop patience",
+                                                "sleap_early_stop_patience", "10", "integer")
+                            yield Checkbox("Use augmentation", value=True,
+                                           id="sleap_augmentation")
+                            yield TrainingInput("Minimum rotation (degrees)",
+                                                "sleap_rotation_min", "-15", "number")
+                            yield TrainingInput("Maximum rotation (degrees)",
+                                                "sleap_rotation_max", "15", "number")
+                            yield TrainingInput("Minimum scale", "sleap_scale_min",
+                                                "0.9", "number")
+                            yield TrainingInput("Maximum scale", "sleap_scale_max",
+                                                "1.1", "number")
+                            yield TrainingInput("Maximum translation fraction",
+                                                "sleap_translate", "0.0", "number")
+                            yield Static(
+                                "SLEAP epochs use at least the configured minimum steps; "
+                                "batch size is per GPU under DDP.",
+                                classes="training_field_note",
+                            )
                         else:
                             yield Static("DLC3 network architecture",
                                          classes="training_field_label")
@@ -1192,7 +1618,10 @@ class MainScreen(Screen):
                         tracking_batch = "32" if self._uses_lightning_pose() else "8"
                         yield TrainingInput("Inference batch size", "tracking_batch_size",
                                             tracking_batch, "integer")
-                        if not self._uses_lightning_pose():
+                        if self._uses_sleap():
+                            yield TrainingInput("SLEAP peak confidence threshold",
+                                                "sleap_peak_threshold", "0.2", "number")
+                        if not self._uses_lightning_pose() and not self._uses_sleap():
                             yield TrainingInput("DLC training shuffle",
                                                 "dlc_tracking_shuffle", "1", "integer")
                         yield Static(
@@ -1216,6 +1645,12 @@ class MainScreen(Screen):
                         yield TrainingInput("Video generation CPU core budget",
                                             "video_generation_workers",
                                             default_video_workers, "integer")
+                        yield TrainingInput(
+                            "Minimum keypoint probability (p)",
+                            "video_keypoint_probability_threshold",
+                            str(self.project.visualization.keypoint_probability_threshold),
+                            "number",
+                        )
                         yield Static(
                             "Default uses all detected CPU cores except two. Camera processes "
                             "share the remaining budget through multithreaded FFmpeg encoders.",
@@ -1242,7 +1677,8 @@ class MainScreen(Screen):
         if record is None or self.project.model is None:
             return
         self.project.model.select_checkpoint(path)
-        if "shuffle" in record and not self._uses_lightning_pose():
+        if "shuffle" in record and not self._uses_lightning_pose() \
+                and not self._uses_sleap():
             # Selecting weights also selects their DLC model folder. The field
             # remains editable for advanced/manual configuration recovery.
             self.query_one("#dlc_tracking_shuffle", Input).value = str(record["shuffle"])
@@ -1337,22 +1773,67 @@ class MainScreen(Screen):
             except OSError:
                 terminal = sys.__stderr__
             output = _TeeOutput(log, terminal)
+            progress_output = _TrainingProgressOutput(output)
             output.write(f"Starting training subprocess: {shlex.join(command)}\n")
             child_environment = os.environ.copy()
             child_environment["PYTHONUNBUFFERED"] = "1"
-            # A new process group lets Stop training reach DataLoader and backend
-            # descendants as well as the direct Cheese3D CLI child.
-            self._training_process = subprocess.Popen(
-                command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                text=True, bufsize=1, env=child_environment,
-                start_new_session=(os.name == "posix")
-            )
-            # Former inherited output disappeared into Textual Serve. Forward
-            # every unbuffered line to both the GUI model log and launching TTY.
-            if self._training_process.stdout is not None:
-                for line in iter(self._training_process.stdout.readline, ""):
-                    output.write(line)
-                self._training_process.stdout.close()
+            if self._uses_lightning_pose():
+                # Lightning Pose's DDP ranks currently leave Trainer.fit at
+                # slightly different times. PyTorch's optional NCCL heartbeat
+                # can therefore contact rank zero's already-closed TCPStore and
+                # print a native Broken-pipe stack after successful training.
+                # Disabling only this watchdog keeps NCCL/DDP computation and
+                # Cheese3D's process-group Stop button fully operational.
+                child_environment.setdefault("TORCH_NCCL_ENABLE_MONITORING", "0")
+            # A pseudo-terminal is intentional on POSIX: Lightning disables or
+            # buffers its TQDM epoch bar when stdout is an ordinary subprocess
+            # pipe.  The PTY makes the trainer behave exactly as it does when
+            # launched directly from a terminal while Cheese3D can still mirror
+            # every update into both the GUI log and the launching terminal.
+            if os.name == "posix":
+                master_fd, slave_fd = os.openpty()
+                try:
+                    self._training_process = subprocess.Popen(
+                        command, stdout=slave_fd, stderr=slave_fd,
+                        env=child_environment, start_new_session=True,
+                        close_fds=True,
+                    )
+                finally:
+                    # Only the child owns the slave; retaining it here prevents
+                    # EOF on the master after all trainer ranks have exited.
+                    os.close(slave_fd)
+                try:
+                    with os.fdopen(master_fd, "r", encoding="utf-8",
+                                   errors="replace", buffering=1) as stream:
+                        # Character streaming preserves carriage-return TQDM
+                        # refreshes instead of withholding them until an epoch ends.
+                        while True:
+                            try:
+                                character = stream.read(1)
+                            except OSError as error:
+                                # Linux PTY masters report EIO, rather than an
+                                # empty read, after the final slave is closed.
+                                if error.errno == errno.EIO:
+                                    break
+                                raise
+                            if not character:
+                                break
+                            progress_output.feed(character)
+                finally:
+                    progress_output.flush()
+            else:
+                # Retain the pipe fallback for platforms without POSIX PTYs.
+                self._training_process = subprocess.Popen(
+                    command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                    text=True, bufsize=1, env=child_environment,
+                    start_new_session=False,
+                )
+                if self._training_process.stdout is not None:
+                    for character in iter(
+                            lambda: self._training_process.stdout.read(1), ""):
+                        progress_output.feed(character)
+                    progress_output.flush()
+                    self._training_process.stdout.close()
             return_code = self._training_process.wait()
             stopped = self._training_stop_requested
         except Exception:
@@ -1431,9 +1912,10 @@ class MainScreen(Screen):
         else:
             message = "2D pose tracking completed!"
         finally:
-            # Always restore the page, including after worker or progress-monitor failure.
-            self.app.call_from_thread(self._enable_pose_done)
-        self.app.call_from_thread(self.app.push_screen, DialogBox(message))
+            # One UI-thread transaction restores state, repaints the served page,
+            # and opens a completion popup. Separate calls formerly allowed the
+            # browser to remain visually disabled after inference returned.
+            self.app.call_from_thread(self._complete_inference_ui, message)
 
     @on(Button.Pressed, "#triangulate")
     @work(thread=True)
@@ -1461,7 +1943,23 @@ class MainScreen(Screen):
                 ))
                 if max_workers <= 0:
                     raise ValueError("Video generation CPU core budget must be positive")
-                completed = self.project.generate_videos(max_workers=max_workers)
+                probability_threshold = float(self.app.call_from_thread(
+                    lambda: self.query_one(
+                        "#video_keypoint_probability_threshold", Input
+                    ).value
+                ))
+                if not 0.0 <= probability_threshold <= 1.0:
+                    raise ValueError("Minimum keypoint probability must be between 0 and 1")
+                # Persist the GUI choice so CLI generation and future sessions
+                # use the same cutoff instead of reverting to the old default.
+                self.project.visualization.keypoint_probability_threshold = probability_threshold
+                config = OmegaConf.load(self.project.path / "config.yaml")
+                config.visualization.keypoint_probability_threshold = probability_threshold
+                OmegaConf.save(config, self.project.path / "config.yaml")
+                completed = self.project.generate_videos(
+                    max_workers=max_workers,
+                    probability_threshold=probability_threshold,
+                )
         except Exception as exc:
             with _pipeline_output(log):
                 traceback.print_exc()
@@ -1482,19 +1980,28 @@ class MainScreen(Screen):
     @on(Button.Pressed, "#visualize")
     @work
     async def visualize(self):
+        """Open Napari and force the served GUI to recover after it closes."""
         self._disable_visualize_in_progress()
-        options = {recording.name: recording
-                   for recording in self.project.sessions.keys()}
-        selection = await self.app.push_screen_wait(
-            SelectionBox(message="Select a recording to visualize",
-                            options=list(options.keys()))
-        )
-        await self.app.push_screen_wait(
-            BlockScreen(lambda: self.project.visualize(options[selection]),
-                        message=_VISUALIZATION_POPUP)
-        )
-        self._enable_visualize_done()
-        self.app.push_screen(DialogBox("Visualization completed!"))
+        try:
+            options = {recording.name: recording
+                       for recording in self.project.sessions.keys()}
+            selection = await self.app.push_screen_wait(
+                SelectionBox(message="Select a recording to visualize",
+                             options=list(options.keys()))
+            )
+            await self.app.push_screen_wait(
+                BlockScreen(lambda: self.project.visualize(options[selection]),
+                            message=_VISUALIZATION_POPUP)
+            )
+        except Exception as error:
+            traceback.print_exc(file=sys.__stderr__)
+            message = f"Visualization failed: {error}"
+        else:
+            message = "Visualization completed!"
+        finally:
+            # The completion transaction runs only after Napari's event loop has
+            # returned, ensuring the browser receives fresh enabled widget state.
+            self._complete_visualization_ui(message)
 
 class Cheese3dApp(App):
     """Interactive Cheese3D TUI via Textual."""
@@ -1505,6 +2012,15 @@ class Cheese3dApp(App):
     ]
 
     CSS_PATH = "interactive_styles/app.css"
+
+    def __init__(self, start_directory: Optional[str | Path] = None, *args, **kwargs):
+        """Create the GUI with one deterministic project-picker start directory."""
+        self.start_directory = Path(
+            Path.home() if start_directory is None else start_directory
+        ).expanduser().resolve()
+        if not self.start_directory.is_dir():
+            self.start_directory = Path.home()
+        super().__init__(*args, **kwargs)
 
     def on_mount(self) -> None:
         self.title = "Cheese3D Interative GUI"
@@ -1518,7 +2034,14 @@ def _open_web_ui(url: str) -> None:
         print(f"Could not open a browser automatically. Open {url} manually.")
 
 
-def run_interative(web_mode = True, open_browser = True):
+def run_interative(web_mode=True, open_browser=True,
+                   start_directory: Optional[str | Path] = None):
+    """Launch Cheese3D while preserving the project root across web processes."""
+    start_directory = Path(
+        Path.home() if start_directory is None else start_directory
+    ).expanduser().resolve()
+    if not start_directory.is_dir():
+        start_directory = Path.home()
     if web_mode:
         url = "http://localhost:8000"
         # The served child must use terminal mode; otherwise the default web
@@ -1526,7 +2049,8 @@ def run_interative(web_mode = True, open_browser = True):
         # Reuse this process's Python so the served child cannot fall back to a
         # different PATH entry (for example Pixi without Lightning Pose).
         child_command = shlex.join([
-            sys.executable, "-m", "cheese3d", "interactive", "--terminal"
+            sys.executable, "-m", "cheese3d", "--path", str(start_directory),
+            "interactive", "--terminal"
         ])
         # Former behavior is retained for diagnosis; PATH could resolve it to
         # `.pixi/envs/default/bin/cheese3d` even after launching from Conda:
@@ -1543,7 +2067,7 @@ def run_interative(web_mode = True, open_browser = True):
             browser_timer.start()
         server.serve()
     else:
-        app = Cheese3dApp()
+        app = Cheese3dApp(start_directory=start_directory)
         app.run()
 
 if __name__ == "__main__":

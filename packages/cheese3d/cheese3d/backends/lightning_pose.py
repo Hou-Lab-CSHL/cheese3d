@@ -1,9 +1,11 @@
 import json
 import os
+import gc
 import shutil
 import subprocess
 import multiprocessing
 import tempfile
+import importlib
 from concurrent.futures import ProcessPoolExecutor
 import pandas as pd
 import numpy as np
@@ -16,6 +18,133 @@ from cheese3d.backends.core import (Pose2dBackend, register_pose_backend,
                                     shutdown_completed_process_pool)
 from cheese3d.config import KeypointConfig
 from cheese3d.utils import BoundingBox
+
+
+def _scale_scheduler_milestones(milestones, old_epochs: int,
+                                new_epochs: int) -> List[int]:
+    """Scale MultiStepLR milestones when the GUI changes total training epochs."""
+    if new_epochs <= 0:
+        raise ValueError("Lightning Pose max epochs must be positive")
+    denominator = max(1, int(old_epochs))
+    scaled = {
+        max(1, min(int(new_epochs), round(int(value) * new_epochs / denominator)))
+        for value in milestones
+    }
+    return sorted(scaled)
+
+
+def _make_vit_resize_square(cfg, backbone: str) -> Optional[int]:
+    """Make LP ViT inputs square and return the selected side length.
+
+    Lightning Pose's transformer decoder accepts only square feature grids.
+    Cheese3D's normal 512x640 resize remains preferable for CNNs, while ViTs
+    use the smaller existing side to avoid increasing GPU memory unexpectedly.
+    """
+    if not backbone.startswith("vit"):
+        return None
+    height = int(cfg.data.image_resize_dims.height)
+    width = int(cfg.data.image_resize_dims.width)
+    side = min(height, width)
+    cfg.data.image_resize_dims.height = side
+    cfg.data.image_resize_dims.width = side
+    return side
+
+
+def _vit_needs_unused_parameter_ddp(backbone: str, num_gpus: int) -> bool:
+    """Return whether LP needs unused-parameter-aware DDP for this run."""
+    # ViT encoders include pretrained parameters that are not always connected
+    # to the heatmap head; this is legal but plain multi-GPU DDP rejects them.
+    return backbone.startswith("vit") and num_gpus > 1
+
+
+def _serialize_lightning_pose_training_progress() -> None:
+    """Protect Lightning Pose's shared DDP status temporary file with a lock.
+
+    Lightning Pose currently gives every training rank the same
+    ``train_status.json.tmp`` path. Concurrent ``os.replace`` calls let one rank
+    remove that path before another rank can rename it. Keeping the upstream
+    writer and serializing its short critical section preserves atomic JSON
+    updates while avoiding a project-specific modification in site-packages.
+    """
+    import fcntl
+    from lightning_pose.callbacks import JSONTrainingProgressTracker
+
+    if getattr(JSONTrainingProgressTracker, "_cheese3d_serialized", False):
+        return
+    original_save_progress = JSONTrainingProgressTracker._save_progress
+    original_epoch_end = JSONTrainingProgressTracker.on_train_epoch_end
+
+    def _save_progress_serialized(self, completed: int, total: int) -> None:
+        """Run the original writer under a lock and quarantine stale bad JSON."""
+        lock_path = f"{self.filepath}.lock"
+        with open(lock_path, "a") as lock_stream:
+            fcntl.flock(lock_stream.fileno(), fcntl.LOCK_EX)
+            try:
+                try:
+                    original_save_progress(self, completed, total)
+                except json.JSONDecodeError:
+                    # A force-killed older run may leave concatenated/truncated
+                    # status text. Preserve that diagnostic instead of deleting
+                    # it, then let Lightning Pose create clean progress state.
+                    corrupt_path = f"{self.filepath}.corrupt-{os.getpid()}"
+                    if os.path.exists(self.filepath):
+                        os.replace(self.filepath, corrupt_path)
+                    original_save_progress(self, completed, total)
+            finally:
+                fcntl.flock(lock_stream.fileno(), fcntl.LOCK_UN)
+
+    def _epoch_end_with_console_summary(self, trainer, pl_module) -> None:
+        """Print one permanent rank-zero metric line after every completed epoch."""
+        original_epoch_end(self, trainer, pl_module)
+        if not trainer.is_global_zero:
+            return
+
+        def _metric(name: str) -> str:
+            """Format a Lightning callback metric without retaining its graph."""
+            value = trainer.callback_metrics.get(name)
+            if value is None:
+                return "n/a"
+            try:
+                value = value.detach().cpu().item()
+            except AttributeError:
+                pass
+            try:
+                return f"{float(value):.6g}"
+            except (TypeError, ValueError):
+                return str(value)
+
+        learning_rates = [
+            float(group.get("lr", 0.0))
+            for optimizer in trainer.optimizers
+            for group in optimizer.param_groups
+        ]
+        lr_text = ",".join(f"{value:.3g}" for value in learning_rates) or "n/a"
+        validation_interval = int(getattr(trainer, "check_val_every_n_epoch", 1) or 1)
+        validation_ran = (trainer.current_epoch + 1) % validation_interval == 0
+        val_text = _metric("val_supervised_loss") if validation_ran else "not run"
+        gpu_text = "cpu"
+        try:
+            import torch
+            if torch.cuda.is_available():
+                local_device = torch.cuda.current_device()
+                allocated = torch.cuda.memory_allocated(local_device) / (1024 ** 2)
+                total_memory = torch.cuda.get_device_properties(local_device).total_memory \
+                    / (1024 ** 2)
+                gpu_text = f"cuda:{local_device} {allocated:.0f}/{total_memory:.0f} MiB"
+        except (ImportError, RuntimeError):
+            pass
+        # A leading newline prevents TQDM's carriage-return line from overwriting
+        # this durable summary in either the terminal or Textual browser log.
+        print(
+            f"\nEpoch {trainer.current_epoch + 1}/{trainer.max_epochs} complete | "
+            f"train_loss={_metric('train_supervised_loss')} | "
+            f"val_loss={val_text} | lr={lr_text} | GPU={gpu_text}",
+            flush=True,
+        )
+
+    JSONTrainingProgressTracker._save_progress = _save_progress_serialized
+    JSONTrainingProgressTracker.on_train_epoch_end = _epoch_end_with_console_summary
+    JSONTrainingProgressTracker._cheese3d_serialized = True
 
 
 def _dlc_image_path(project_path: Path, index_value) -> Path:
@@ -564,8 +693,50 @@ class LightningPoseBackend(Pose2dBackend):
         from lightning_pose.train import train as train_lightning_pose
         from lightning_pose.api import Model, ModelConfig
 
+        # A project is constructed before the CLI reaches train(), and its API
+        # handle may retain a previously loaded inference network on local GPU 0.
+        # Release it before Lightning creates DDP ranks so rank zero has the same
+        # memory budget and workload as every other selected GPU.
+        previous_model = self.model
+        self.model = None
+        del previous_model
+        gc.collect()
+        try:
+            import torch
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        except ImportError:
+            pass
+
+        # Install the rank-safe wrapper before Lightning constructs its progress
+        # callback; every spawned DDP rank then shares the same file lock.
+        _serialize_lightning_pose_training_progress()
         cfg = ModelConfig.from_yaml_file(self.project_path / "config.yaml")
         settings = training_settings or {}
+        if "backbone" in settings:
+            # Validate against the installed LP release so a typo fails before
+            # the relatively expensive trainer and DDP workers are constructed.
+            from typing import get_args
+            from lightning_pose.models.backbones import ALLOWED_BACKBONES
+            allowed_backbones = set(get_args(ALLOWED_BACKBONES))
+            backbone = str(settings["backbone"])
+            if backbone not in allowed_backbones:
+                raise ValueError(
+                    f"Unsupported Lightning Pose backbone '{backbone}'; "
+                    f"choose one of {sorted(allowed_backbones)}"
+                )
+            cfg.cfg.model.backbone = backbone
+        backbone = str(cfg.cfg.model.backbone)
+        square_side = _make_vit_resize_square(cfg.cfg, backbone)
+        if square_side is not None:
+            # Print the implicit compatibility adjustment in the launching
+            # terminal so users can account for the model's input geometry.
+            print(
+                f"Lightning Pose ViT backbone '{backbone}' requires square input; "
+                f"using {square_side}x{square_side} instead of the CNN resize.",
+                flush=True,
+            )
+        original_max_epochs = int(cfg.cfg.training.max_epochs)
         cfg.cfg.training.max_epochs = settings.get("epochs", cfg.cfg.training.max_epochs)
         cfg.cfg.training.min_epochs = min(
             settings.get("epochs", cfg.cfg.training.min_epochs),
@@ -598,9 +769,21 @@ class LightningPoseBackend(Pose2dBackend):
         cfg.cfg.training.check_val_every_n_epoch = settings.get(
             "validate_every_n_epochs", cfg.cfg.training.check_val_every_n_epoch
         )
+        if str(cfg.cfg.training.lr_scheduler).lower() == "multisteplr":
+            scheduler = cfg.cfg.training.lr_scheduler_params.multisteplr
+            # The generated 300-epoch config uses [150, 200, 250]. Lowering
+            # max_epochs in the GUI formerly left those invalid values intact.
+            scheduler.milestones = _scale_scheduler_milestones(
+                scheduler.milestones, original_max_epochs,
+                int(cfg.cfg.training.max_epochs),
+            )
         gpu_ids = [item.strip() for item in str(gpu).split(",") if item.strip()]
         cfg.cfg.training.num_gpus = len(gpu_ids)
         cfg.validate()
+        # Persist the validated GUI choices so reopening Cheese3D selects the
+        # same backbone and direct command-line training uses the same config.
+        from omegaconf import OmegaConf
+        OmegaConf.save(cfg.cfg, self.project_path / "config.yaml")
         # Former behavior stopped here with NotImplementedError; training now uses
         # LP's public train function and writes checkpoints beside config.yaml.
         if gpu is not None:
@@ -610,11 +793,48 @@ class LightningPoseBackend(Pose2dBackend):
             f"data={cfg.cfg.data.csv_file}"
         )
         print(f"Lightning Pose training settings: {settings}")
-        self.model = train_lightning_pose(
-            cfg.cfg,
-            model_dir=self.project_path,
-            skip_evaluation=False,
-        )
+        lp_train_module = importlib.import_module("lightning_pose.train")
+        original_trainer = None
+        if _vit_needs_unused_parameter_ddp(backbone, len(gpu_ids)):
+            # LP 2.2 does not expose Trainer.strategy in its config. Wrap only
+            # this call so Lightning uses its registered DDP variant for models
+            # whose valid pretrained parameters do not all reach the pose loss.
+            original_trainer = lp_train_module.pl.Trainer
+
+            def _vit_ddp_trainer(*args, **kwargs):
+                """Construct Trainer with unused-parameter detection enabled."""
+                kwargs.setdefault("strategy", "ddp_find_unused_parameters_true")
+                return original_trainer(*args, **kwargs)
+
+            lp_train_module.pl.Trainer = _vit_ddp_trainer
+            print(
+                "Lightning Pose multi-GPU ViT: enabled DDP unused-parameter detection.",
+                flush=True,
+            )
+            # PyTorch 2.9 can warn about an expected DDP autograd stream mismatch;
+            # disabling this diagnostic does not change synchronization or math.
+            try:
+                import torch
+                suppress_stream_warning = getattr(
+                    torch.autograd.graph,
+                    "set_warn_on_accumulate_grad_stream_mismatch",
+                    None,
+                )
+                if suppress_stream_warning is not None:
+                    suppress_stream_warning(False)
+            except (ImportError, AttributeError):
+                pass
+        try:
+            self.model = train_lightning_pose(
+                cfg.cfg,
+                model_dir=self.project_path,
+                skip_evaluation=False,
+            )
+        finally:
+            # Restore LP's process-global Trainer class for later CNN training
+            # in the same CLI process, including runs following an exception.
+            if original_trainer is not None:
+                lp_train_module.pl.Trainer = original_trainer
         # Re-open through the stable inference API so future tracking calls find
         # the checkpoint exactly as they would after restarting Cheese3D.
         self.model = Model.from_dir(self.project_path)
@@ -683,6 +903,20 @@ class LightningPoseBackend(Pose2dBackend):
         if len(missing_videos) == 0:
             return True
         if len(gpu_ids) > 1 and len(missing_videos) > 1:
+            # Multi-GPU workers load their own checkpoint. Keeping a parent copy
+            # on GPU 0 previously consumed tens of GiB and made utilization look
+            # one-sided even though both inference workers were alive.
+            loaded_parent_model = getattr(self.model, "model", None)
+            if loaded_parent_model is not None:
+                self.model.model = None
+                del loaded_parent_model
+                gc.collect()
+                try:
+                    import torch
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                except ImportError:
+                    pass
             assignments = partition_videos_by_gpu(missing_videos, gpu_ids)
             print(f"Lightning Pose multi-GPU video assignments: {assignments}")
             context = multiprocessing.get_context("spawn")

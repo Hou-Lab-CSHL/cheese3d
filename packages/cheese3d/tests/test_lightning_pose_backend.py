@@ -4,10 +4,42 @@ import pandas as pd
 import pytest
 
 from cheese3d.backends.lightning_pose import (is_lightning_pose_video,
+                                               _make_vit_resize_square,
+                                               _scale_scheduler_milestones,
+                                               _vit_needs_unused_parameter_ddp,
                                                preprocess_lightning_pose_video,
                                                read_lp_preds,
                                                convert_dlc_labels_to_lightning_pose,
                                                create_lightning_pose_training_config)
+
+
+def test_lightning_pose_milestones_follow_gui_epoch_limit():
+    """A shorter run must not retain scheduler epochs beyond max_epochs."""
+    assert _scale_scheduler_milestones([150, 200, 250], 300, 125) == [62, 83, 104]
+
+
+def test_vit_backbone_uses_square_resize_without_increasing_memory():
+    """DINO/ViT inputs use the smaller side while CNN dimensions are untouched."""
+    from omegaconf import OmegaConf
+
+    vit_cfg = OmegaConf.create({"data": {"image_resize_dims": {
+        "height": 512, "width": 640,
+    }}})
+    assert _make_vit_resize_square(vit_cfg, "vits_dinov2") == 512
+    assert dict(vit_cfg.data.image_resize_dims) == {"height": 512, "width": 512}
+
+    cnn_cfg = OmegaConf.create({"data": {"image_resize_dims": {
+        "height": 512, "width": 640,
+    }}})
+    assert _make_vit_resize_square(cnn_cfg, "resnet50") is None
+    assert dict(cnn_cfg.data.image_resize_dims) == {"height": 512, "width": 640}
+
+
+def test_unused_parameter_ddp_is_limited_to_multigpu_vit():
+    """CNNs and single-GPU ViTs retain Lightning's faster default strategy."""
+    assert _vit_needs_unused_parameter_ddp("vits_dinov2", 2)
+    assert not _vit_needs_unused_parameter_ddp("vits_dinov2", 1)
+    assert not _vit_needs_unused_parameter_ddp("resnet50_animal_ap10k", 2)
 
 @pytest.mark.unit
 def test_read_lightning_pose_predictions_filters_metadata_columns(tmp_path):

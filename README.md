@@ -60,3 +60,35 @@ The following notebooks contain the code required to reproduce the figures in ou
 Cheese3D is supported on most Linux and macOS systems (including GPU support for CUDA and Apple Silicon). Partial support is available on Windows. For details, please refer to [our documentation](https://hou-lab-cshl.github.io/cheese3d/guides/installation.html#platform-specific-support).
 
 Software dependencies are listed in the [pixi.toml](/pixi.toml), [`cheese3d` pyproject.toml](/packages/cheese3d/pyproject.toml), and [`cheese3d-annotator` pyproject.toml](/packages/cheese3d-annotator/pyproject.toml) files. Hardware specifications can be found in [our hardware guide](https://hou-lab-cshl.github.io/cheese3d/guides/hardware.html).
+
+## SLEAP backend
+
+SLEAP 1.6 is isolated from DLC and Lightning Pose in its own Pixi environment:
+
+```bash
+pixi install -e sleap
+pixi shell -e sleap
+cheese3d --path /path/to/projects interactive
+```
+
+Choose `sleap` as the model backend when creating a project, or set
+`model.backend_type: sleap` in an existing Cheese3D `config.yaml`. The initial
+integration uses SLEAP-NN's single-instance pipeline, which matches Cheese3D's
+one-animal-per-camera workflow. The Training tab exposes UNet, ConvNeXt, and
+SwinT backbones; epoch/step controls; validation split; Adam/AdamW; checkpoint
+retention; early stopping; augmentation; and multi-GPU DDP settings.
+
+To initialize SLEAP from compatible DLC labels, add the DLC project directory:
+
+```yaml
+model:
+  name: cheese3d_sleap_model
+  backend_type: sleap
+  backend_options:
+    dlc_project_path: /absolute/path/to/dlc/project
+```
+
+SLEAP training produces selectable checkpoints and inference writes the same
+DLC-compatible per-camera HDF5 pose files consumed by Cheese3D triangulation.
+Importing arbitrary existing SLEAP model directories and round-tripping edits
+from SLEAP's native labeling GUI are not implemented in this first version.

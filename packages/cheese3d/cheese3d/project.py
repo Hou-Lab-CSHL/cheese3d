@@ -4,6 +4,7 @@ import io
 import toml
 import tempfile
 import tarfile
+import subprocess
 import pandas as pd
 from pathlib import Path
 from dataclasses import dataclass, field
@@ -186,9 +187,9 @@ def build_model_backend(cfg: ModelConfig | str | Path,
         backend_cls = get_pose_backend_class(cfg.backend_type)
 
         backend_options = dict(cfg.backend_options)
-        if cfg.backend_type == "dlc":
+        if cfg.backend_type in ("dlc", "sleap"):
             # DLC's skeleton was formerly left as its two placeholder edges.
-            # Flatten Cheese3D's anatomical groups for DLC visualization and PAFs.
+            # SLEAP also needs the same named edges in its portable SLP skeleton.
             backend_options["skeleton"] = [
                 edge for group in (keypoint_groups or []) for edge in group.skeleton
             ]
@@ -663,17 +664,40 @@ class Ch3DProject:
                                 self._resolve_anipose_session(recording.name))
 
     def triangulate(self, session: Optional[str] = None):
-        # first triangulate points using Anipose
-        if session is not None:
-            from anipose.triangulate import process_session
-            config = self._load_anipose_cfg()
-            process_session(config, self._resolve_anipose_session(session))
-            sessions_to_process = [self.triangulation_path / session]
+        """Triangulate poses, preferring the isolated JAX CUDA worker."""
+        config = self._load_anipose_cfg()
+        sessions_to_process = ([self.triangulation_path / session]
+                               if session is not None else
+                               [s for s in self.triangulation_path.iterdir() if s.is_dir()])
+
+        # The CUDA 13 LP process cannot safely import CUDA 12 JAX libraries. Run
+        # Aniposelib in a small shared environment so every backend gets GPU
+        # triangulation without loading two incompatible cuDNN versions.
+        worker = (Path(__file__).resolve().parents[3] / ".pixi" / "envs" /
+                  "triangulation-gpu" / "bin" / "python")
+        if self.triangulation.use_gpu and worker.is_file():
+            command = [str(worker), "-m", "cheese3d.triangulation_worker",
+                       "--config", str(self.triangulation_path / "config.toml"),
+                       "--gpu", str(self.triangulation.gpu_device)]
+            if session is not None:
+                command.extend(["--session", self._resolve_anipose_session(session)])
+            if self.triangulation.gpu_fallback_to_cpu:
+                command.append("--allow-cpu-fallback")
+            rprint(f"[cyan]Starting JAX triangulation worker on GPU "
+                   f"{self.triangulation.gpu_device}...[/cyan]")
+            subprocess.run(command, check=True)
         else:
-            from anipose.triangulate import triangulate_all
-            triangulate_all(self._load_anipose_cfg())
-            sessions_to_process = [s for s in self.triangulation_path.iterdir()
-                                   if s.is_dir()]
+            # Preserve direct Anipose execution for non-Pixi installations and
+            # projects whose configuration explicitly disables GPU use.
+            if self.triangulation.use_gpu:
+                rprint("[yellow]GPU triangulation worker is not installed; "
+                       "using the current environment.[/yellow]")
+            if session is not None:
+                from anipose.triangulate import process_session
+                process_session(config, self._resolve_anipose_session(session))
+            else:
+                from anipose.triangulate import triangulate_all
+                triangulate_all(config)
         # now compute cheese3d features
         exclude_kps = set(kp.label for kp in _DEFAULT_KEYPOINTS) - set(kp.label for kp in self.keypoints)
         if len(exclude_kps) > 0:
@@ -702,7 +726,8 @@ class Ch3DProject:
                 if not csv_output.exists():
                     c3d_features_df.to_csv(csv_output, index=False, index_label=None)
 
-    def generate_videos(self, max_workers: Optional[int] = None):
+    def generate_videos(self, max_workers: Optional[int] = None,
+                        probability_threshold: Optional[float] = None):
         """Generate QC videos using adjustable camera-level CPU parallelism."""
         from anipose.project_2d import process_session as project_2d_session
         from cheese3d.generate_videos import generate_videos_2d
@@ -715,6 +740,12 @@ class Ch3DProject:
                 kp_schema[group].append(kps[0])
         scheme = list(kp_schema.values())
         bodyparts = sorted(set([bp for chain in scheme for bp in chain]))
+        threshold = (self.visualization.keypoint_probability_threshold
+                     if probability_threshold is None else float(probability_threshold))
+        if not 0.0 <= threshold <= 1.0:
+            raise ValueError("Keypoint probability threshold must be between 0 and 1")
+        rprint(f"[cyan]Generated-video keypoint probability threshold: p >= "
+               f"{threshold:g}[/cyan]")
         completed = 0
         for recording, _ in self.sessions.items():
             session_path = self.triangulation_path / recording.name
@@ -733,6 +764,7 @@ class Ch3DProject:
             completed += generate_videos_2d(
                 scheme, bodyparts, videos_raw_dir, pose_2d_dir, videos_labeled_dir,
                 max_workers=max_workers,
+                probability_threshold=threshold,
             )
             if self.triangulation.filter2d:
                 rprint(f"[bold]Labeling filtered videos in 2D: {recording.name}[/bold]")
@@ -741,7 +773,8 @@ class Ch3DProject:
                                                 videos_raw_dir,
                                                 pose_2d_filt_dir,
                                                 videos_labeled_filt_dir,
-                                                max_workers=max_workers)
+                                                max_workers=max_workers,
+                                                probability_threshold=threshold)
             calib_toml = calib_dir / "calibration.toml"
             pose_3d_csvs = sorted(pose_3d_dir.glob("*.csv"))
             if len(pose_3d_csvs) > 0 and calib_toml.exists():
@@ -758,7 +791,8 @@ class Ch3DProject:
                                                 videos_raw_dir,
                                                 pose_2d_proj_dir,
                                                 videos_2d_proj_dir,
-                                                max_workers=max_workers)
+                                                max_workers=max_workers,
+                                                probability_threshold=threshold)
             if videos_labeled_dir.exists() and videos_2d_proj_dir.exists():
                 rprint(f"[bold]Stitching labeled videos together: {recording.name}[/bold]")
                 completed += generate_compare_video(videos_raw_dir,

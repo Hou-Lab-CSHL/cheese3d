@@ -57,13 +57,20 @@ lp = [
     "tables >= 3.9",
     "ensemble-kalman-smoother >= 4.6.2"
 ]
+sleap = [
+    # These three versions are the supported SLEAP 1.6 PyTorch ecosystem.
+    "sleap == 1.6.1",
+    "sleap-io == 0.6.4",
+    "sleap-nn == 0.1.0",
+    "tables >= 3.9",
+]
 cuda12 = [
     "jax[cuda12] == 0.4.36; sys_platform == 'linux'",
 ]
 cuda13 = [
-    # this should be cuda13 but ensemble-kalman-smoother caps jax <= 0.4.36
-    # which does not support cuda13
-    "jax[cuda12] == 0.4.36; sys_platform == 'linux'",
+    # EKS caps JAX at 0.4.36, which has no CUDA 13 wheel. Keep JAX on CPU so
+    # its CUDA 12 cuDNN cannot collide with Lightning Pose's CUDA 13 PyTorch.
+    "jax == 0.4.36; sys_platform == 'linux'",
 ]
 
 [build-system]
@@ -79,6 +86,14 @@ conflicts = [
     [
         { extra = "dlc" },
         { extra = "lp" },
+    ],
+    [
+        { extra = "dlc" },
+        { extra = "sleap" },
+    ],
+    [
+        { extra = "lp" },
+        { extra = "sleap" },
     ],
     [
         { extra = "cuda12" },

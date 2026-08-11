@@ -12,6 +12,7 @@
 ## added train fraction option; allow for direct control of some trainning parameters
 ## added some options for image argumentation
 ## added trainning display
+## added p-value setting for video generation
 # completely abandoned dlc <3.0
 ## allows use of other networks aside from resnet50
 ## added N save and N eval epoch

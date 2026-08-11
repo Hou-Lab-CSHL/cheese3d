@@ -14,17 +14,48 @@ BUILTIN_POSE_BACKENDS = {
     "dlc": "cheese3d.backends.dlc",
     "eks": "cheese3d.backends.eks",
     "lightning_pose": "cheese3d.backends.lightning_pose",
+    "sleap": "cheese3d.backends.sleap",
 }
 
 
 def partition_videos_by_gpu(videos: List[Path], gpu_ids: List[str]) -> List[tuple[str, List[Path]]]:
-    """Assign independent camera videos round-robin across selected GPUs."""
+    """Assign videos by estimated frame count to balance inference GPU work."""
     if not gpu_ids:
         return []
-    groups = [(gpu, []) for gpu in gpu_ids]
-    for index, video in enumerate(videos):
-        groups[index % len(groups)][1].append(Path(video))
-    return [(gpu, assigned) for gpu, assigned in groups if assigned]
+    videos = [Path(video) for video in videos]
+
+    def _work_units(video: Path) -> int:
+        """Read a cheap container frame-count estimate without decoding frames."""
+        if not video.is_file():
+            return 1
+        try:
+            import cv2
+            capture = cv2.VideoCapture(str(video))
+            frames = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
+            capture.release()
+            if frames > 0:
+                return frames
+        except Exception:
+            # Corrupt/unusual containers still receive a deterministic file-size
+            # estimate so one large camera does not monopolize a GPU by accident.
+            pass
+        return max(1, video.stat().st_size)
+
+    groups = [{"gpu": gpu, "videos": [], "work": 0} for gpu in gpu_ids]
+    original_order = {video: index for index, video in enumerate(videos)}
+    work_units = {video: _work_units(video) for video in videos}
+    # Longest-processing-time scheduling reduces the idle tail while equal-size
+    # or synthetic test videos retain the historical round-robin assignment.
+    weighted = sorted(enumerate(videos), key=lambda item: (-work_units[item[1]], item[0]))
+    for _, video in weighted:
+        group = min(enumerate(groups), key=lambda item: (item[1]["work"], item[0]))[1]
+        work = work_units[video]
+        group["videos"].append(video)
+        group["work"] += work
+    return [
+        (str(group["gpu"]), sorted(group["videos"], key=original_order.get))
+        for group in groups if group["videos"]
+    ]
 
 
 def monitor_camera_progress(futures, progress_files: Dict[str, Path],
@@ -102,10 +133,17 @@ def check_pose_backend_conflicts():
     # installed packages even after their distribution metadata is removed.
     # if (importlib.util.find_spec("deeplabcut") is not None and
     #     importlib.util.find_spec("lightning_pose") is not None):
-    if _is_installed("deeplabcut") and _is_installed("lightning-pose"):
-        raise RuntimeError("DLC and Lightning Pose are mutually exclusive Cheese3D "
-                           "backend extras. Install only one of `cheese3d[dlc]` or "
-                           "`cheese3d[lightning-pose]` in an environment.")
+    installed = {
+        "DLC": _is_installed("deeplabcut"),
+        "Lightning Pose": _is_installed("lightning-pose"),
+        "SLEAP": _is_installed("sleap"),
+    }
+    active = [name for name, present in installed.items() if present]
+    if len(active) > 1:
+        raise RuntimeError(
+            f"Pose backends are mutually exclusive but found {', '.join(active)}. "
+            "Use the dedicated Pixi environment for exactly one backend."
+        )
 
 def load_builtin_pose_backend(name: str):
     module = BUILTIN_POSE_BACKENDS.get(name)
