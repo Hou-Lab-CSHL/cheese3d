@@ -5,6 +5,16 @@ cheese3d_demo_model-houlab-2025-05-28/
 cheese3d_demo.tar.gz
 demo-internal/
 demoproject.tar.gz
+demo1/
+test/model/
+
+# cheese3d pipeline run output (raw/labeled videos, calibration, pose estimation)
+videos-raw/
+videos-labeled/
+pose-2d/
+pose-3d/
+calibration/
+*.avi
 
 # docker container settings
 .devcontainer/
