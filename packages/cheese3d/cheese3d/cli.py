@@ -240,7 +240,8 @@ def generate_videos(
     path = ctx.obj["path"]
     configs = ctx.obj["configs"]
     project = _build_project(path, name, configs, config_overrides)
-    project.generate_videos()
+    completed = project.generate_videos()
+    rich.print(f"Video generation completed: {completed} output(s) available. :white_check_mark:")
 
 @cli.command()
 def visualize(
@@ -268,9 +269,12 @@ def visualize(
 
 @cli.command()
 def interactive(
-    web: Annotated[bool, typer.Option(help="Set to enable web mode UI")] = False,
+    web: Annotated[bool, typer.Option(
+        "--web/--terminal",
+        help="Open the GUI in a separate browser window (default), or use the terminal UI."
+    )] = True,
 ):
-    """Run interactive GUI."""
+    """Run the interactive GUI in a separate browser window by default."""
     run_interative(web_mode=web)
 
 @cli.command()

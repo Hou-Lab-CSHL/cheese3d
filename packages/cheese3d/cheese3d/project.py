@@ -187,6 +187,28 @@ def build_model_backend(cfg: ModelConfig | str | Path,
                            crops=crops,
                            **cfg.backend_options)
 
+def resolve_pose3d_csv(session_path: str | Path) -> Path:
+    """Return the single Anipose 3-D pose CSV produced for a session.
+
+    Anipose normally appends the pose scorer/model name to the recording stem,
+    so its output cannot be reconstructed reliably from the recording name.
+    """
+    pose3d_dir = Path(session_path) / "pose-3d"
+    csv_files = sorted(pose3d_dir.glob("*.csv"))
+    if not csv_files:
+        raise FileNotFoundError(
+            f"No 3-D pose CSV found in {pose3d_dir}. "
+            "Run triangulation before opening the visualizer."
+        )
+    if len(csv_files) > 1:
+        choices = "\n".join(f"  - {path.name}" for path in csv_files)
+        raise RuntimeError(
+            f"Multiple 3-D pose CSV files found in {pose3d_dir}; cannot determine "
+            f"which result to visualize:\n{choices}"
+        )
+
+    return csv_files[0]
+
 @dataclass
 class Ch3DProject:
     """
@@ -663,6 +685,7 @@ class Ch3DProject:
                 kp_schema[group].append(kps[0])
         scheme = list(kp_schema.values())
         bodyparts = sorted(set([bp for chain in scheme for bp in chain]))
+        completed = 0
         for recording, _ in self.sessions.items():
             session_path = self.triangulation_path / recording.name
             videos_raw_dir = session_path / "videos-raw"
@@ -677,14 +700,16 @@ class Ch3DProject:
             videos_compare_dir = session_path / "videos-compare"
 
             rprint(f"[bold]Labeling videos in 2D: {recording.name}[/bold]")
-            generate_videos_2d(scheme, bodyparts, videos_raw_dir, pose_2d_dir, videos_labeled_dir)
+            completed += generate_videos_2d(
+                scheme, bodyparts, videos_raw_dir, pose_2d_dir, videos_labeled_dir
+            )
             if self.triangulation.filter2d:
                 rprint(f"[bold]Labeling filtered videos in 2D: {recording.name}[/bold]")
-                generate_videos_2d(scheme,
-                                   bodyparts,
-                                   videos_raw_dir,
-                                   pose_2d_filt_dir,
-                                   videos_labeled_filt_dir)
+                completed += generate_videos_2d(scheme,
+                                                bodyparts,
+                                                videos_raw_dir,
+                                                pose_2d_filt_dir,
+                                                videos_labeled_filt_dir)
             calib_toml = calib_dir / "calibration.toml"
             pose_3d_csvs = sorted(pose_3d_dir.glob("*.csv"))
             if len(pose_3d_csvs) > 0 and calib_toml.exists():
@@ -696,19 +721,27 @@ class Ch3DProject:
                 rprint(f"[bold]Projecting 3D points to 2D: {recording.name}[/bold]")
                 project_2d_session(ap_cfg, str(session_path.resolve()))
                 rprint(f"[bold]Labeling reprojected 3D points in 2D: {recording.name}[/bold]")
-                generate_videos_2d(scheme,
-                                   bodyparts,
-                                   videos_raw_dir,
-                                   pose_2d_proj_dir,
-                                   videos_2d_proj_dir)
+                completed += generate_videos_2d(scheme,
+                                                bodyparts,
+                                                videos_raw_dir,
+                                                pose_2d_proj_dir,
+                                                videos_2d_proj_dir)
             if videos_labeled_dir.exists() and videos_2d_proj_dir.exists():
                 rprint(f"[bold]Stitching labeled videos together: {recording.name}[/bold]")
-                generate_compare_video(videos_raw_dir,
-                                       videos_labeled_dir,
-                                       videos_labeled_filt_dir,
-                                       videos_2d_proj_dir,
-                                       videos_compare_dir,
-                                       f"({self.view_regex})")
+                completed += generate_compare_video(videos_raw_dir,
+                                                    videos_labeled_dir,
+                                                    videos_labeled_filt_dir,
+                                                    videos_2d_proj_dir,
+                                                    videos_compare_dir,
+                                                    f"({self.view_regex})")
+
+        if completed == 0:
+            raise RuntimeError(
+                "Video generation produced no outputs. Check the log for missing pose files "
+                "or unmatched raw videos."
+            )
+
+        return completed
 
     def visualize(self, recording: RecordingKey):
         import napari
@@ -722,7 +755,7 @@ class Ch3DProject:
         }}
         anipose_folder = self.triangulation_path / recording.name
         calibration = anipose_folder / "calibration" / "calibration.toml"
-        pose3d = anipose_folder / "pose-3d" / f"{recording.name}.csv"
+        pose3d = resolve_pose3d_csv(anipose_folder)
         c3d_features = anipose_folder / "cheese3d" / "cheese3d_features.csv"
         view_names = {cfg.view: view for view, cfg in self.view_config.items()}
         skeleton = []

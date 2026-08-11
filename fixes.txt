@@ -1,0 +1,3 @@
+# naming in triangulation folder was hard coded, now finds the pose-3d/*.csv 
+# broswer gui by default, retain --terminal as fall back 
+#Fixed video generation so DLC pose files correctly match raw videos and the GUI only reports success when outputs exsts

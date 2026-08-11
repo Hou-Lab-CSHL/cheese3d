@@ -1,7 +1,12 @@
 from omegaconf import OmegaConf
 from typing import Callable, Optional, List, Tuple
 from pathlib import Path
-from contextlib import redirect_stdout, redirect_stderr
+from contextlib import contextmanager, redirect_stdout, redirect_stderr
+from threading import Timer
+import os
+import sys
+import traceback
+import webbrowser
 from textual import work, on
 from textual.app import App, ComposeResult
 from textual.message import Message
@@ -136,6 +141,49 @@ class TextualStdout(RichLog):
 
     def close(self):
         pass # no need to "close" this output stream
+
+
+class _TeeOutput:
+    """Write pipeline output to both a GUI log and the launching terminal."""
+
+    def __init__(self, gui_log, terminal):
+        self.gui_log = gui_log
+        self.terminal = terminal
+
+    def write(self, text: str) -> int:
+        self.gui_log.write(text)
+        self.terminal.write(text)
+        self.terminal.flush()
+        return len(text)
+
+    def flush(self) -> None:
+        self.terminal.flush()
+
+    def isatty(self) -> bool:
+        return bool(getattr(self.terminal, "isatty", lambda: False)())
+
+
+@contextmanager
+def _pipeline_output(gui_log):
+    """Mirror redirected worker output to the original terminal when possible."""
+    terminal = None
+    try:
+        if os.name == "posix":
+            # Textual Serve captures the child process's stdout/stderr. The
+            # controlling TTY still refers to the terminal that launched it.
+            terminal = open("/dev/tty", "w", buffering=1)
+        else:
+            terminal = sys.__stderr__
+    except OSError:
+        terminal = sys.__stderr__
+
+    tee = _TeeOutput(gui_log, terminal)
+    try:
+        with redirect_stdout(tee), redirect_stderr(tee):
+            yield
+    finally:
+        if terminal not in (sys.__stdout__, sys.__stderr__):
+            terminal.close()
 
 class LabeledInput(Input):
 
@@ -881,7 +929,7 @@ class MainScreen(Screen):
     def _automatic_extraction(self):
         log = self.query_one("#model_log")
         log.clear() # type: ignore
-        with redirect_stdout(log), redirect_stderr(log): # type: ignore
+        with _pipeline_output(log):
             self.project.extract_frames()
 
     @on(Button.Pressed, "#extract")
@@ -922,7 +970,7 @@ class MainScreen(Screen):
         self._disable_model_in_progress()
         log = self.query_one("#model_log")
         log.clear() # type: ignore
-        with redirect_stdout(log), redirect_stderr(log): # type: ignore
+        with _pipeline_output(log):
             self.project.train(0)
         self._enable_model_done()
         self.app.call_from_thread(self.app.push_screen, DialogBox("Model training completed!"))
@@ -933,7 +981,7 @@ class MainScreen(Screen):
         self._disable_pose_in_progress()
         log = self.query_one("#pose_log")
         log.clear() # type: ignore
-        with redirect_stdout(log), redirect_stderr(log): # type: ignore
+        with _pipeline_output(log):
             self.project.calibrate()
         self._enable_pose_done()
         self.app.call_from_thread(self.app.push_screen, DialogBox("Camera calibration completed!"))
@@ -944,7 +992,7 @@ class MainScreen(Screen):
         self._disable_pose_in_progress()
         log = self.query_one("#pose_log")
         log.clear() # type: ignore
-        with redirect_stdout(log), redirect_stderr(log): # type: ignore
+        with _pipeline_output(log):
             self.project.track()
         self._enable_pose_done()
         self.app.call_from_thread(self.app.push_screen, DialogBox("2D pose tracking completed!"))
@@ -955,7 +1003,7 @@ class MainScreen(Screen):
         self._disable_pose_in_progress()
         log = self.query_one("#pose_log")
         log.clear() # type: ignore
-        with redirect_stdout(log), redirect_stderr(log): # type: ignore
+        with _pipeline_output(log):
             self.project.triangulate()
         self._enable_pose_done()
         self.app.call_from_thread(self.app.push_screen, DialogBox("3D triangulation completed!"))
@@ -964,12 +1012,26 @@ class MainScreen(Screen):
     @work(thread=True)
     def generate_videos(self):
         self._disable_visualize_in_progress()
-        log = self.query_one("#pose_log")
+        log = self.query_one("#visualize_log")
         log.clear() # type: ignore
-        with redirect_stdout(log), redirect_stderr(log): # type: ignore
-            self.project.generate_videos()
-        self._enable_visualize_done()
-        self.app.call_from_thread(self.app.push_screen, DialogBox("Video generation completed!"))
+        try:
+            with _pipeline_output(log):
+                print("Starting video generation ...")
+                completed = self.project.generate_videos()
+        except Exception as exc:
+            with _pipeline_output(log):
+                traceback.print_exc()
+            self.app.call_from_thread(
+                self.app.push_screen,
+                DialogBox(f"Video generation failed: {exc}")
+            )
+        else:
+            self.app.call_from_thread(
+                self.app.push_screen,
+                DialogBox(f"Video generation completed: {completed} output(s) available.")
+            )
+        finally:
+            self._enable_visualize_done()
 
     @on(Button.Pressed, "#visualize")
     @work
@@ -1004,9 +1066,27 @@ class Cheese3dApp(App):
         self.push_screen(StartMenu())
 
 
-def run_interative(web_mode = False):
+def _open_web_ui(url: str) -> None:
+    """Open the served Textual application in the user's default browser."""
+    if not webbrowser.open(url):
+        print(f"Could not open a browser automatically. Open {url} manually.")
+
+
+def run_interative(web_mode = True, open_browser = True):
     if web_mode:
-        server = Server("cheese3d interactive")
+        url = "http://localhost:8000"
+        # The served child must use terminal mode; otherwise the default web
+        # mode would recursively start another Textual server.
+        server = Server("cheese3d interactive --terminal",
+                        host="localhost",
+                        port=8000,
+                        title="Cheese3D")
+        print(f"Cheese3D GUI: {url}")
+        print("Server output will remain visible here. Press Ctrl+C to stop it.")
+        if open_browser:
+            browser_timer = Timer(1.0, _open_web_ui, args=(url,))
+            browser_timer.daemon = True
+            browser_timer.start()
         server.serve()
     else:
         app = Cheese3dApp()

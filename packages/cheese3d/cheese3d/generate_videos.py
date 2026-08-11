@@ -126,9 +126,22 @@ def visualize_labels(scheme, bodyparts, points, scores, vid_fname, outname,
 def _find_matching_video(h5_basename, videos_raw_dir):
     h5_base = Path(h5_basename)
     raw_dir = Path(videos_raw_dir)
+    candidates = []
     for video_file in sorted(raw_dir.iterdir()):
-        if video_file.stem == h5_base.stem or video_file.name == h5_base.name:
-            return str(video_file)
+        if not video_file.is_file():
+            continue
+        # DLC appends its scorer/model identifier directly after the source
+        # video stem. LP outputs normally retain the exact source stem.
+        if (h5_base.stem == video_file.stem or
+            h5_base.stem.startswith(video_file.stem + "DLC")):
+            candidates.append(video_file)
+    if len(candidates) == 1:
+        return str(candidates[0])
+    if len(candidates) > 1:
+        choices = ", ".join(path.name for path in candidates)
+        raise RuntimeError(
+            f"Pose output {h5_base.name} matches multiple raw videos: {choices}"
+        )
     return None
 
 def _read_pose_2d(h5_path, bodyparts_hint=None):
@@ -150,20 +163,30 @@ def generate_videos_2d(scheme, bodyparts, videos_raw_dir, pose_dir, out_dir):
     out_dir = Path(out_dir)
     labels_fnames = sorted(pose_dir.glob('*.h5'), key=lambda p: p.name)
     if len(labels_fnames) == 0:
-        return
+        print(f"No pose HDF5 files found in {pose_dir}")
+        return 0
     out_dir.mkdir(parents=True, exist_ok=True)
+    completed = 0
     for fname in labels_fnames:
         basename = fname.stem
-        out_fname = str(out_dir / (basename + '.mp4'))
         vid_path = _find_matching_video(basename, videos_raw_dir)
         if vid_path is None:
+            print(f"Skipping {fname.name}: no matching raw video found in {videos_raw_dir}")
             continue
+        # Name labeled videos after the raw videos. The comparison-video stage
+        # uses those names, and pose filenames may contain a DLC scorer suffix.
+        out_fname = str(out_dir / (Path(vid_path).stem + '.mp4'))
         if (os.path.exists(out_fname) and
             abs(get_nframes(out_fname) - get_nframes(vid_path)) < 100):
+            completed += 1
             continue
         _, points, scores = _read_pose_2d(str(fname), bodyparts_hint=bodyparts)
         print(out_fname)
         visualize_labels(scheme, bodyparts, points, scores, vid_path, out_fname)
+        if os.path.exists(out_fname):
+            completed += 1
+
+    return completed
 
 def write_frame_thread(writer, q):
     while True:
@@ -285,7 +308,7 @@ def generate_compare_video(videos_raw_dir,
     out_dir = Path(out_dir)
     vid_fnames = list(videos_raw_dir.glob("*"))
     if len(vid_fnames) == 0:
-        return
+        return 0
     fnames_raw = defaultdict(list)
     for vid in vid_fnames:
         basename = vid.stem
@@ -293,12 +316,14 @@ def generate_compare_video(videos_raw_dir,
         fnames_raw[vidname].append(str(vid))
 
     out_dir.mkdir(parents=True, exist_ok=True)
+    completed = 0
     for vidname in sorted(fnames_raw.keys()):
         out_fname = str(out_dir / (vidname + '.mp4'))
         vids_raw = sorted(fnames_raw[vidname])
         vid_fname = vids_raw[0]
         if (os.path.exists(out_fname) and
             abs(get_nframes(out_fname) - get_nframes(vid_fname)) < 100):
+            completed += 1
             continue
         vids_2d = [str(videos_labeled_dir / (Path(f).stem + '.mp4'))
                    for f in vids_raw]
@@ -316,3 +341,7 @@ def generate_compare_video(videos_raw_dir,
             vids_2d_filtered = None
         print(out_fname)
         visualize_compare(vids_raw, vids_2d, vids_2d_filtered, vids_2d_projected, out_fname)
+        if os.path.exists(out_fname):
+            completed += 1
+
+    return completed
