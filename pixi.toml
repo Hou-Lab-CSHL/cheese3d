@@ -4,25 +4,33 @@ channels = ["conda-forge", "apple"]
 platforms = ["linux-64", "osx-arm64"]
 
 [environments]
-# Keep the established DLC environment as the default; Lightning Pose remains
-# isolated in `lp` because both frameworks must not share one Python process.
-default = { features = ["dlc"] }
-dlc = { features = ["dlc"] }
+# No explicit `default` environment: every documented workflow (README,
+# CURRENT_STATUS_HANDOFF.md) always passes `-e <name>` explicitly, and pixi's
+# own implicit default (base [dependencies]/[pypi-dependencies] only, no
+# backend extras) was never actually used. `pixi run`/`pixi shell` without
+# `-e` now resolves to that bare implicit environment; pass `-e dlc` (or
+# lp/lp-cu13/sleap) for an actual pose backend.
+#
+# Lightning Pose remains isolated in `lp` because DLC and LP must never share
+# one Python process. Dev tooling (pytest, textual-dev, py-spy) is folded
+# directly into each backend environment rather than kept in separate dev-*
+# environments -- cheese3d itself is editable-installed everywhere regardless,
+# so a source change is already live in every environment below the moment
+# it's saved; the former dev-* split only ever changed whether pytest was
+# importable.
+dlc = { features = ["dlc", "dev"] }
 docs = { features = ["docs"] }
-dev = { features = ["dev"] }
-dev-dlc = { features = ["dev", "dlc"] }
 # CUDA environments are Linux-only; restricting their solve platforms lets
 # Pixi select official CUDA wheels without trying to find macOS CUDA builds.
-dev-lp = { features = ["dev", "lp-cu12"], platforms = ["linux-64"] }
-dev-lp-cu13 = { features = ["dev", "lp-cu13"], platforms = ["linux-64"] }
-lp = { features = ["lp-cu12"], platforms = ["linux-64"] }
-lp-cu13 = { features = ["lp-cu13"], platforms = ["linux-64"] }
+lp = { features = ["lp-cu12", "dev"], platforms = ["linux-64"] }
+lp-cu13 = { features = ["lp-cu13", "dev"], platforms = ["linux-64"] }
 # SLEAP has its own PyTorch/UI dependency graph and must never share the DLC or
 # Lightning Pose process; enter it explicitly with `pixi shell -e sleap`.
-sleap = { features = ["sleap"], platforms = ["linux-64"] }
-dev-sleap = { features = ["dev", "sleap"], platforms = ["linux-64"] }
+sleap = { features = ["sleap", "dev"], platforms = ["linux-64"] }
 # Keep JAX triangulation in one small CUDA 12 environment so every pose backend,
 # including CUDA 13 Lightning Pose, can use the GPU without mixing cuDNN stacks.
+# This one is a subprocess-only worker (see Ch3DProject.triangulate), not an
+# interactive/test environment, so it does not need dev tooling.
 triangulation-gpu = { features = ["triangulation-gpu"], platforms = ["linux-64"] }
 
 [tasks.build]
@@ -52,26 +60,46 @@ cmd = "cd docs && pixi run -e docs sphinx-build -b html source _build/html"
 cmd = "cd docs && pixi run -e docs sphinx-autobuild --port 8090 -b html source _build/html"
 
 [tasks.test]
-cmd = "cd packages/cheese3d && pixi run -e dev pytest"
+cmd = "cd packages/cheese3d && pixi run -e dlc pytest"
 
 [tasks.test-subset]
 args = ["group"]
-cmd = "cd packages/cheese3d && pixi run -e dev pytest -m {{ group }}"
+cmd = "cd packages/cheese3d && pixi run -e dlc pytest -m {{ group }}"
 
 [tasks.test-cov]
-cmd = "cd packages/cheese3d && pixi run -e dev pytest --cov=cheese3d --cov-report=html"
+cmd = "cd packages/cheese3d && pixi run -e dlc pytest --cov=cheese3d --cov-report=html"
+
+[tasks.sleap-label]
+cmd = "pixi run -e sleap python -m cheese3d.sleap_label"
+description = "Launch SLEAP's own labeling GUI without the cv2/Qt xcb-plugin crash."
+
+[tasks.dlc-label]
+# Unlike sleap-label, DLC's own GUI (PySide6/Qt6-based) doesn't need the
+# cv2/Qt env-var workaround -- confirmed by direct headless (Xvfb) launch and
+# screenshot: cv2 still overrides QT_QPA_PLATFORM_PLUGIN_PATH on import here
+# too, but PySide6 falls back to its own platform plugin correctly instead
+# of aborting the way Qt5-based bindings (PySide2/PyQt5) do. SLEAP's GUI now
+# also runs on PySide6 (see [feature.sleap.activation.env] QT_API), so the
+# env-var clearing kept in qt_env_fix/sitecustomize.py is belt-and-braces.
+cmd = "pixi run -e dlc dlc"
+description = "Launch DeepLabCut's own native Project Manager GUI."
 
 [tasks.demo2-summary]
-cmd = "pixi run -e lp cheese3d --path /data/disk2/home/tony summarize demo2"
+# `path` is the directory containing your own demo2-style project (not part
+# of this repository); no default is given since that location is specific
+# to whoever runs this task, not portable across machines.
+args = ["path"]
+cmd = "pixi run -e lp cheese3d --path {{ path }} summarize demo2"
 description = "Validate and summarize demo2 with the default Lightning Pose backend."
 
 [tasks.demo2-interactive]
-cmd = "pixi run -e lp cheese3d --path /data/disk2/home/tony interactive"
+args = ["path"]
+cmd = "pixi run -e lp cheese3d --path {{ path }} interactive"
 description = "Open demo2 in Cheese3D's browser GUI using Lightning Pose."
 
 [tasks.demo2-train]
-args = [{ arg = "gpu", default = "0" }]
-cmd = "pixi run -e lp cheese3d --path /data/disk2/home/tony train demo2 --gpu {{ gpu }}"
+args = ["path", { arg = "gpu", default = "0" }]
+cmd = "pixi run -e lp cheese3d --path {{ path }} train demo2 --gpu {{ gpu }}"
 description = "Train demo2's converted DLC labels with Lightning Pose."
 
 [activation.env]
@@ -116,6 +144,10 @@ sphinxemoji = ">=0.3.1,<0.4"
 textual-dev = "*"
 pytest = ">=7.4.0,<9.0.0"
 pytest-cov = ">=4.1.0,<6.0.0"
+# Read-only sampling profiler used to capture per-thread Python stack traces
+# from a running (possibly GPU-attached) cheese3d process, e.g. to diagnose a
+# hung/frozen interactive GUI: `pixi run -e dev py-spy dump --pid <PID>`.
+py-spy = "*"
 
 [feature.dlc.pypi-dependencies]
 cheese3d = { path = "packages/cheese3d", editable = true, extras = ["dlc", "cuda12"] }
@@ -125,6 +157,11 @@ cheese3d = { path = "packages/cheese3d", editable = true, extras = ["dlc", "cuda
 deeplabcut = "==3.0.1"
 torch = "==2.10.0"
 torchvision = "==0.25.0"
+# Lightweight, CPU-only reader for a SLEAP source project's labels.slp when
+# importing/converting a foreign SLEAP project into DLC. Pinned to match the
+# version validated by the dedicated sleap environment's own test suite; lp/
+# lp-cu13 already get this transitively through ensemble-kalman-smoother.
+sleap-io = "==0.6.4"
 
 [feature.dlc.constraints]
 numpy = "<2.0.0"
@@ -179,6 +216,19 @@ torchvision = { version = "==0.22.1", index = "https://download.pytorch.org/whl/
 [feature.sleap.activation.env]
 PYTHONNOUSERSITE = "1"
 LD_LIBRARY_PATH = "$CONDA_PREFIX/lib"
+# Every Python invocation in this environment (sleap, sleap-label,
+# sleap-track, ...) auto-imports sitecustomize.py at startup, which clears
+# cv2's Qt-plugin-path override before any GUI code runs -- see
+# qt_env_fix/sitecustomize.py.
+PYTHONPATH = "$PIXI_PROJECT_ROOT/packages/cheese3d/qt_env_fix:$PYTHONPATH"
+# SLEAP 1.6.1's GUI is written for PySide6 (its frame-loader thread even
+# imports PySide6 directly), but qtpy prefers PyQt5 whenever it's importable,
+# and this environment ends up with both installed. Running the GUI on PyQt5
+# caused a stream of type-strictness crashes (QRect/QColor/signal/mapToScene)
+# and -- fatally -- a frame loader that emits PySide6 QImages into a PyQt5
+# view, so video frames never displayed at all. Forcing the binding SLEAP was
+# developed against fixes the whole class at once.
+QT_API = "pyside6"
 
 [feature.sleap.dependencies]
 # SLEAP-IO 0.6.4 requires PyAV below 16; scope the constraint to this isolated

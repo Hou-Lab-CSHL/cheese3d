@@ -19,7 +19,7 @@ from matplotlib import colors
 from pathlib import Path
 from seaborn import color_palette
 from tqdm import trange
-from cheese3d.backends.core import (monitor_camera_progress,
+from cheese3d.backends.core import (isolate_worker_output, monitor_camera_progress,
                                     shutdown_completed_process_pool)
 
 def get_video_params_cap(cap):
@@ -192,6 +192,35 @@ def _generate_video_2d_job(scheme, bodyparts, pose_file, video_file, output_file
     return int(Path(output_file).exists())
 
 
+def _generate_video_2d_job_isolated(*args, **kwargs):
+    """ProcessPoolExecutor entry point: isolate output, then render one camera.
+
+    _generate_video_2d_job is also called directly in-process for the
+    single-worker fallback (no separate process exists there, and fd 1/2 are
+    the whole GUI's own connection to the browser), so the isolate_worker_output()
+    call must live in this separate wrapper -- used only as the pool.submit
+    target -- rather than inside _generate_video_2d_job itself.
+    """
+    isolate_worker_output()
+    return _generate_video_2d_job(*args, **kwargs)
+
+
+def _default_cpu_budget() -> int:
+    """Default CPU core/thread budget for video rendering when unset.
+
+    Reserving a flat 2 cores regardless of machine size left almost no
+    scheduling headroom on many-core servers (e.g. only 2/64 idle while 6
+    FFmpeg-heavy processes saturated the other 60), starving the GUI's own
+    event-loop/websocket thread badly enough during heavy multi-camera
+    rendering that the browser's connection silently dropped and never
+    recovered -- the process itself kept running fine, but the page never
+    updated again. Defaulting to half the machine's cores/threads keeps
+    enough slack for the GUI to stay responsive under the heaviest load,
+    regardless of machine size.
+    """
+    return max(1, (os.cpu_count() or 1) // 2)
+
+
 def generate_videos_2d(scheme, bodyparts, videos_raw_dir, pose_dir, out_dir,
                         max_workers=None, probability_threshold=0.1):
     """Generate independent camera overlays concurrently across CPU cores."""
@@ -229,7 +258,7 @@ def generate_videos_2d(scheme, bodyparts, videos_raw_dir, pose_dir, out_dir,
         jobs.setdefault(out_fname, (str(fname), vid_path))
 
     if jobs:
-        cpu_budget = max(1, int(max_workers or max(1, (os.cpu_count() or 1) - 2)))
+        cpu_budget = max(1, int(max_workers) if max_workers else _default_cpu_budget())
         # Each active camera needs at least one overlay thread and one encoder
         # thread, so do not launch more processes than half the CPU budget.
         workers = min(len(jobs), max(1, cpu_budget // 2))
@@ -260,7 +289,7 @@ def generate_videos_2d(scheme, bodyparts, videos_raw_dir, pose_dir, out_dir,
                 pool = ProcessPoolExecutor(max_workers=workers, mp_context=context)
                 try:
                     futures = [pool.submit(
-                        _generate_video_2d_job, scheme, bodyparts, pose_file, video_file,
+                        _generate_video_2d_job_isolated, scheme, bodyparts, pose_file, video_file,
                         output_file, str(progress_files[Path(output_file).stem]),
                         encoder_threads, probability_threshold,
                     ) for output_file, (pose_file, video_file) in jobs.items()]

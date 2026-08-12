@@ -3,7 +3,16 @@ Screen {
 }
 
 Button {
-    padding: 0 2;
+    padding: 0 3;
+    text-style: bold;
+}
+
+/* Textual's border-title-color has no visible default (fully transparent),
+ * so every LabeledInput's field label was invisible against the border
+ * until set explicitly here. */
+LabeledInput {
+    border-title-color: $text;
+    border-title-style: bold;
 }
 
 .helpmenu {
@@ -34,13 +43,33 @@ RegexInput #buttons Button {
 }
 
 StartMenu {
-    width: auto;
+    align: center middle;
+}
+StartMenu > Vertical {
+    width: 100%;
+    height: auto;
 }
 StartMenu Horizontal {
     align: center middle;
+    width: auto;
+    height: auto;
 }
 StartMenu Button {
-    margin: 2;
+    /* A vertical margin here (rather than horizontal-only) previously pushed
+     * the Browse/Load buttons 2 rows below the path entry field, breaking
+     * "same row" alignment with it. */
+    margin: 0 2;
+}
+StartMenu #create_project {
+    margin-bottom: 2;
+}
+/* Input's own default (width: 100%) claims the whole row regardless of
+ * siblings, pushing the Browse/Load buttons completely off-screen. A fixed
+ * width keeps the path entry, Browse, and Load buttons together as one
+ * compact row that can be centered as a block. */
+StartMenu LabeledInput {
+    width: 60;
+    min-width: 30;
 }
 
 MainScreen {

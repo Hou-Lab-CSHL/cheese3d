@@ -1,3 +1,4 @@
+import pandas as pd
 import yaml
 from pathlib import Path
 
@@ -9,6 +10,7 @@ from cheese3d.backends.dlc import (
     _paf_graph_from_skeleton,
     _shuffle_from_created_splits,
 )
+from cheese3d.config import KeypointConfig
 
 
 def test_dlc3_config_removes_legacy_pose_fields_and_uses_pytorch(tmp_path):
@@ -80,6 +82,14 @@ def test_dlc3_training_uses_selected_network_architecture(monkeypatch, tmp_path)
     backend.name = "model"
     backend.experimenter = "tester"
     backend.date = "2026-01-01"
+    # train() now re-syncs via overwrite_config() before launching DLC, so the
+    # test double needs the same attributes __init__ would have set.
+    backend.videos = []
+    backend.crops = []
+    backend.keypoints = []
+    backend.skeleton = []
+    backend.frames_per_video = 5
+    backend.canonical_config_path = None
     backend.project_path.mkdir(parents=True)
     backend.config_path.write_text("Task: demo\n")
 
@@ -97,6 +107,45 @@ def test_dlc3_training_uses_selected_network_architecture(monkeypatch, tmp_path)
     assert calls["train"]["device"] == "cuda"
     assert calls["primary_gpu"] == 0
     assert yaml.safe_load(backend.config_path.read_text())["TrainingFraction"] == [0.8]
+
+
+def test_dlc_imports_labeled_data_from_a_lightning_pose_source(tmp_path):
+    """A non-DLC source (Lightning Pose) must seed real DLC labeled-data.
+
+    This must not require deeplabcut: reading a foreign LP source and writing
+    DLC's CollectedData layout are both pure-pandas operations, independent of
+    which Pixi environment (and thus which pose package) is installed.
+    """
+    lp_project = tmp_path / "lp-source"
+    data_dir = lp_project / "data"
+    label_dir = data_dir / "labeled-data" / "cam_L"
+    label_dir.mkdir(parents=True)
+    (label_dir / "img1.png").write_bytes(b"image")
+    columns = pd.MultiIndex.from_tuples([
+        ("lightning_pose", bodypart, coord)
+        for bodypart in ["nose"] for coord in ("x", "y")
+    ], names=["scorer", "bodyparts", "coords"])
+    pd.DataFrame([[1.0, 2.0]], index=["labeled-data/cam_L/img1.png"],
+                columns=columns).to_csv(data_dir / "CollectedData.csv")
+
+    backend = DLCBackend.__new__(DLCBackend)
+    backend.root_dir = tmp_path
+    backend.name = "model"
+    backend.experimenter = "tester"
+    backend.date = "2026-01-01"
+    backend.keypoints = [KeypointConfig(label="nose")]
+    backend.source_project_path = lp_project
+    backend.source_format = "lightning_pose"
+    backend.project_path.mkdir(parents=True)
+
+    summary = backend._import_source_project()
+
+    assert summary == {"folders": 1, "images": 1, "records": 1}
+    written = backend.project_path / "labeled-data" / "cam_L"
+    assert (written / "img1.png").is_file()
+    table = pd.read_hdf(written / "CollectedData_tester.h5")
+    assert table.iloc[0][("tester", "nose", "x")] == 1.0
+    assert table.iloc[0][("tester", "nose", "y")] == 2.0
 
 
 def test_single_animal_model_selector_includes_dlcrnet_with_cheese3d_pafs():

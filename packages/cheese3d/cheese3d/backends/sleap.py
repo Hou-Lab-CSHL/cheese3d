@@ -16,8 +16,10 @@ import yaml
 
 from cheese3d.backends.core import (
     Pose2dBackend,
+    isolate_worker_output,
     monitor_camera_progress,
     partition_videos_by_gpu,
+    read_foreign_records,
     register_pose_backend,
     shutdown_completed_process_pool,
 )
@@ -72,37 +74,6 @@ def _annotation_records(label_dirs: Dict[str, Path], keypoint_names: List[str]) 
     return records
 
 
-def _dlc_records(project_path: Path, keypoint_names: List[str]) -> dict:
-    """Read compatible DLC label folders without importing DeepLabCut itself."""
-    records = {}
-    labeled_root = Path(project_path) / "labeled-data"
-    for folder in sorted(labeled_root.glob("*")) if labeled_root.is_dir() else []:
-        tables = sorted(folder.glob("CollectedData_*.h5"))
-        if not tables:
-            continue
-        try:
-            labels = pd.read_hdf(tables[0])
-            bodyparts = set(map(str, labels.columns.get_level_values("bodyparts")))
-        except (KeyError, OSError, ValueError):
-            continue
-        if not set(keypoint_names).issubset(bodyparts):
-            continue
-        scorer = labels.columns.get_level_values(0)[0]
-        for index, row in labels.iterrows():
-            image_name = str(index[-1] if isinstance(index, tuple) else index)
-            image_path = folder / Path(image_name).name
-            if not image_path.is_file():
-                continue
-            points = []
-            for keypoint in keypoint_names:
-                points.append([
-                    float(row[(scorer, keypoint, "x")]),
-                    float(row[(scorer, keypoint, "y")]),
-                ])
-            records[(folder.name, image_path.name)] = (image_path, points)
-    return records
-
-
 def create_sleap_labels(records: dict, output_path: Path, keypoint_names: List[str],
                         skeleton_edges: List[List[str]]) -> int:
     """Write portable image-sequence SLEAP labels from normalized records."""
@@ -117,7 +88,15 @@ def create_sleap_labels(records: dict, output_path: Path, keypoint_names: List[s
     for folder_name, items in sorted(by_folder.items()):
         items.sort(key=lambda item: item[0])
         filenames = [str(value[0]) for _, value in items]
-        video = sio.Video.from_filename(filenames)
+        # Without an explicit value, sleap_io autodetects grayscale-vs-RGB
+        # independently per video from just its first frame. Cheese3D always
+        # stores frames as RGB PNGs, but different sessions' first frames can
+        # look incidentally monochrome, so autodetection produces videos with
+        # inconsistent channel counts; a training batch mixing samples from
+        # two such videos then crashes in collation. Force RGB uniformly here;
+        # SLEAP-NN's own ensure_grayscale/ensure_rgb config still controls any
+        # actual grayscale conversion, applied consistently across all frames.
+        video = sio.Video.from_filename(filenames, grayscale=False)
         videos.append(video)
         for frame_idx, (_, (_, points)) in enumerate(items):
             instance = sio.Instance.from_numpy(np.asarray(points, dtype=float), skeleton)
@@ -151,7 +130,11 @@ def create_sleap_training_config(project_path: Path, model_name: str,
         data_config=DataConfig(
             train_labels_path=[str(project_path / "labels.slp")],
             validation_fraction=0.1,
-            preprocessing=PreprocessingConfig(ensure_grayscale=True),
+            # Cheese3D videos are RGB throughout (DLC and Lightning Pose never
+            # force grayscale); matching that here also avoids a SLEAP-NN 0.1.0
+            # validation-path bug where ensure_grayscale=True intermittently
+            # feeds the model a 4-channel batch instead of the expected 1.
+            preprocessing=PreprocessingConfig(ensure_grayscale=False, ensure_rgb=True),
             augmentation_config=AugmentationConfig(geometric=GeometricConfig()),
         ),
         model_config=ModelConfig(
@@ -237,6 +220,7 @@ def _sleap_track_worker(project_path: str, videos: List[tuple[str, str]], output
                         gpu_id: str, batch_size: int, checkpoint: str,
                         scorer: str, peak_threshold: float) -> int:
     """Track one balanced camera subset in an isolated SLEAP CUDA process."""
+    isolate_worker_output()
     os.environ["CUDA_VISIBLE_DEVICES"] = gpu_id
     checkpoint_path = Path(checkpoint)
     model_dir = checkpoint_path.parent
@@ -268,8 +252,12 @@ class SLEAPBackend(Pose2dBackend):
                  keypoints: List[KeypointConfig],
                  crops: Optional[List[BoundingBox]] = None,
                  skeleton: Optional[List[List[str]]] = None,
-                 dlc_project_path: Optional[str | Path] = None,
-                 scorer: Optional[str] = None, **_options):
+                 source_project_path: Optional[str | Path] = None,
+                 source_format: Optional[str] = None,
+                 scorer: Optional[str] = None,
+                 canonical_config_path: Optional[str | Path] = None,
+                 **_options):
+        """Initialize SLEAP with a root-level canonical network configuration."""
         super().__init__()
         self.name = name
         self.root_dir = Path(root_dir).absolute()
@@ -279,18 +267,23 @@ class SLEAPBackend(Pose2dBackend):
         self.crops = crops
         self.skeleton = skeleton or []
         self.scorer = scorer or f"SLEAP_{name}"
-        self.dlc_project_path = Path(dlc_project_path).resolve() \
-            if dlc_project_path else None
+        # SLEAP-NN receives the backend-local path on its CLI; synchronize that
+        # required working copy with the discoverable project-root YAML.
+        self.canonical_config_path = (Path(canonical_config_path).absolute()
+                                      if canonical_config_path else None)
+        self.source_project_path = Path(source_project_path).resolve() \
+            if source_project_path else None
+        self.source_format = source_format
         self._selected_checkpoint: Optional[Path] = None
         if not self.config_path.is_file():
             create_sleap_training_config(
                 self.project_path, self.name,
                 [keypoint.label for keypoint in self.keypoints],
             )
+        self._pull_canonical_config(self.config_path)
+        self._push_canonical_config(self.config_path)
         if not self.labels_path.is_file():
-            records = _dlc_records(
-                self.dlc_project_path, [keypoint.label for keypoint in self.keypoints]
-            ) if self.dlc_project_path else {}
+            records = self._source_records()
             create_sleap_labels(
                 records, self.labels_path,
                 [keypoint.label for keypoint in self.keypoints], self.skeleton,
@@ -316,20 +309,63 @@ class SLEAPBackend(Pose2dBackend):
         """Importing arbitrary SLEAP projects is deferred until format stabilization."""
         raise NotImplementedError("Importing an existing SLEAP model is not implemented yet.")
 
-    def import_c3d_labels(self, videos: Dict[str, Path]):
-        """Merge optional DLC seed labels with current Cheese3D annotations."""
+    def _source_records(self) -> dict:
+        """Read the optional foreign (DLC/Lightning Pose/SLEAP) seed source."""
+        if self.source_project_path is None:
+            return {}
         names = [keypoint.label for keypoint in self.keypoints]
-        records = _dlc_records(self.dlc_project_path, names) \
-            if self.dlc_project_path else {}
+        return read_foreign_records(self.source_format, self.source_project_path, names)
+
+    def import_c3d_labels(self, videos: Dict[str, Path]):
+        """Merge optional foreign seed labels with current Cheese3D annotations."""
+        names = [keypoint.label for keypoint in self.keypoints]
+        records = self._source_records()
         records.update(_annotation_records(videos, names))
         count = create_sleap_labels(records, self.labels_path, names, self.skeleton)
         print(f"SLEAP label package contains {count} single-instance images.")
 
     def export_c3d_labels(self, videos: Dict[str, Path]):
-        """Keep Cheese3D annotations authoritative during initial SLEAP support."""
-        # SLEAP's native correction GUI is not invoked by Cheese3D yet, so there
-        # are no backend-side user labels to copy back at this stage.
-        return None
+        """Export SLEAP's labels.slp back into Cheese3D annotation folders."""
+        import sleap_io as sio
+
+        if not self.labels_path.is_file():
+            return
+        labels = sio.load_slp(str(self.labels_path), open_videos=False)
+        keypoint_names = [node.name for node in labels.skeletons[0].nodes]
+        # `create_sleap_labels` groups images by their source folder name, one
+        # sio.Video per folder; recover that same grouping here so labels round
+        # trip back to the Cheese3D annotation folder they came from, regardless
+        # of whether they originated from a DLC seed or Cheese3D's own labeler.
+        by_folder: Dict[str, List[tuple]] = {}
+        for labeled_frame in labels:
+            if not labeled_frame.instances:
+                continue
+            image_path = Path(labeled_frame.video.filename[labeled_frame.frame_idx])
+            by_folder.setdefault(image_path.parent.name, []).append(
+                (image_path, labeled_frame.instances[0])
+            )
+
+        for name, label_path in videos.items():
+            rows = by_folder.get(name)
+            if not rows:
+                continue
+            label_path = Path(label_path)
+            label_path.mkdir(parents=True, exist_ok=True)
+            annotations = {keypoint: {} for keypoint in keypoint_names}
+            for image_path, instance in rows:
+                image_name = image_path.name
+                destination_image = label_path / image_name
+                if image_path.is_file() and not destination_image.exists():
+                    shutil.copy2(image_path, destination_image)
+                points = instance.numpy()
+                for index, keypoint in enumerate(keypoint_names):
+                    x, y = points[index]
+                    annotations[keypoint][image_name] = [[
+                        None if np.isnan(x) else float(x),
+                        None if np.isnan(y) else float(y),
+                    ]]
+            with (label_path / "annotations.yaml").open("w") as stream:
+                yaml.safe_dump(annotations, stream, sort_keys=True)
 
     def extract_frames(self, videos: Optional[List[Path]] = None):
         """Use Cheese3D's existing manual frame picker for SLEAP projects."""
@@ -341,6 +377,9 @@ class SLEAPBackend(Pose2dBackend):
         from omegaconf import OmegaConf
 
         settings = training_settings or {}
+        # Reload root edits at the last responsible moment before SLEAP-NN
+        # validates and launches its native training configuration.
+        self._pull_canonical_config(self.config_path)
         cfg = OmegaConf.load(self.config_path)
         backbone = str(settings.get("backbone", "unet_medium_rf"))
         _set_sleap_backbone(cfg, backbone)
@@ -380,10 +419,12 @@ class SLEAPBackend(Pose2dBackend):
         trainer.trainer_device_indices = gpu_ids or None
         trainer.trainer_strategy = "ddp" if len(gpu_ids) > 1 else "auto"
         OmegaConf.save(cfg, self.config_path)
+        self._push_canonical_config(self.config_path)
         print(f"SLEAP training backbone: {backbone}")
         print(f"SLEAP training settings: {settings}")
         command = [sys.executable, "-m", "sleap_nn.cli", "train", str(self.config_path)]
         subprocess.run(command, cwd=self.project_path, check=True)
+        self._push_canonical_config(self.config_path)
 
     def list_checkpoints(self) -> List[dict]:
         """Return SLEAP checkpoints with callback validation metrics when present."""

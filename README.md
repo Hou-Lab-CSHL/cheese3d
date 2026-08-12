@@ -78,15 +78,21 @@ one-animal-per-camera workflow. The Training tab exposes UNet, ConvNeXt, and
 SwinT backbones; epoch/step controls; validation split; Adam/AdamW; checkpoint
 retention; early stopping; augmentation; and multi-GPU DDP settings.
 
-To initialize SLEAP from compatible DLC labels, add the DLC project directory:
+To initialize SLEAP from an existing DLC, Lightning Pose, or SLEAP project's
+labeled data, add the source project directory and its format:
 
 ```yaml
 model:
   name: cheese3d_sleap_model
   backend_type: sleap
   backend_options:
-    dlc_project_path: /absolute/path/to/dlc/project
+    source_project_path: /absolute/path/to/source/project
+    source_format: dlc  # or lightning_pose, sleap
 ```
+
+The same `source_project_path`/`source_format` options work for any active
+backend (`dlc`, `lightning_pose`, `sleap`), so any Pixi environment can seed a
+new project from a DLC, Lightning Pose, or SLEAP source's labeled frames.
 
 SLEAP training produces selectable checkpoints and inference writes the same
 DLC-compatible per-camera HDF5 pose files consumed by Cheese3D triangulation.

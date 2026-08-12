@@ -4,13 +4,17 @@ from pathlib import Path
 from contextlib import contextmanager, redirect_stdout, redirect_stderr
 from threading import Timer
 import errno
+import faulthandler
+import fcntl
 import os
 import json
 import re
 import signal
 import shlex
+import struct
 import subprocess
 import sys
+import termios
 import traceback
 import webbrowser
 from textual import work, on
@@ -20,7 +24,8 @@ from textual.message import Message
 from textual.screen import Screen, ModalScreen
 from textual_serve.server import Server
 from textual.reactive import reactive
-from textual.containers import (Horizontal,
+from textual.containers import (Center,
+                                Horizontal,
                                 HorizontalGroup,
                                 HorizontalScroll,
                                 Vertical,
@@ -41,14 +46,17 @@ from textual.widgets import (Checkbox,
                              RichLog,
                              SelectionList,
                              OptionList)
+from textual.worker import get_current_worker
 from textual_fspicker import SelectDirectory
 from textual_fspicker.parts import DirectoryNavigation
+from textual_fspicker.parts.directory_navigation import DirectoryEntry
 
 from cheese3d.config import _DEFAULT_VIDEO_REGEX
-from cheese3d.utils import maybe, reglob
+from cheese3d.utils import maybe, reglob, dlc_folder_to_components
 from cheese3d.project import Ch3DProject, RecordingKey
 from cheese3d.config import ProjectConfig, ModelConfig
 from cheese3d.backends.dlc import DLC3_PYTORCH_MODELS
+from cheese3d.backends.core import active_pose_backend
 
 # Keep this dependency-free list aligned with Lightning Pose 2.2 so the GUI can
 # open in DLC-only environments without importing torch or Lightning Pose.
@@ -78,6 +86,36 @@ def _training_command(project_path: str | Path, gpu: str = "0",
     if settings:
         command.extend(["--training-settings", json.dumps(settings)])
     return command
+
+
+def _persist_visualization_threshold(project_path: str | Path,
+                                     probability_threshold: float) -> None:
+    """Save the GUI's keypoint-probability threshold into the project config."""
+    config_path = Path(project_path) / "config.yaml"
+    config = OmegaConf.load(config_path)
+    # Projects saved before 'visualization' existed as a ProjectConfig field have
+    # no 'visualization:' section on disk; a plain attribute assignment on this
+    # schema-less loaded config raises ConfigAttributeError instead of creating
+    # the missing section, so update with merge=True to auto-create it.
+    OmegaConf.update(config, "visualization.keypoint_probability_threshold",
+                     probability_threshold, merge=True)
+    OmegaConf.save(config, config_path)
+
+
+def _open_sized_pty(rows: int = 24, columns: int = 120) -> Tuple[int, int]:
+    """Open a PTY pair with a real (non-zero) window size.
+
+    os.openpty() leaves the window size at 0x0. Lightning's TQDMProgressBar
+    (and rich-based bars) silently disable their live progress rendering when
+    the terminal size can't be determined -- unlike an ordinary non-tty pipe,
+    which falls back to printing full progress records instead of nothing at
+    all. A real window size restores the same live epoch bar a directly
+    launched training run would show.
+    """
+    master_fd, slave_fd = os.openpty()
+    winsize = struct.pack("HHHH", rows, columns, 0, 0)
+    fcntl.ioctl(slave_fd, termios.TIOCSWINSZ, winsize)
+    return master_fd, slave_fd
 
 
 def _interrupt_training_process(process: subprocess.Popen) -> None:
@@ -173,6 +211,58 @@ def _build_lp_dlc_augmentation_config(values: dict) -> dict:
             "kwargs": {"percent": [-crop, crop], "keep_size": False},
         },
     }
+
+
+class _FastDirectoryNavigation(DirectoryNavigation):
+    """DirectoryNavigation that avoids a redundant stat() per listed entry.
+
+    Upstream's ``_load`` calls the library's safe ``Path.is_dir()`` wrapper
+    (a fresh, uncached stat syscall) on every entry just to filter files out,
+    even though Cheese3D's pickers only ever display directories. Navigating
+    into any folder with many files (labeled-data image folders routinely
+    hold thousands) pays one uncached stat per file just to discard it --
+    this is the actual source of picker lag, not Textual's rendering.
+    ``os.scandir`` reuses the directory-entry type the OS's own readdir
+    syscall already returned, avoiding that extra stat in the common case.
+    """
+
+    @work(exclusive=True, thread=True)
+    def _load(self) -> None:
+        self._entries = []
+        worker = get_current_worker()
+        styles = self._styles
+        try:
+            with os.scandir(self._location) as scan:
+                for entry in scan:
+                    try:
+                        keep = entry.is_dir() or (entry.is_file() and self.show_files)
+                    except OSError:
+                        keep = False
+                    if keep:
+                        self._entries.append(
+                            DirectoryEntry(self._location / entry.name, styles)
+                        )
+                    if worker.is_cancelled:
+                        return
+        except PermissionError:
+            self.post_message(self.PermissionError(self, self._location))
+        self.app.call_from_thread(self._repopulate_display)
+
+
+def _install_fast_directory_navigation() -> None:
+    """Swap the picker's DirectoryNavigation for the faster subclass above.
+
+    textual_fspicker's FileSystemPickerScreen.compose() instantiates
+    DirectoryNavigation by name from its own module's namespace, so this
+    replaces that module-level reference rather than editing any installed
+    package file; every SelectDirectory-based picker created afterward
+    (including Cheese3D's own _Cheese3DDirectoryPicker subclass) picks it up.
+    """
+    import textual_fspicker.base_dialog as _base_dialog
+    _base_dialog.DirectoryNavigation = _FastDirectoryNavigation
+
+
+_install_fast_directory_navigation()
 
 
 class _Cheese3DDirectoryPicker(SelectDirectory):
@@ -292,8 +382,14 @@ class TextualStdout(RichLog):
     def write(self, text: str) -> int:
         # Handle carriage return (progress bar updates)
         if "\r" in text and not text.endswith("\n"):
-            # Extract the progress line (last part after \r)
-            progress_text = text.split("\r")[-1].strip()
+            # Extract the current frame: whatever follows the last \r, or --
+            # when the \r is the trailing character, as _TrainingProgressOutput
+            # always sends one complete record per write -- whatever precedes
+            # it. The old text.split("\r")[-1] alone always evaluated to ""
+            # for a trailing \r, silently dropping every subprocess-relayed
+            # progress update instead of showing/updating it.
+            before, _, after = text.rpartition("\r")
+            progress_text = (after or before).strip()
             if progress_text:
                 if self.last_was_progress:
                     # Update last line by clearing and rewriting
@@ -627,9 +723,25 @@ class ProjectWizard(VerticalGroup):
 
     def on_mount(self) -> None:
         self.border_title = "project info"
+        # self.app (and thus the launch --path) is only reliably resolvable
+        # once this widget is mounted, but compose() -- which runs first --
+        # already needs self.location to exist to yield it; only the default
+        # value is set here, not the widget itself.
+        self.location.value = str(getattr(self.app, "start_directory", Path.home()))
 
     def compose(self) -> ComposeResult:
         yield LabeledInput(label="project name", id="project_name", placeholder="Project name")
+        # Former behavior always created the project under the served process's
+        # working directory, which the GUI never surfaced or let users change.
+        # Default to the launch --path so existing behavior is unsurprising,
+        # while "Choose path" still lets a different location be selected.
+        # Typing the path directly is also supported -- "Choose path" is a
+        # convenience for browsing, not the only way to set a location.
+        self.location = LabeledInput(label="location", id="project_location",
+                                     value=str(Path.home()),
+                                     placeholder="Directory to create the project under")
+        yield self.location
+        yield Button("Choose path", id="choose_project_location")
         yield LabeledInput(label="video dir", id="video_dir", value="videos", placeholder="Video recordings sub-directory")
         yield LabeledInput(label="fps", id="fps", value="100", type="integer", placeholder="Frames per second")
         yield RegexInput(label="video regex",
@@ -637,16 +749,27 @@ class ProjectWizard(VerticalGroup):
                          required=["type", "view"],
                          **{k: v for k, v in _DEFAULT_VIDEO_REGEX.items() if k != "_path_"})
 
+    @on(Button.Pressed, "#choose_project_location")
+    @work
+    async def select_location(self, event: Button.Pressed) -> None:
+        location = await self.app.push_screen_wait(
+            _directory_picker("Select where to create the project", location=self.location.value)
+        )
+        if location is not None:
+            self.location.value = str(location.absolute())
+            self.set_labels_ready()
+
     @on(RegexInput.Ready)
     def set_regex_ready(self, msg: RegexInput.Ready) -> None:
         self.regex_ready = msg.ready
 
-    @on(LabeledInput.Changed, "#project_name, #video_dir, #fps")
+    @on(LabeledInput.Changed, "#project_name, #project_location, #video_dir, #fps")
     def set_labels_ready(self) -> None:
         name = maybe(self.query_one("#project_name").value, "")
+        location = maybe(self.location.value, "")
         video_dir = maybe(self.query_one("#video_dir").value, "")
         fps = maybe(self.query_one("#fps").value, "")
-        self.labels_ready = (name != "") and (video_dir != "") and (fps != "")
+        self.labels_ready = (name != "") and (location != "") and (video_dir != "") and (fps != "")
 
     def check_ready(self):
         self.post_message(ProjectWizard.Ready(self.regex_ready and self.labels_ready))
@@ -660,6 +783,7 @@ class ProjectWizard(VerticalGroup):
     def get_config(self):
         return {
             "name": self.query_one("#project_name").value,
+            "root": self.location.value,
             "video_root": self.query_one("#video_dir").value,
             "fps": int(self.query_one("#fps").value),
             "video_regex": self.query_one("RegexInput").get_regex()
@@ -877,10 +1001,25 @@ class ModelWizard(Horizontal):
         yield LabeledInput(label="model dir", value="model", placeholder="Model and label sub-directory")
         yield Select.from_values(("create", "import"), allow_blank=False,
                                  value="create", id="model_mode")
-        # The selected backend must match the Pixi environment used to launch
-        # Cheese3D; keeping it in project YAML makes backend choice explicit.
-        yield Select.from_values(("dlc", "lightning_pose", "sleap"),
-                                 allow_blank=False, value="dlc", id="model_backend")
+        # The active backend must match the Pixi environment used to launch
+        # Cheese3D, so it is locked to whatever pose package is actually
+        # installed here rather than being a free-form choice. Former
+        # behavior let this dropdown pick both "which backend to build" and
+        # "what format the imported source is", so choosing "dlc" to mean
+        # the latter while running lp/lp-cu13/sleap actually tried to build a
+        # DLCBackend, crashing with ModuleNotFoundError: No module named
+        # 'deeplabcut'. The two concerns are now independent: this selector
+        # is purely informational, and model_source_format (below) answers
+        # "what format is the source project" only in import mode.
+        active_backend = active_pose_backend() or "dlc"
+        yield Select.from_values((active_backend,), allow_blank=False,
+                                 value=active_backend, id="model_backend",
+                                 disabled=True)
+        self.source_format = Select.from_values(
+            ("dlc", "lightning_pose", "sleap"), allow_blank=False,
+            value="dlc", id="model_source_format", disabled=True,
+        )
+        yield self.source_format
         self.name_or_path = LabeledInput(label="model name", id="name_or_path", placeholder="Name of your model")
         yield self.name_or_path
         self.choose_path = Button("Choose path", disabled=True)
@@ -900,8 +1039,7 @@ class ModelWizard(Horizontal):
         self.name_or_path.value = model_path
 
     @on(Select.Changed)
-    @work
-    async def select_mode(self, event: Select.Changed) -> None:
+    def select_mode(self, event: Select.Changed) -> None:
         if event.select.id != "model_mode":
             return
         if event.select.value == "create":
@@ -910,20 +1048,19 @@ class ModelWizard(Horizontal):
             self.name_or_path.value = ""
             self.name_or_path.disabled = False
             self.choose_path.disabled = True
+            self.source_format.disabled = True
         elif event.select.value == "import":
-            # Use the same unrestricted browser when import mode is selected.
-            model_path = await self.app.push_screen_wait(
-                _directory_picker("Select model directory")
-            )
-            if model_path is None:
-                model_path = ""
-            else:
-                model_path = str(model_path.absolute())
+            # Former behavior force-opened the directory picker the instant
+            # this mode was selected, before the user could type anything --
+            # typing the path directly is also supported now, so switching
+            # modes just enables the field; "Choose path" remains available
+            # for browsing.
             self.name_or_path.label = "model path"
-            self.name_or_path.placeholder = "Click 'Choose path' to fill in model path"
-            self.name_or_path.value = model_path
-            self.name_or_path.disabled = True
+            self.name_or_path.placeholder = ("Path to an existing DLC/Lightning Pose/SLEAP "
+                                             "project, or click 'Choose path'")
+            self.name_or_path.disabled = False
             self.choose_path.disabled = False
+            self.source_format.disabled = False
 
     @on(LabeledInput.Changed)
     def check_ready(self):
@@ -931,23 +1068,52 @@ class ModelWizard(Horizontal):
         self.post_message(ModelWizard.Ready(ready))
 
     def get_config(self):
+        backend_type = str(self.query_one("#model_backend", Select).value)
         if self.query_one("#model_mode", Select).value == "create":
             return {
                 "name": self.name_or_path.value,
-                "backend_type": str(self.query_one("#model_backend", Select).value),
+                "backend_type": backend_type,
             }
         else:
             return {
-                "path": self.name_or_path.value
+                "path": self.name_or_path.value,
+                "backend_type": backend_type,
+                # Independent of backend_type: which framework the source
+                # project at `path` is actually formatted as. Any active
+                # backend can import a DLC, Lightning Pose, or SLEAP source.
+                "source_format": str(self.query_one("#model_source_format", Select).value),
             }
 
 class StartMenu(Screen):
+    def on_mount(self) -> None:
+        # self.app (and thus the launch --path) is only reliably resolvable
+        # once this widget is mounted, but compose() -- which runs first --
+        # already needs load_path to exist to yield it; see ProjectWizard for
+        # the same ordering constraint.
+        self.load_path.value = str(getattr(self.app, "start_directory", Path.home()))
+
     def compose(self) -> ComposeResult:
         """Create child widgets for the app."""
         yield Header()
-        with Horizontal():
-            yield Button("Create new project", id="create_project", variant="primary")
-            yield Button("Load existing project", id="load_project", variant="primary")
+        with Vertical():
+            # A Vertical's align:center shares one left edge across all direct
+            # children rather than centering each independently, so each row
+            # is wrapped in its own Center to keep both blocks on the same
+            # true center line regardless of their individual widths.
+            with Center():
+                yield Button("Create new project", id="create_project", variant="primary")
+            with Center():
+                with Horizontal():
+                    # Typing the path directly is also supported -- "Browse" is
+                    # a convenience, not the only way to open an existing project.
+                    self.load_path = LabeledInput(
+                        label="existing project path", id="load_project_path",
+                        value=str(Path.home()),
+                        placeholder="Path to an existing Cheese3D project",
+                    )
+                    yield self.load_path
+                    yield Button("Browse", id="browse_load_path")
+                    yield Button("Load existing project", id="load_project", variant="primary")
         yield Footer()
 
     @on(Button.Pressed, "#create_project")
@@ -957,19 +1123,27 @@ class StartMenu(Screen):
         if project_path is not None:
             self.app.push_screen(MainScreen(project_path))
 
-    @on(Button.Pressed, "#load_project")
+    @on(Button.Pressed, "#browse_load_path")
     @work
-    async def load_project(self):
+    async def browse_load_path(self, event: Button.Pressed) -> None:
         # Use the directory propagated through the web-server child rather than
         # whichever CWD Textual Serve happened to inherit for this connection.
         project_path = await self.app.push_screen_wait(
-            _directory_picker(
-                "Select Cheese3D project",
-                location=getattr(self.app, "start_directory", Path.home()),
-            )
+            _directory_picker("Select Cheese3D project", location=self.load_path.value)
         )
         if project_path is not None:
+            self.load_path.value = str(project_path.absolute())
+
+    @on(Button.Pressed, "#load_project")
+    def load_project(self):
+        project_path = Path(self.load_path.value)
+        if (project_path / "config.yaml").is_file():
             self.app.push_screen(MainScreen(project_path))
+        else:
+            self.app.push_screen(DialogBox(
+                f"'{project_path}' does not look like a Cheese3D project "
+                "(no config.yaml found there)."
+            ))
 
 class CreateWizardLoading(ModalScreen):
     def __init__(self, project_config, ephys_config, model_config, *args, **kwargs):
@@ -982,10 +1156,16 @@ class CreateWizardLoading(ModalScreen):
         config = self.project_config
         ephys_config = self.ephys_config
         model_config = self.model_config
+        # The GUI's project-location picker replaces the former hardcoded "."
+        # (the served process's working directory), which was never surfaced
+        # or selectable, so a new project always landed wherever the server
+        # happened to be launched from.
+        root = Path(config["root"])
+        project_path = root / config["name"]
         # create the project
-        Ch3DProject.initialize(config["name"], root=".")
+        Ch3DProject.initialize(config["name"], root=root)
         # read in config to overwrite
-        yaml_config = ProjectConfig.load(Path(".") / config["name"] / "config.yaml")
+        yaml_config = ProjectConfig.load(project_path / "config.yaml")
         # overwrite project parameters
         yaml_config.video_root = config["video_root"]
         yaml_config.fps = config["fps"]
@@ -1002,32 +1182,95 @@ class CreateWizardLoading(ModalScreen):
                 backend_type=model_config.get("backend_type", "dlc"),
             )
         # write yaml
-        with Path(".") / config["name"] / "config.yaml" as f:
+        with project_path / "config.yaml" as f:
             OmegaConf.save(yaml_config, f)
         # import model if needed
         if "path" in model_config:
-            project = Ch3DProject.from_path(Path(".") / config["name"],
-                                            model_import=model_config["path"])
-            project._export_labels()
-            yaml_config.model.name = project.model.name
-            yaml_config.model.backend_options = {
-                "experimenter": project.model.experimenter,
-                "date": project.model.date
-            }
-            with Path(".") / config["name"] / "config.yaml" as f:
+            backend_type = model_config.get("backend_type", "dlc")
+            source_format = model_config.get("source_format", "dlc")
+            if backend_type == "dlc" and source_format == "dlc":
+                # Both source and target are DLC: open the project directly,
+                # nothing to seed.
+                project = Ch3DProject.from_path(project_path,
+                                                model_import=model_config["path"])
+                project._export_labels()
+                yaml_config.model.name = project.model.name
+                yaml_config.model.backend_options = {
+                    "experimenter": project.model.experimenter,
+                    "date": project.model.date
+                }
+            else:
+                # Any other combination -- a non-DLC target, or a DLC target
+                # seeded from a non-DLC source -- seeds the active backend's
+                # native labels from the generic record readers/writers
+                # instead of forcing a DLCBackend construction, which would
+                # require deeplabcut even when the active Pixi environment
+                # only has lightning_pose/sleap.
+                if source_format == "dlc":
+                    name, *_ = dlc_folder_to_components(model_config["path"])
+                else:
+                    # Lightning Pose/SLEAP source projects have no DLC-style
+                    # "name-experimenter-date" folder naming to parse.
+                    name = Path(model_config["path"]).name
+                yaml_config.model = ModelConfig(
+                    name, backend_type=backend_type,
+                    backend_options={
+                        "source_project_path": model_config["path"],
+                        "source_format": source_format,
+                    },
+                )
+                # build_model_backend reads backend_type/backend_options back
+                # from disk, so the seeded config must be saved before this.
+                with project_path / "config.yaml" as f:
+                    OmegaConf.save(yaml_config, f)
+                project = Ch3DProject.from_path(project_path)
+                project._export_labels()
+                return
+            with project_path / "config.yaml" as f:
                 OmegaConf.save(yaml_config, f)
 
     def on_show(self) -> None:
-        self.create_config()
+        # Former behavior let any failure here (e.g. a mismatched pose backend
+        # needing a package this Pixi environment doesn't have) propagate as
+        # an unhandled exception, crashing the whole app instead of returning
+        # to the start menu with an explanation.
+        self._failed = False
+        try:
+            self.create_config()
+        except Exception as error:
+            self._failed = True
+            hint = ""
+            for package, backend, env in (
+                ("deeplabcut", "dlc", "dlc"),
+                ("lightning_pose", "lightning_pose", "lp"),
+                ("sleap", "sleap", "sleap"),
+            ):
+                if package in str(error):
+                    hint = (
+                        f"\n\nThe '{backend}' backend needs the matching Pixi "
+                        f"environment ('pixi run -e {env} ...'). Either "
+                        "relaunch Cheese3D there, or pick a different model "
+                        "backend above."
+                    )
+                    break
+            msg = self.query_one("#msg")
+            msg.update(f"[bold red]Failed to create project:[/bold red] {error}{hint}")
+            self.query_one("#loading").remove()
+            self.query_one("#modal").mount(Horizontal(Button("Back", id="done", variant="error")))
+            return
         # close screen
+        project_path = Path(self.project_config["root"]) / self.project_config["name"]
         msg = self.query_one("#msg")
-        msg.update(f"[bold]Created new project at: {Path('.') / self.project_config['name']}[/bold]")
+        msg.update(f"[bold]Created new project at: {project_path}[/bold]")
         self.query_one("#loading").remove()
         self.query_one("#modal").mount(Horizontal(Button("Done", id="done", variant="success")))
 
     @on(Button.Pressed, "#done")
     def close(self):
-        self.dismiss(Path(".") / self.project_config["name"])
+        if self._failed:
+            self.dismiss(None)
+        else:
+            self.dismiss(Path(self.project_config["root"]) / self.project_config["name"])
 
     def compose(self) -> ComposeResult:
         with Vertical(id="modal"):
@@ -1382,10 +1625,32 @@ class MainScreen(Screen):
         )
 
     def _complete_visualization_ui(self, message: str) -> None:
-        """Restore and repaint the browser after the external viewer closes."""
+        """Restore and repaint the browser after a visualize-tab worker finishes.
+
+        Shared by both Napari closing and generate_videos() completing: a long
+        worker-thread turn can leave a Textual Serve client's page stale even
+        though Python-side state (including a freshly pushed dialog) is
+        already correct, so the same forced multi-level repaint is needed
+        regardless of which visualize-tab operation just finished.
+        """
         self._enable_visualize_done()
-        # Reuse the full tab/screen/application repaint because Napari blocks the
-        # Textual event loop while its independent window is open.
+        self._refresh_after_inference()
+        self.app.push_screen(
+            DialogBox(message, button_text="Done — refresh GUI"),
+            callback=self._refresh_after_inference,
+        )
+
+    def _complete_training_ui(self, message: str) -> None:
+        """Repaint and present the completion dialog after training finishes.
+
+        train_model() already resets its own button state (_set_training_controls)
+        before this runs, since the stop button needs to stay reachable earlier
+        in the same finally block; this only needs the same forced repaint the
+        other long-running operations require -- training is typically the
+        longest-running operation of all, and formerly pushed its completion
+        dialog directly without it, leaving Textual Serve clients on a stale
+        page with no way to recover except restarting the whole GUI.
+        """
         self._refresh_after_inference()
         self.app.push_screen(
             DialogBox(message, button_text="Done — refresh GUI"),
@@ -1641,7 +1906,12 @@ class MainScreen(Screen):
                             with HorizontalGroup(id="visualize_buttons"):
                                 yield Button("Visualize (interactive)", id="visualize")
                                 yield Button("Generate videos", id="generate_videos")
-                        default_video_workers = str(max(1, (os.cpu_count() or 1) - 2))
+                        # Half the machine's cores/threads by default -- using
+                        # nearly all of them (formerly -2) starved the GUI's own
+                        # event-loop/websocket thread badly enough during heavy
+                        # multi-camera FFmpeg rendering that the browser's
+                        # connection silently dropped and never recovered.
+                        default_video_workers = str(max(1, (os.cpu_count() or 1) // 2))
                         yield TrainingInput("Video generation CPU core budget",
                                             "video_generation_workers",
                                             default_video_workers, "integer")
@@ -1791,7 +2061,11 @@ class MainScreen(Screen):
             # launched directly from a terminal while Cheese3D can still mirror
             # every update into both the GUI log and the launching terminal.
             if os.name == "posix":
-                master_fd, slave_fd = os.openpty()
+                # A real window size is required too: os.openpty() alone still
+                # leaves the progress bar invisible (see _open_sized_pty).
+                child_environment.setdefault("COLUMNS", "120")
+                child_environment.setdefault("LINES", "24")
+                master_fd, slave_fd = _open_sized_pty()
                 try:
                     self._training_process = subprocess.Popen(
                         command, stdout=slave_fd, stderr=slave_fd,
@@ -1852,7 +2126,7 @@ class MainScreen(Screen):
             message = "Model training completed!"
         else:
             message = f"Model training failed (exit code {return_code}); see terminal output."
-        self.app.call_from_thread(self.app.push_screen, DialogBox(message))
+        self.app.call_from_thread(self._complete_training_ui, message)
 
     @on(Button.Pressed, "#stop_train")
     def stop_training(self) -> None:
@@ -1881,13 +2155,21 @@ class MainScreen(Screen):
     @on(Button.Pressed, "#calibrate")
     @work(thread=True)
     def calibrate(self):
-        self._disable_pose_in_progress()
-        log = self.query_one("#pose_log")
-        log.clear() # type: ignore
-        with _pipeline_output(log):
-            self.project.calibrate()
-        self._enable_pose_done()
-        self.app.call_from_thread(self.app.push_screen, DialogBox("Camera calibration completed!"))
+        """Run calibration off-thread while all widget changes stay on Textual's UI thread."""
+        self.app.call_from_thread(self._disable_pose_in_progress)
+        log = self.app.call_from_thread(self.query_one, "#pose_log")
+        self.app.call_from_thread(log.clear)  # type: ignore
+        try:
+            with _pipeline_output(log):
+                self.project.calibrate()
+        except Exception as error:
+            with _pipeline_output(log):
+                traceback.print_exc()
+            message = f"Camera calibration failed: {error}"
+        else:
+            message = "Camera calibration completed!"
+        finally:
+            self.app.call_from_thread(self._complete_inference_ui, message)
 
     @on(Button.Pressed, "#track")
     @work(thread=True)
@@ -1920,13 +2202,21 @@ class MainScreen(Screen):
     @on(Button.Pressed, "#triangulate")
     @work(thread=True)
     def triangulate(self):
-        self._disable_pose_in_progress()
-        log = self.query_one("#pose_log")
-        log.clear() # type: ignore
-        with _pipeline_output(log):
-            self.project.triangulate()
-        self._enable_pose_done()
-        self.app.call_from_thread(self.app.push_screen, DialogBox("3D triangulation completed!"))
+        """Run triangulation off-thread while all widget changes stay on Textual's UI thread."""
+        self.app.call_from_thread(self._disable_pose_in_progress)
+        log = self.app.call_from_thread(self.query_one, "#pose_log")
+        self.app.call_from_thread(log.clear)  # type: ignore
+        try:
+            with _pipeline_output(log):
+                self.project.triangulate()
+        except Exception as error:
+            with _pipeline_output(log):
+                traceback.print_exc()
+            message = f"3D triangulation failed: {error}"
+        else:
+            message = "3D triangulation completed!"
+        finally:
+            self.app.call_from_thread(self._complete_inference_ui, message)
 
     @on(Button.Pressed, "#generate_videos")
     @work(thread=True)
@@ -1953,9 +2243,7 @@ class MainScreen(Screen):
                 # Persist the GUI choice so CLI generation and future sessions
                 # use the same cutoff instead of reverting to the old default.
                 self.project.visualization.keypoint_probability_threshold = probability_threshold
-                config = OmegaConf.load(self.project.path / "config.yaml")
-                config.visualization.keypoint_probability_threshold = probability_threshold
-                OmegaConf.save(config, self.project.path / "config.yaml")
+                _persist_visualization_threshold(self.project.path, probability_threshold)
                 completed = self.project.generate_videos(
                     max_workers=max_workers,
                     probability_threshold=probability_threshold,
@@ -1963,19 +2251,18 @@ class MainScreen(Screen):
         except Exception as exc:
             with _pipeline_output(log):
                 traceback.print_exc()
-            self.app.call_from_thread(
-                self.app.push_screen,
-                DialogBox(f"Video generation failed: {exc}")
-            )
+            message = f"Video generation failed: {exc}"
         else:
-            self.app.call_from_thread(
-                self.app.push_screen,
-                DialogBox(f"Video generation completed: {completed} output(s) available.")
-            )
+            message = f"Video generation completed: {completed} output(s) available."
         finally:
-            # The former worker-thread widget call could leave the web client
-            # disabled even after every labeled video had been written.
-            self.app.call_from_thread(self._enable_visualize_done)
+            # This formerly pushed its completion dialog directly, without the
+            # same forced multi-level repaint track()/triangulate() already
+            # needed via _complete_visualization_ui: Textual Serve clients can
+            # retain a stale, un-repainted page after a long worker-thread
+            # turn even though Python state (including the pushed dialog) is
+            # already correct -- appearing completely frozen with no way to
+            # recover except restarting the whole GUI.
+            self.app.call_from_thread(self._complete_visualization_ui, message)
 
     @on(Button.Pressed, "#visualize")
     @work
@@ -2034,9 +2321,30 @@ def _open_web_ui(url: str) -> None:
         print(f"Could not open a browser automatically. Open {url} manually.")
 
 
+def _register_freeze_dump_handler() -> Path:
+    """Let `kill -USR1 <pid>` dump every thread's stack, no ptrace required.
+
+    py-spy/gdb need ptrace, which the default Yama LSM policy
+    (ptrace_scope=1) restricts to a process's own direct parent -- useless
+    for attaching to an already-running Cheese3D process from a fresh shell
+    without root. Sending a signal to your own process needs no special
+    permission, and faulthandler.dump_traceback(all_threads=True) shows
+    exactly what py-spy would: every thread's current Python stack,
+    including the asyncio event loop and any @work(thread=True) worker.
+    """
+    log_path = Path.home() / ".cheese3d" / "freeze_dump.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    log_file = open(log_path, "a")
+    faulthandler.register(signal.SIGUSR1, file=log_file, all_threads=True, chain=False)
+    return log_path
+
+
 def run_interative(web_mode=True, open_browser=True,
                    start_directory: Optional[str | Path] = None):
     """Launch Cheese3D while preserving the project root across web processes."""
+    freeze_dump_path = _register_freeze_dump_handler()
+    print(f"If the GUI ever freezes: kill -USR1 <pid> dumps every thread's "
+          f"stack to {freeze_dump_path}")
     start_directory = Path(
         Path.home() if start_directory is None else start_directory
     ).expanduser().resolve()

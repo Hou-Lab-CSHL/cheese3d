@@ -1,9 +1,11 @@
 import subprocess
 
+import numpy as np
 import pandas as pd
 import pytest
 
-from cheese3d.backends.lightning_pose import (is_lightning_pose_video,
+from cheese3d.backends.lightning_pose import (LightningPoseBackend,
+                                               is_lightning_pose_video,
                                                _make_vit_resize_square,
                                                _scale_scheduler_milestones,
                                                _vit_needs_unused_parameter_ddp,
@@ -11,6 +13,67 @@ from cheese3d.backends.lightning_pose import (is_lightning_pose_video,
                                                read_lp_preds,
                                                convert_dlc_labels_to_lightning_pose,
                                                create_lightning_pose_training_config)
+from cheese3d.config import KeypointConfig
+
+
+def test_track_regenerates_predictions_when_a_checkpoint_is_selected(monkeypatch, tmp_path):
+    """Selecting a checkpoint must force fresh predictions, not reuse stale CSVs.
+
+    Without this, re-tracking an already-tracked video after switching
+    checkpoints silently reused whatever prediction CSV was already on disk
+    from a prior (possibly different) checkpoint.
+    """
+    monkeypatch.setattr(
+        "lightning_pose.utils.predictions.predict_video", lambda *a, **k: None
+    )
+    monkeypatch.setattr(
+        "lightning_pose.api.model.load_model_from_checkpoint",
+        lambda **kwargs: object(),
+    )
+
+    class FakeModel:
+        class cfg:
+            class training:
+                test_batch_size = 32
+
+        def __init__(self, preds_dir):
+            self._preds_dir = preds_dir
+            self.model = None
+
+        def video_preds_dir(self):
+            return self._preds_dir
+
+        def predict_on_video_file(self, video, **kwargs):
+            calls.append(video)
+
+    calls = []
+    preds_dir = tmp_path / "video_preds"
+    preds_dir.mkdir()
+    video = tmp_path / "video.mp4"
+    video.touch()
+    # A stale prediction CSV from an earlier (different) checkpoint already exists.
+    (preds_dir / "video.csv").write_text(
+        "scorer,,\nbodyparts,nose,nose\ncoords,x,y\nimage,1.0,2.0\n"
+    )
+
+    backend = LightningPoseBackend.__new__(LightningPoseBackend)
+    backend.root_dir = tmp_path
+    backend.model = FakeModel(preds_dir)
+    backend.scorer = "tester"
+    backend._selected_checkpoint = tmp_path / "checkpoint.ckpt"
+
+    monkeypatch.setattr(
+        "cheese3d.backends.lightning_pose.preprocess_lightning_pose_video",
+        lambda video, output_dir: video,
+    )
+    monkeypatch.setattr(
+        "cheese3d.backends.lightning_pose.lp_csv_to_dlc_h5",
+        lambda *a, **k: None,
+    )
+
+    backend.track({"view": video}, tmp_path / "output")
+
+    assert calls == [video], "predict_on_video_file must run despite an existing stale CSV"
 
 
 def test_lightning_pose_milestones_follow_gui_epoch_limit():
@@ -137,3 +200,39 @@ def test_dlc_labels_convert_to_portable_lightning_pose_data(tmp_path):
     assert "image" not in converted.index
     assert all((summary["data_dir"] / path).is_file() for path in converted.index)
     assert config_path.is_file()
+
+
+def test_lp_imports_labeled_data_from_a_sleap_source(tmp_path):
+    """A non-DLC source (SLEAP) must seed a real LP CollectedData.csv.
+
+    Previously only dlc_project_path (a DLC-specific option) could seed a new
+    LP project, so any other source format was unsupported.
+    """
+    sleap_io = pytest.importorskip("sleap_io")
+    from PIL import Image
+    from cheese3d.backends.sleap import create_sleap_labels
+
+    image = tmp_path / "camera" / "frame.png"
+    image.parent.mkdir()
+    Image.fromarray(np.zeros((24, 32), dtype=np.uint8)).save(image)
+    records = {("camera", "frame.png"): (image, [[4.0, 5.0]])}
+    sleap_project = tmp_path / "sleap-source"
+    create_sleap_labels(records, sleap_project / "labels.slp", ["nose"], [])
+
+    backend = LightningPoseBackend.__new__(LightningPoseBackend)
+    backend.root_dir = tmp_path / "lp"
+    backend.name = "model"
+    backend.keypoints = [KeypointConfig(label="nose")]
+    backend.source_project_path = sleap_project
+    backend.source_format = "sleap"
+    backend.project_path.mkdir(parents=True)
+
+    summary = backend._import_source_project()
+
+    assert summary["num_frames"] == 1
+    csv_path = backend.project_path / "data" / "CollectedData.csv"
+    assert csv_path.is_file()
+    table = pd.read_csv(csv_path, header=[0, 1, 2], index_col=0)
+    assert table.iloc[0][("lightning_pose", "nose", "x")] == 4.0
+    destination = backend.project_path / "data" / "labeled-data" / "camera" / "frame.png"
+    assert destination.is_file()

@@ -14,8 +14,9 @@ from typing import Optional, List, Dict
 from omegaconf import OmegaConf
 
 from cheese3d.backends.core import (Pose2dBackend, register_pose_backend,
-                                    partition_videos_by_gpu, monitor_camera_progress,
-                                    shutdown_completed_process_pool)
+                                    isolate_worker_output, partition_videos_by_gpu,
+                                    monitor_camera_progress, read_foreign_records,
+                                    shutdown_completed_process_pool, write_dlc_records)
 from cheese3d.config import KeypointConfig
 from cheese3d.utils import maybe, reglob, BoundingBox, VideoFrames, dlc_folder_to_components
 
@@ -187,6 +188,7 @@ def _dlc_track_gpu_worker(config_path: str, videos: List[tuple[str, str]], outpu
                           gpu_id: str, batch_size: int,
                           snapshot_index: Optional[int], shuffle: int) -> int:
     """Analyze one camera subset in an isolated DLC3 process on one GPU."""
+    isolate_worker_output()
     import deeplabcut as dlc
     print(f"DLC3 GPU {gpu_id} analyzing {len(videos)} video(s)", flush=True)
     for video, progress_file in videos:
@@ -231,7 +233,12 @@ class DLCBackend(Pose2dBackend):
                  date: Optional[str] = None,
                  crops: Optional[List[BoundingBox]] = None,
                  frames_per_video: int = 5,
-                 skeleton: Optional[List[List[str]]] = None):
+                 skeleton: Optional[List[List[str]]] = None,
+                 canonical_config_path: Optional[str | Path] = None,
+                 source_project_path: Optional[str | Path] = None,
+                 source_format: Optional[str] = None,
+                 copy_source_images: bool = True):
+        """Initialize DLC with a project-root canonical configuration file."""
         super().__init__()
         self.name = name
         self.root_dir = root_dir.absolute()
@@ -243,20 +250,44 @@ class DLCBackend(Pose2dBackend):
         self.keypoints = keypoints
         self.skeleton = list(skeleton or [])
         self.frames_per_video = frames_per_video
+        # DLC still requires config.yaml inside its native project; this root
+        # path is the user-editable source synchronized around native calls.
+        self.canonical_config_path = (Path(canonical_config_path).absolute()
+                                      if canonical_config_path else None)
+        self.source_project_path = (Path(source_project_path).resolve()
+                                    if source_project_path else None)
+        self.source_format = source_format
         self._selected_snapshot_index: Optional[int] = None
         self._selected_shuffle: Optional[int] = None
         self._selected_snapshot_path: Optional[Path] = None
 
         # Check if project already exists, if not create it
         if not self.project_path.exists():
-            if len(self.videos) > 0:
-                self.create()
-                self.overwrite_config()
-                self.fix_video_symlinks()
+            if len(self.videos) == 0:
+                # ensure_dlc3_config() below reads the project config that
+                # only create() writes, so continuing without videos fails
+                # later with an inscrutable FileNotFoundError.
+                raise RuntimeError(
+                    "Cannot create a new DLC project without videos: no "
+                    "recordings matched the project's video_regex/sessions "
+                    "configuration. Declare the session(s) under `sessions:` "
+                    "in config.yaml and check the files under video_root."
+                )
+            self.create()
+            if self.source_project_path is not None:
+                # Seed labeled-data from a foreign (possibly non-DLC) raw
+                # project before overwrite_config() folds compatible
+                # labeled-data folders into video_sets.
+                self._import_source_project(copy_images=copy_source_images)
+            self._pull_canonical_config(self.config_path)
+            self.overwrite_config()
+            self.fix_video_symlinks()
         else:
+            self._pull_canonical_config(self.config_path)
             self.overwrite_config()
             self.fix_video_symlinks()
         self.ensure_dlc3_config()
+        self._push_canonical_config(self.config_path)
 
     @classmethod
     def from_existing(cls,
@@ -333,6 +364,22 @@ class DLCBackend(Pose2dBackend):
             videos=self.videos,
             copy_videos=False
         )
+
+    def _import_source_project(self, copy_images: bool = True) -> dict:
+        """Seed labeled-data from a DLC/Lightning Pose/SLEAP source project."""
+        keypoint_names = [keypoint.label for keypoint in self.keypoints]
+        records = read_foreign_records(
+            self.source_format, self.source_project_path, keypoint_names
+        )
+        summary = write_dlc_records(
+            records, self.project_path, self.experimenter, keypoint_names,
+            copy_images=copy_images,
+        )
+        print(
+            f"Imported {summary['records']} labeled frames from "
+            f"{self.source_format} source into {self.project_path}"
+        )
+        return summary
 
     def overwrite_config(self):
         # load dlc config file
@@ -479,6 +526,11 @@ class DLCBackend(Pose2dBackend):
               training_settings: Optional[dict] = None):
         """Train the selected DLC3 PyTorch architecture with GUI overrides."""
         import deeplabcut as dlc
+        # Re-read the root copy immediately before training so edits made while
+        # Cheese3D is open are applied to DLC's required backend-local file.
+        self._pull_canonical_config(self.config_path)
+        self.overwrite_config()
+        self.ensure_dlc3_config()
         label_summary = _include_compatible_labeled_data(self.config_path)
         print(
             f"DLC3 dataset selection: {label_summary['images']} labeled images "
@@ -515,6 +567,7 @@ class DLCBackend(Pose2dBackend):
         # same training/test split instead of silently returning to its old value.
         project_config["TrainingFraction"] = [train_fraction]
         self.config_path.write_text(yaml.safe_dump(project_config, sort_keys=False))
+        self._push_canonical_config(self.config_path)
         training_datasets = reglob("iteration-[0-9]+", path=str(self.project_path / "training-datasets"))
         if iterate_dataset and len(training_datasets) > 0:
             dlc.merge_datasets(config=self.config_path)
@@ -597,6 +650,20 @@ class DLCBackend(Pose2dBackend):
                              # DLC3 evaluation is single-device even after DDP
                              # training; use the first selected GPU explicitly.
                              device=f"cuda:{gpu_ids[0]}" if gpu_ids else "cpu")
+        self._publish_network_config()
+
+    def _publish_network_config(self) -> None:
+        """Publish the newest generated DLC3 network YAML in the project root."""
+        if self.canonical_config_path is None:
+            return
+        candidates = list(self.project_path.rglob("pytorch_config.yaml"))
+        if not candidates:
+            return
+        # DLC owns its generated in-model copy, while this stable root filename
+        # makes the effective network settings easy to inspect and archive.
+        newest = max(candidates, key=lambda path: path.stat().st_mtime)
+        destination = self.canonical_config_path.with_name("dlc_network_config.yaml")
+        shutil.copy2(newest, destination)
 
     def list_checkpoints(self) -> List[dict]:
         """List snapshots with their DLC split, shuffle, local index, and metrics."""

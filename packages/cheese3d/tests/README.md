@@ -15,15 +15,17 @@ pixi run test-integration
 # Run tests with coverage report
 pixi run test-cov
 
-# Run tests manually from package directory
+# Run tests manually from package directory (any backend env works for
+# backend-agnostic tests; use -e lp / -e lp-cu13 / -e sleap for tests specific
+# to those backends)
 cd packages/cheese3d
-pixi run -e dev pytest
+pixi run -e dlc pytest
 
 # Run specific test file
-pixi run -e dev pytest tests/test_config.py
+pixi run -e dlc pytest tests/test_config.py
 
 # Run tests with specific marker
-pixi run -e dev pytest -m "not slow"
+pixi run -e dlc pytest -m "not slow"
 ```
 
 ## Test Organization

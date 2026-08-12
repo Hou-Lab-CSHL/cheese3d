@@ -1,6 +1,22 @@
 from pathlib import Path
 
-from cheese3d.generate_videos import _find_matching_video, generate_videos_2d
+from cheese3d.generate_videos import (
+    _default_cpu_budget,
+    _find_matching_video,
+    generate_videos_2d,
+)
+
+
+def test_default_cpu_budget_uses_half_of_available_cores(monkeypatch):
+    """Reserving nearly all cores (formerly -2) starved the GUI's own
+    event-loop/websocket thread during heavy multi-camera FFmpeg rendering,
+    silently dropping the browser's connection with no way to recover.
+    """
+    monkeypatch.setattr("os.cpu_count", lambda: 64)
+    assert _default_cpu_budget() == 32
+
+    monkeypatch.setattr("os.cpu_count", lambda: 3)
+    assert _default_cpu_budget() == 1
 
 
 def test_find_matching_video_ignores_dlc_scorer_suffix(tmp_path):

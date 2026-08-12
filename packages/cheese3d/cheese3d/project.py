@@ -1,7 +1,9 @@
 import re
 import os
 import io
+import sys
 import toml
+import codecs
 import tempfile
 import tarfile
 import subprocess
@@ -187,6 +189,17 @@ def build_model_backend(cfg: ModelConfig | str | Path,
         backend_cls = get_pose_backend_class(cfg.backend_type)
 
         backend_options = dict(cfg.backend_options)
+        canonical_names = {
+            "dlc": "dlc_backend_config.yaml",
+            "lightning_pose": "lightning_pose_network_config.yaml",
+            "sleap": "sleap_network_config.yaml",
+        }
+        if cfg.backend_type in canonical_names:
+            # Project-root files are user-editable sources of truth; backend
+            # adapters mirror them to framework-required internal locations.
+            backend_options["canonical_config_path"] = (
+                root.parent / canonical_names[cfg.backend_type]
+            )
         if cfg.backend_type in ("dlc", "sleap"):
             # DLC's skeleton was formerly left as its two placeholder edges.
             # SLEAP also needs the same named edges in its portable SLP skeleton.
@@ -200,6 +213,50 @@ def build_model_backend(cfg: ModelConfig | str | Path,
                            keypoints=keypoints,
                            crops=crops,
                            **backend_options)
+
+def _clear_opencv_qt_platform_plugin_override(environ: Dict[str, str]) -> None:
+    """Undo cv2's global Qt platform-plugin-path override before a real Qt GUI opens.
+
+    Importing ``cv2`` (used throughout Cheese3D for video I/O) sets
+    ``QT_QPA_PLATFORM_PLUGIN_PATH`` to its own private, bundled copy of Qt's
+    plugins, used for cv2's own ``imshow()`` window. That is a process-global
+    environment variable, so any later Qt application in the same process --
+    including Napari's PyQt5 viewer -- tries to load its ``xcb`` platform
+    plugin from cv2's bundled plugins directory instead of PyQt5's own. When
+    the two Qt builds' ABIs disagree (confirmed: cv2 5.0.0 in Lightning Pose's
+    environment vs. cv2 4.11.0 in DLC's, each bundling a different Qt build)
+    the plugin is "found... but could not be loaded" and Qt aborts the whole
+    process (SIGABRT) instead of falling back to PyQt5's own working plugin.
+    """
+    environ.pop("QT_QPA_PLATFORM_PLUGIN_PATH", None)
+    environ.pop("QT_PLUGIN_PATH", None)
+
+
+def _stream_subprocess(command: List[str]) -> None:
+    """Run a subprocess while relaying its merged output to ``sys.stdout`` live.
+
+    Plain ``subprocess.run`` lets the child inherit the real OS stdout/stderr
+    file descriptors, bypassing any Python-level ``sys.stdout`` redirection
+    (for example Cheese3D's GUI log capture). Streaming through ``sys.stdout``
+    instead makes the child's progress bars and any error traceback appear
+    wherever the caller's stdout is currently pointed. Bytes are decoded
+    incrementally and never newline-translated, so a bare ``\\r`` from a tqdm
+    progress bar reaches the destination unchanged instead of becoming a new
+    line.
+    """
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
+    try:
+        for chunk in iter(lambda: process.stdout.read(1), b""):
+            sys.stdout.write(decoder.decode(chunk))
+            sys.stdout.flush()
+        sys.stdout.write(decoder.decode(b"", final=True))
+    finally:
+        process.stdout.close()
+    return_code = process.wait()
+    if return_code != 0:
+        raise subprocess.CalledProcessError(return_code, command)
+
 
 def resolve_pose3d_csv(session_path: str | Path,
                        preferred_terms: Optional[List[str]] = None) -> Path:
@@ -685,7 +742,7 @@ class Ch3DProject:
                 command.append("--allow-cpu-fallback")
             rprint(f"[cyan]Starting JAX triangulation worker on GPU "
                    f"{self.triangulation.gpu_device}...[/cyan]")
-            subprocess.run(command, check=True)
+            _stream_subprocess(command)
         else:
             # Preserve direct Anipose execution for non-Pixi installations and
             # projects whose configuration explicitly disables GPU use.
@@ -811,6 +868,11 @@ class Ch3DProject:
         return completed
 
     def visualize(self, recording: RecordingKey):
+        # cv2 (imported by this point via video I/O elsewhere in Cheese3D) has
+        # already hijacked the process-global Qt platform-plugin search path;
+        # undo that before Napari builds its own PyQt5 application, or Qt can
+        # abort the whole process (see _clear_opencv_qt_platform_plugin_override).
+        _clear_opencv_qt_platform_plugin_override(os.environ)
         import napari
         from cheese3d_annotator.data_visualizer.qc_video import QCReprojApp
         from cheese3d_annotator.data_visualizer.rig_view import RigViewer

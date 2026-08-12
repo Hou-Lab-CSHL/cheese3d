@@ -1,3 +1,4 @@
+### working project: Cheese3d-2: With (dlc, lp, and sleap; compare and contrast) supermodels and semi-foundation models 
 # naming in triangulation folder was hard coded, now finds the pose-3d/*.csv 
 # broswer gui by default, retain --terminal as fall back 
 # Fixed video generation so DLC pose files correctly match raw videos and the GUI only reports success when outputs exsts
@@ -5,6 +6,7 @@
 # Reason and fix: Cheese3D incorrectly treated Anipose’s imperfectly orthogonal axes matrix as a pure rotation, causing a ~20 px shift; the viewer now uses Anipose’s exact inverse(M.T) transformation
 # added stop training early
 # Added lighting pose trainning
+# updated napri to 0.6.6 to match DLC
 # added quality of life utilities for gui
 ## training settings
 ## multi-gpu inferenc, multi-gpu trainning doesn't really work
@@ -13,6 +15,9 @@
 ## added some options for image argumentation
 ## added trainning display
 ## added p-value setting for video generation
+## can choose where the project dir is created
+## allows direct input of project path when creating new project
+## changed the start up layout
 # completely abandoned dlc <3.0
 ## allows use of other networks aside from resnet50
 ## added N save and N eval epoch
@@ -21,3 +26,4 @@
 ## Napari visualization now decodes six cameras concurrently and caches downscaled neighboring frames for faster timeline navigation.
 ## Visualization now uses a temporary ≤10 GiB disk mosaic plus up to 32 GiB RAM, while retaining all overlays during playback.
 ## Stale cache files are cleared on startup, and completed/partial cache artifacts are deleted when Napari close
+# Conversions between DLC, sleap, and lp projects added, now able to import project from any of the three for each each enviroment

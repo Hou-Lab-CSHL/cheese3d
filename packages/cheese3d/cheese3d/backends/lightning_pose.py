@@ -14,8 +14,9 @@ from pathlib import Path
 from typing import Dict, List, Optional, Sequence
 
 from cheese3d.backends.core import (Pose2dBackend, register_pose_backend,
-                                    partition_videos_by_gpu, monitor_camera_progress,
-                                    shutdown_completed_process_pool)
+                                    isolate_worker_output, partition_videos_by_gpu,
+                                    monitor_camera_progress, read_foreign_records,
+                                    shutdown_completed_process_pool, write_lp_records)
 from cheese3d.config import KeypointConfig
 from cheese3d.utils import BoundingBox
 
@@ -471,6 +472,7 @@ def _lp_track_gpu_worker(project_path: str, videos: List[tuple[str, str]], outpu
                          gpu_id: str, batch_size: int, checkpoint: Optional[str],
                          scorer: Optional[str]) -> int:
     """Analyze one camera subset in an isolated Lightning Pose GPU process."""
+    isolate_worker_output()
     os.environ["CUDA_VISIBLE_DEVICES"] = gpu_id
     from lightning_pose.api import Model
     from lightning_pose.api.model import load_model_from_checkpoint
@@ -507,11 +509,14 @@ class LightningPoseBackend(Pose2dBackend):
                  keypoints: List[KeypointConfig],
                  crops: Optional[List[BoundingBox]] = None,
                  scorer: Optional[str] = None,
-                 dlc_project_path: Optional[str | Path] = None,
-                 copy_dlc_images: bool = True,
+                 source_project_path: Optional[str | Path] = None,
+                 source_format: Optional[str] = None,
+                 copy_source_images: bool = True,
                  image_height: int = 512,
                  image_width: int = 640,
+                 canonical_config_path: Optional[str | Path] = None,
                  **cfg_options):
+        """Initialize LP with a root-level canonical network configuration."""
         from lightning_pose.api import Model
 
         super().__init__()
@@ -522,20 +527,17 @@ class LightningPoseBackend(Pose2dBackend):
         self.keypoints = keypoints
         self.crops = crops
         self.scorer = scorer
+        # Lightning Pose APIs require backend/config.yaml, so retain that path
+        # as a synchronized working copy rather than exposing it to the user.
+        self.canonical_config_path = (Path(canonical_config_path).absolute()
+                                      if canonical_config_path else None)
+        self.source_project_path = (Path(source_project_path).resolve()
+                                    if source_project_path else None)
+        self.source_format = source_format
         self._selected_checkpoint: Optional[Path] = None
         if not (self.project_path / "config.yaml").exists():
-            if dlc_project_path is None:
-                raise FileNotFoundError(
-                    f"Lightning Pose config not found at {self.project_path / 'config.yaml'}. "
-                    "Set model.backend_options.dlc_project_path to convert a DLC project."
-                )
-            # DLC coordinates already use Lightning Pose's accepted CSV format;
-            # conversion mainly makes paths portable and merges label folders.
-            conversion = convert_dlc_labels_to_lightning_pose(
-                dlc_project_path=dlc_project_path,
-                lightning_pose_project_path=self.project_path,
-                keypoint_names=[keypoint.label for keypoint in self.keypoints],
-                copy_images=copy_dlc_images,
+            conversion = self._import_source_project(
+                copy_images=copy_source_images
             )
             create_lightning_pose_training_config(
                 project_path=self.project_path,
@@ -545,9 +547,10 @@ class LightningPoseBackend(Pose2dBackend):
                 image_width=image_width,
             )
             print(
-                f"Converted {conversion['num_frames']} DLC labeled frames and "
+                f"Converted {conversion['num_frames']} labeled frames and "
                 f"{conversion['num_keypoints']} keypoints into {self.project_path}"
             )
+        self._pull_canonical_config(self.project_path / "config.yaml")
         self._update_config(**cfg_options)
         self.model = Model.from_dir(self.project_path)
 
@@ -559,6 +562,32 @@ class LightningPoseBackend(Pose2dBackend):
                       **kwargs):
         raise NotImplementedError("Importing existing Lightning Pose models is not implemented.")
 
+    def _import_source_project(self, copy_images: bool = True) -> dict:
+        """Seed an LP project's CollectedData.csv from a DLC/LP/SLEAP source."""
+        if self.source_project_path is None:
+            raise FileNotFoundError(
+                f"Lightning Pose config not found at {self.project_path / 'config.yaml'}. "
+                "Set model.backend_options.source_project_path and source_format "
+                "to seed a new project from a DLC/Lightning Pose/SLEAP source."
+            )
+        keypoint_names = [keypoint.label for keypoint in self.keypoints]
+        if self.source_format == "dlc":
+            # DLC coordinates already use Lightning Pose's accepted CSV
+            # format; conversion mainly makes paths portable and merges
+            # per-folder label schemas, so keep the specialized merger.
+            return convert_dlc_labels_to_lightning_pose(
+                dlc_project_path=self.source_project_path,
+                lightning_pose_project_path=self.project_path,
+                keypoint_names=keypoint_names,
+                copy_images=copy_images,
+            )
+        records = read_foreign_records(
+            self.source_format, self.source_project_path, keypoint_names
+        )
+        return write_lp_records(
+            records, self.project_path, keypoint_names, copy_images=copy_images,
+        )
+
     def _update_config(self, **cfg_options):
         from lightning_pose.api import ModelConfig
         from omegaconf import OmegaConf
@@ -566,6 +595,7 @@ class LightningPoseBackend(Pose2dBackend):
         cfg = ModelConfig.from_yaml_file(self.project_path / "config.yaml")
         cfg.cfg.merge_with(cfg_options)
         OmegaConf.save(cfg.cfg, self.project_path / "config.yaml")
+        self._push_canonical_config(self.project_path / "config.yaml")
 
     @property
     def project_path(self):
@@ -678,6 +708,7 @@ class LightningPoseBackend(Pose2dBackend):
         cfg.data.keypoint_names = names
         cfg.data.num_keypoints = len(names)
         OmegaConf.save(cfg, config_path)
+        self._push_canonical_config(config_path)
 
     def extract_frames(self, videos: Optional[List[Path]] = None):
         raise NotImplementedError("Use Lightning Pose tooling to extract frames.")
@@ -711,6 +742,9 @@ class LightningPoseBackend(Pose2dBackend):
         # Install the rank-safe wrapper before Lightning constructs its progress
         # callback; every spawned DDP rank then shares the same file lock.
         _serialize_lightning_pose_training_progress()
+        # Treat the root file as authoritative for direct YAML edits made since
+        # the backend object was constructed.
+        self._pull_canonical_config(self.project_path / "config.yaml")
         cfg = ModelConfig.from_yaml_file(self.project_path / "config.yaml")
         settings = training_settings or {}
         if "backbone" in settings:
@@ -784,6 +818,7 @@ class LightningPoseBackend(Pose2dBackend):
         # same backbone and direct command-line training uses the same config.
         from omegaconf import OmegaConf
         OmegaConf.save(cfg.cfg, self.project_path / "config.yaml")
+        self._push_canonical_config(self.project_path / "config.yaml")
         # Former behavior stopped here with NotImplementedError; training now uses
         # LP's public train function and writes checkpoints beside config.yaml.
         if gpu is not None:
@@ -837,6 +872,7 @@ class LightningPoseBackend(Pose2dBackend):
                 lp_train_module.pl.Trainer = original_trainer
         # Re-open through the stable inference API so future tracking calls find
         # the checkpoint exactly as they would after restarting Cheese3D.
+        self._push_canonical_config(self.project_path / "config.yaml")
         self.model = Model.from_dir(self.project_path)
 
     def list_checkpoints(self) -> List[dict]:
@@ -943,7 +979,10 @@ class LightningPoseBackend(Pose2dBackend):
         # list of videos that lp model has already created internal preds for
         existing = [self.model.video_preds_dir() / f"{video.stem}.csv"
                     for video in missing_videos]
-        if not all(path.exists() for path in existing):
+        # A newly selected checkpoint must force fresh predictions even when a
+        # prior checkpoint (or an earlier run) already left CSVs at these paths;
+        # otherwise stale, checkpoint-mismatched predictions are silently reused.
+        if self._selected_checkpoint is not None or not all(path.exists() for path in existing):
             # NOTE: currently the config is saying multiview
             #       but lenny says this is a SVT
             # if self.model.config.is_multi_view():

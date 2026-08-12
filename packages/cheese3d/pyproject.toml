@@ -13,6 +13,9 @@ dependencies = [
     # "jupyter",
     # "protobuf < 3.20",
     "pandas >= 2.1, < 3.0",
+    # pandas.read_hdf/to_hdf's pytables backend, needed unconditionally by
+    # aniposelib and cheese3d's own backend HDF5 I/O (not just the DLC extra).
+    "tables",
     # "configobj == 5.0.8",
     "hydra-core == 1.3.*",
     "toml >= 0.10",
@@ -43,14 +46,17 @@ dependencies = [
 
 [project.optional-dependencies]
 dlc = [
-    # "tables>=3.10.1",
     # "tensorflow < 2.13; sys_platform == 'linux'",
     # Cheese3D's DLC3 integration uses typed/internal configuration APIs whose
-    # compatibility is verified against this exact release.
-    "deeplabcut[tf-cu12] == 3.0.1 ; sys_platform == 'linux'",
+    # compatibility is verified against this exact release. The "gui" extra
+    # (PySide6 + napari-deeplabcut) lets DLC's own native labeling GUI
+    # (`dlc`/`deeplabcut.launch_dlc()`) actually launch instead of falling
+    # back to its "lite" no-GUI mode; cheese3d-annotator's napari pin was
+    # bumped to 0.6.6 to match so both can share this environment.
+    "deeplabcut[tf-cu12,gui] == 3.0.1 ; sys_platform == 'linux'",
     # "tensorflow-macos < 2.13 ; sys_platform == 'darwin'",
     # "tensorflow-metal ; sys_platform == 'darwin'",
-    "deeplabcut[apple_mchips] == 3.0.1 ; sys_platform == 'darwin'",
+    "deeplabcut[apple_mchips,gui] == 3.0.1 ; sys_platform == 'darwin'",
 ]
 lp = [
     "lightning-pose == 2.2.0",
