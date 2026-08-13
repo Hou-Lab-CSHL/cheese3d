@@ -82,6 +82,46 @@ def _supported_training_gpus(network_architecture: str, gpu_ids: List[int]) -> L
     return gpu_ids
 
 
+# DLC3 gives ResNet a GroupNorm variant (``resnet50_gn``) but builds the other
+# architectures with ordinary BatchNorm and frozen pretrained running
+# statistics. GroupNorm does not depend on batch statistics at all, so ResNet
+# tolerates a learning rate that pushes activations away from the distribution
+# those frozen statistics encode -- and the BatchNorm backbones do not.
+#
+# Measured on hrnet_w32 with everything else identical: at 5e-4 the training
+# loss sat at 0.0149 for 30+ epochs with validation RMSE 419 px and mAP 0.00,
+# i.e. the model collapsed to predicting background everywhere. At 1e-4 the
+# same run reached RMSE 23.04 px and mAP 87.58 in ten epochs, and 1e-5 also
+# learned (final loss 0.00427 against 1e-4's 0.00308). The usable range is
+# therefore at or below 1e-4 for these backbones.
+DLC_DEFAULT_LEARNING_RATE = 5e-4
+DLC_BATCHNORM_LEARNING_RATE = 1e-4
+DLC_BATCHNORM_ARCHITECTURES = ("hrnet", "dekr", "cspnext", "dlcrnet")
+
+
+def default_learning_rate(network_architecture: str) -> float:
+    """Return the learning rate that suits this architecture's normalization."""
+    if str(network_architecture).startswith(DLC_BATCHNORM_ARCHITECTURES):
+        return DLC_BATCHNORM_LEARNING_RATE
+    return DLC_DEFAULT_LEARNING_RATE
+
+
+def resolve_learning_rate(network_architecture: str, settings: Dict) -> float:
+    """Pick the learning rate, warning when an explicit one looks unsafe."""
+    recommended = default_learning_rate(network_architecture)
+    requested = settings.get("learning_rate")
+    if requested is None:
+        return recommended
+    requested = float(requested)
+    if requested > recommended and recommended == DLC_BATCHNORM_LEARNING_RATE:
+        print(
+            f"DLC3 warning: {network_architecture} uses BatchNorm with frozen "
+            f"pretrained statistics and is unstable above {recommended:g}; "
+            f"training at {requested:g} risks a flat loss that never recovers."
+        )
+    return requested
+
+
 def _shuffle_from_created_splits(splits, default: int = 1) -> int:
     """Return DLC's actual newly-created shuffle instead of assuming shuffle 1."""
     if not isinstance(splits, (list, tuple)):
@@ -645,7 +685,9 @@ class DLCBackend(Pose2dBackend):
             "data.train.crop_sampling.height": settings.get("crop_height", 448),
             "data.train.motion_blur": settings.get("motion_blur", True),
             "data.train.gaussian_noise": settings.get("gaussian_noise", 12.75),
-            "runner.optimizer.params.lr": settings.get("learning_rate", 5e-4),
+            "runner.optimizer.params.lr": resolve_learning_rate(
+                network_architecture, settings
+            ),
             "runner.gpus": gpu_ids,
             "runner.eval_interval": settings.get("validate_every_n_epochs", 10),
         }

@@ -245,3 +245,53 @@ def test_dlcrnet_falls_back_to_a_single_gpu(capsys):
     # Every other architecture keeps both GPUs.
     assert _supported_training_gpus("resnet_50", [0, 1]) == [0, 1]
     assert _supported_training_gpus("hrnet_w32", [0, 1]) == [0, 1]
+
+
+def test_batchnorm_architectures_default_to_a_lower_learning_rate(capsys):
+    """DLC's BatchNorm backbones cannot train at ResNet's default rate.
+
+    DLC3 builds ResNet with GroupNorm (``resnet50_gn``), which ignores batch
+    statistics, but gives the other architectures ordinary BatchNorm with
+    frozen pretrained running statistics. A rate that moves activations away
+    from the distribution those statistics encode collapses the model to
+    predicting background everywhere. Measured on hrnet_w32, everything else
+    identical: 5e-4 held the training loss at 0.0149 for 30+ epochs with
+    validation RMSE 419 px and mAP 0.00, while 1e-4 reached RMSE 23.04 px and
+    mAP 87.58 in ten epochs.
+    """
+    from cheese3d.backends.dlc import default_learning_rate, resolve_learning_rate
+
+    assert default_learning_rate("resnet_50") == 5e-4
+    assert default_learning_rate("resnet_101") == 5e-4
+    for architecture in ("hrnet_w32", "hrnet_w48", "dekr_w18", "cspnext_x",
+                         "dlcrnet_stride16_ms5"):
+        assert default_learning_rate(architecture) == 1e-4, architecture
+
+    # An unset rate takes the architecture's own default.
+    assert resolve_learning_rate("hrnet_w32", {}) == 1e-4
+    assert resolve_learning_rate("resnet_50", {}) == 5e-4
+
+    # An explicit rate is honoured, but an unsafe one warns rather than
+    # silently reproducing the flat-loss failure.
+    assert resolve_learning_rate("hrnet_w32", {"learning_rate": 5e-4}) == 5e-4
+    assert "unstable above" in capsys.readouterr().out
+
+    # Safe explicit rates pass without noise.
+    assert resolve_learning_rate("hrnet_w32", {"learning_rate": 1e-5}) == 1e-5
+    assert "unstable" not in capsys.readouterr().out
+
+
+def test_gui_learning_rate_matches_the_backend_recommendation():
+    """The GUI must not offer a rate the backend considers unsafe.
+
+    interactive.py duplicates the rule rather than importing the DLC backend,
+    because it is also loaded in the Lightning Pose and SLEAP environments
+    where DeepLabCut is not installed. Check the two agree.
+    """
+    from cheese3d.backends.dlc import DLC3_PYTORCH_MODELS, default_learning_rate
+    from cheese3d.interactive import _dlc_default_learning_rate
+
+    for architecture in DLC3_PYTORCH_MODELS:
+        assert _dlc_default_learning_rate(architecture) == default_learning_rate(
+            architecture
+        ), architecture

@@ -158,3 +158,25 @@ def test_edit_config_updates_only_what_changed_and_validates_paths():
         Ch3DProject.edit_config(directory, triangulation=1)
     with pytest.raises(ValueError, match="No config.yaml"):
         Ch3DProject.edit_config(directory / "missing", fps=1)
+
+
+def test_lightning_pose_checkpoint_interval_must_divide_validation_interval():
+    """LP asserts ckpt_every_n_epochs %% check_val_every_n_epoch == 0.
+
+    It raises during config validation, after the backbone has been built and
+    weights loaded, so the failure is slow and its message does not name the
+    Cheese3D settings that caused it.
+    """
+    with pytest.raises(ValueError, match="must be a multiple of"):
+        validate_training_settings(
+            "lightning_pose",
+            {"epochs": 1, "save_every_n_epochs": 1, "validate_every_n_epochs": 5},
+        )
+
+    # Valid combinations pass.
+    for save, validate in ((10, 5), (5, 5), (20, 10), (1, 1)):
+        validate_training_settings(
+            "lightning_pose",
+            {"epochs": 20, "save_every_n_epochs": save,
+             "validate_every_n_epochs": validate},
+        )

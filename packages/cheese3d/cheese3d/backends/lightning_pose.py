@@ -6,6 +6,7 @@ import subprocess
 import multiprocessing
 import tempfile
 import importlib
+from contextlib import contextmanager
 from concurrent.futures import ProcessPoolExecutor
 import pandas as pd
 import numpy as np
@@ -49,6 +50,52 @@ def _make_vit_resize_square(cfg, backbone: str) -> Optional[int]:
     cfg.data.image_resize_dims.height = side
     cfg.data.image_resize_dims.width = side
     return side
+
+
+# Lightning Pose hardcodes the DINOv3 backbones as gated Hugging Face repo
+# names and downloads them at build time, so a machine without HF credentials
+# fails with "Cannot access DINOv3 model" even when the weights are already on
+# disk. Point the loader at a local directory instead when one is configured:
+# AutoModel.from_pretrained accepts a path, and the encoder width is read from
+# the checkpoint's own config, so a locally stored model loads unchanged.
+DINOV3_LOCAL_DIRECTORIES = {
+    "facebook/dinov3-vits16-pretrain-lvd1689m": "dinov3_vits16_pretrain_lvd1689m",
+    "facebook/dinov3-vitb16-pretrain-lvd1689m": "dinov3_vitb16_pretrain_lvd1689m",
+}
+
+
+@contextmanager
+def _local_dinov3_weights(weights_dir: Optional[str]):
+    """Resolve DINOv3 repo names to local directories for the duration of a call."""
+    if not weights_dir:
+        yield None
+        return
+    root = Path(weights_dir)
+    from lightning_pose.models.backbones import vits as vits_module
+
+    original = vits_module._load_dinov3_with_auth_check
+
+    def load_from_local(model_name: str, pretrained_patch_size: int):
+        folder = DINOV3_LOCAL_DIRECTORIES.get(model_name)
+        candidate = root / folder if folder else root
+        if candidate.is_dir() and (candidate / "config.json").is_file():
+            print(f"Lightning Pose loading DINOv3 weights from {candidate}")
+            return vits_module.VisionEncoderDino(
+                model_name=str(candidate),
+                pretrained_patch_size=pretrained_patch_size,
+            )
+        raise RuntimeError(
+            f"No local DINOv3 weights for {model_name} under {root}; expected "
+            f"{candidate}/config.json. Download the model from "
+            f"https://huggingface.co/{model_name} or authenticate with "
+            f"Hugging Face."
+        )
+
+    vits_module._load_dinov3_with_auth_check = load_from_local
+    try:
+        yield root
+    finally:
+        vits_module._load_dinov3_with_auth_check = original
 
 
 def _vit_needs_unused_parameter_ddp(backbone: str, num_gpus: int) -> bool:
@@ -852,6 +899,11 @@ class LightningPoseBackend(Pose2dBackend):
             f"data={cfg.cfg.data.csv_file}"
         )
         print(f"Lightning Pose training settings: {settings}")
+        # Resolve DINOv3 repo names to on-disk weights when configured, so a
+        # machine with no Hugging Face credentials can still train them.
+        dinov3_dir = settings.get("dinov3_weights_dir") or os.environ.get(
+            "CHEESE3D_DINOV3_WEIGHTS"
+        )
         lp_train_module = importlib.import_module("lightning_pose.train")
         original_trainer = None
         if _vit_needs_unused_parameter_ddp(backbone, len(gpu_ids)):
@@ -884,11 +936,12 @@ class LightningPoseBackend(Pose2dBackend):
             except (ImportError, AttributeError):
                 pass
         try:
-            self.model = train_lightning_pose(
-                cfg.cfg,
-                model_dir=self.project_path,
-                skip_evaluation=False,
-            )
+            with _local_dinov3_weights(dinov3_dir):
+                self.model = train_lightning_pose(
+                    cfg.cfg,
+                    model_dir=self.project_path,
+                    skip_evaluation=False,
+                )
         finally:
             # Restore LP's process-global Trainer class for later CNN training
             # in the same CLI process, including runs following an exception.

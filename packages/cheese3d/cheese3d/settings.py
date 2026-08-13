@@ -144,6 +144,14 @@ TRAINING_SETTINGS: Dict[str, Dict[str, Setting]] = {
         "early_stop_patience": Setting(
             3, "Epochs to wait before early stopping.", int, minimum=1,
         ),
+        "dinov3_weights_dir": Setting(
+            "",
+            "Directory holding locally downloaded DINOv3 weights. Lightning "
+            "Pose otherwise fetches them from a gated Hugging Face repo, which "
+            "fails without credentials. Also settable via "
+            "CHEESE3D_DINOV3_WEIGHTS.",
+            str,
+        ),
     },
     "sleap": {
         **_COMMON,
@@ -332,6 +340,16 @@ def _check_relationships(backend_type: str, settings: Dict[str, Any]) -> None:
     if backend_type == "sleap":
         ordered("rotation_min", "rotation_max")
     if backend_type == "lightning_pose":
+        # Lightning Pose asserts ckpt_every_n_epochs % check_val_every_n_epoch
+        # == 0 and dies during config validation otherwise, after the model has
+        # already been built.
+        save = settings.get("save_every_n_epochs")
+        validate = settings.get("validate_every_n_epochs")
+        if save is not None and validate is not None and save % validate:
+            raise ValueError(
+                f"save_every_n_epochs ({save}) must be a multiple of "
+                f"validate_every_n_epochs ({validate}) for Lightning Pose"
+            )
         train, val = settings.get("train_prob"), settings.get("val_prob")
         if train is not None and val is not None and train + val > 1:
             raise ValueError(

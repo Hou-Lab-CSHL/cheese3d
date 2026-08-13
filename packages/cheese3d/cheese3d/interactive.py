@@ -60,6 +60,22 @@ from cheese3d.backends.core import active_pose_backend
 
 # Keep this dependency-free list aligned with Lightning Pose 2.2 so the GUI can
 # open in DLC-only environments without importing torch or Lightning Pose.
+# Mirrors cheese3d.backends.dlc.default_learning_rate without importing it:
+# this module is loaded in the Lightning Pose and SLEAP environments too, which
+# have no DeepLabCut installed. DLC3 builds ResNet with GroupNorm but the other
+# architectures with BatchNorm and frozen pretrained statistics, and those
+# cannot train at ResNet's 5e-4 -- hrnet_w32 held a flat 0.0149 loss for 30+
+# epochs there, versus RMSE 23 px / mAP 88 at 1e-4.
+DLC_BATCHNORM_ARCHITECTURES = ("hrnet", "dekr", "cspnext", "dlcrnet")
+
+
+def _dlc_default_learning_rate(network_architecture: str) -> float:
+    """Return the learning rate a DLC architecture can actually train at."""
+    if str(network_architecture).startswith(DLC_BATCHNORM_ARCHITECTURES):
+        return 1e-4
+    return 5e-4
+
+
 LIGHTNING_POSE_BACKBONES = (
     "resnet18", "resnet34", "resnet50", "resnet101", "resnet152",
     "resnet50_animal_apose", "resnet50_animal_ap10k",
@@ -1038,6 +1054,36 @@ class ModelWizard(Horizontal):
             model_path = str(model_path.absolute())
         self.name_or_path.value = model_path
 
+    _previous_dlc_architecture: str = "resnet_50"
+
+    def _dlc_architecture(self) -> str:
+        """Return the selected DLC architecture, or the default before mount."""
+        try:
+            return str(self.query_one("#dlc_network_architecture", Select).value)
+        except Exception:
+            return "resnet_50"
+
+    @on(Select.Changed, "#dlc_network_architecture")
+    def _sync_dlc_learning_rate(self, event: Select.Changed) -> None:
+        """Move the learning rate to what the chosen architecture can train at.
+
+        DLC3 builds ResNet with GroupNorm but the other backbones with
+        BatchNorm and frozen pretrained statistics, which cannot tolerate
+        ResNet's 5e-4: hrnet_w32 sat at a flat 0.0149 loss for 30+ epochs
+        (validation RMSE 419 px, mAP 0.00) and reached RMSE 23 px / mAP 88 at
+        1e-4. Leaving the old value in the box after switching architecture
+        silently reproduces that failure.
+        """
+        try:
+            field = self.query_one("#training_learning_rate", Input)
+        except Exception:
+            return
+        previous = _dlc_default_learning_rate(self._previous_dlc_architecture)
+        # Only move a value the user has not deliberately changed.
+        if field.value.strip() in ("", f"{previous:g}"):
+            field.value = f"{_dlc_default_learning_rate(str(event.value)):g}"
+        self._previous_dlc_architecture = str(event.value)
+
     @on(Select.Changed)
     def select_mode(self, event: Select.Changed) -> None:
         if event.select.id != "model_mode":
@@ -1694,8 +1740,13 @@ class MainScreen(Screen):
                             ("100" if self._uses_sleap() else "200")
                         default_batch = "16" if self._uses_lightning_pose() else \
                             ("4" if self._uses_sleap() else "8")
+                        # DLC's rate depends on the selected architecture: its
+                        # BatchNorm backbones are unstable at ResNet's 5e-4.
+                        # _sync_dlc_learning_rate keeps this in step when the
+                        # architecture selector changes.
                         default_lr = "0.001" if self._uses_lightning_pose() else \
-                            ("0.0001" if self._uses_sleap() else "0.0005")
+                            ("0.0001" if self._uses_sleap()
+                             else f"{_dlc_default_learning_rate(self._dlc_architecture()):g}")
                         yield TrainingInput("Epochs", "training_epochs", default_epochs,
                                             "integer")
                         yield TrainingInput("Batch size", "training_batch_size", default_batch,
