@@ -72,6 +72,9 @@ def test_sleap_label_conversion_uses_consistent_channels_across_videos(tmp_path)
     create_sleap_labels(records, output, ["nose"], [])
     labels = sleap_io.load_slp(str(output))
 
+    # Identical channel counts everywhere: a batch mixing 1- and 3-channel
+    # samples crashes in collation. Three rather than one because sleap-nn
+    # 0.1.0 mis-shapes single-channel validation batches.
     channel_counts = {video[0].shape[-1] for video in labels.videos}
     assert channel_counts == {3}
 
@@ -276,6 +279,9 @@ def test_training_settings_control_input_scale_and_natural_epoch_length(tmp_path
 
     # Defaults: full resolution, and no artificial step floor.
     assert cfg.data_config.preprocessing.scale == 1.0
+    # Three channels: a workaround for sleap-nn 0.1.0's single-channel
+    # validation bug, and the only deviation from SLEAP's own defaults.
+    assert cfg.data_config.preprocessing.ensure_grayscale is False
     assert cfg.data_config.preprocessing.ensure_rgb is True
 
     settings = {"input_scale": 0.5, "batch_size": 8, "min_steps_per_epoch": 0}

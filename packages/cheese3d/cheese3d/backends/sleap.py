@@ -88,14 +88,17 @@ def create_sleap_labels(records: dict, output_path: Path, keypoint_names: List[s
     for folder_name, items in sorted(by_folder.items()):
         items.sort(key=lambda item: item[0])
         filenames = [str(value[0]) for _, value in items]
-        # Without an explicit value, sleap_io autodetects grayscale-vs-RGB
-        # independently per video from just its first frame. Cheese3D always
-        # stores frames as RGB PNGs, but different sessions' first frames can
-        # look incidentally monochrome, so autodetection produces videos with
-        # inconsistent channel counts; a training batch mixing samples from
-        # two such videos then crashes in collation. Force RGB uniformly here;
-        # SLEAP-NN's own ensure_grayscale/ensure_rgb config still controls any
-        # actual grayscale conversion, applied consistently across all frames.
+        # sleap_io autodetects grayscale-vs-RGB independently per video from
+        # just its first frame, which yields inconsistent channel counts across
+        # sessions and crashes collation when a batch mixes them, so set it
+        # explicitly. The cameras really are monochrome (sampled labeled frames
+        # differ across channels by at most 3-6 of 255), so single-channel
+        # would match the data and SLEAP's in_channels=1 default -- but
+        # sleap-nn 0.1.0 mis-shapes single-channel validation batches, feeding
+        # the model (1, batch, H, W) instead of (batch, 1, H, W). Reproduced
+        # directly: "weight of size [32, 1, 3, 3], expected input[1, 8, 256,
+        # 320] to have 1 channels, but got 8 channels". Three identical
+        # channels cost some compute but carry the same information and train.
         video = sio.Video.from_filename(filenames, grayscale=False)
         videos.append(video)
         for frame_idx, (_, (_, points)) in enumerate(items):
@@ -130,10 +133,12 @@ def create_sleap_training_config(project_path: Path, model_name: str,
         data_config=DataConfig(
             train_labels_path=[str(project_path / "labels.slp")],
             validation_fraction=0.1,
-            # Cheese3D videos are RGB throughout (DLC and Lightning Pose never
-            # force grayscale); matching that here also avoids a SLEAP-NN 0.1.0
-            # validation-path bug where ensure_grayscale=True intermittently
-            # feeds the model a 4-channel batch instead of the expected 1.
+            # SLEAP's own defaults are both False ("keep the loaded channel
+            # count"), which for this monochrome data would mean one channel --
+            # but sleap-nn 0.1.0 mis-shapes single-channel validation batches
+            # (see create_sleap_labels). Forcing three channels is the only
+            # deviation from SLEAP's configuration, and it is a workaround for
+            # that bug rather than a modelling choice.
             preprocessing=PreprocessingConfig(ensure_grayscale=False, ensure_rgb=True),
             augmentation_config=AugmentationConfig(geometric=GeometricConfig()),
         ),
@@ -141,18 +146,14 @@ def create_sleap_training_config(project_path: Path, model_name: str,
             backbone_config=BackboneConfig(unet=UNetMediumRFConfig()),
             head_configs=HeadConfig(single_instance=SingleInstanceConfig(
                 confmaps=SingleInstanceConfMapsConfig(
-                    # SLEAP-NN defaults output_stride to 1 -- confidence maps at
-                    # full input resolution -- which suits the small cropped
-                    # frames SLEAP is usually pointed at. Cheese3D feeds whole
-                    # 640x512 camera views with ~28 keypoints, where the decoder
-                    # upsampling to stride 1 dominates memory: training OOMed on
-                    # 47 GiB GPUs at every batch size tried (64, 32 and 16 per
-                    # GPU), always inside torch's `interpolate`. Stride 2 cuts
-                    # those decoder activations ~4x, which is what makes a
-                    # useful batch size fit at all. Peak positions stay
-                    # sub-pixel because SLEAP refines each peak locally, and
-                    # DLC and Lightning Pose likewise predict strided heatmaps.
-                    part_names=keypoint_names, sigma=5.0, output_stride=2,
+                    # Matches SLEAP-NN's own defaults: confidence maps at full
+                    # input resolution, sigma 5.0. Note that this combination
+                    # exhausts a 47 GiB GPU on Cheese3D's whole 640x512 camera
+                    # views at every batch size tried -- SLEAP is normally
+                    # pointed at small cropped instances. Lower `input_scale`,
+                    # raise `output_stride`, or both; see the training-settings
+                    # schema in cheese3d.settings for the trade-offs.
+                    part_names=keypoint_names, sigma=5.0, output_stride=1,
                 )
             )),
         ),
@@ -166,7 +167,7 @@ def create_sleap_training_config(project_path: Path, model_name: str,
     return config_path
 
 
-def _set_sleap_backbone(cfg, backbone: str) -> None:
+def _set_sleap_backbone(cfg, backbone: str, overrides: Optional[Dict] = None) -> None:
     """Replace the one-of SLEAP backbone configuration from a GUI preset."""
     from omegaconf import OmegaConf
     from sleap_nn.config.model_config import (
@@ -192,7 +193,43 @@ def _set_sleap_backbone(cfg, backbone: str) -> None:
     backbone_config = OmegaConf.structured(factories[backbone]())
     _apply_sleap_pretrained_weights(backbone_config, backbone)
     _align_sleap_backbone_output_stride(backbone_config, cfg)
+    _apply_sleap_backbone_overrides(backbone_config, overrides or {})
     cfg.model_config.backbone_config = backbone_config
+
+
+# Architecture knobs that decide how much resolution the encoder carries, and
+# therefore most of the training cost. They are backbone-specific -- UNet has
+# filters and max_stride 16, ConvNeXt and SwinT have a patch stem and
+# max_stride 32 -- so each is applied only where the selected backbone
+# actually defines it, and left at SLEAP's own default when unset.
+#
+# stem_patch_stride is the most consequential for speed on whole-frame data:
+# at its default of 2, ConvNeXt's first feature map is half input resolution
+# and stays there, which is why raising the confidence-map stride alone
+# changed almost nothing (measured 215 s/epoch at stride 4 and 214 s at
+# stride 8, against DLC's 59 s).
+SLEAP_BACKBONE_OVERRIDES = (
+    "max_stride", "stem_patch_stride", "filters", "filters_rate",
+    "convs_per_block",
+)
+
+
+def _apply_sleap_backbone_overrides(backbone_config, overrides: Dict) -> None:
+    """Apply architecture overrides to whichever backbone block is active."""
+    for section in ("unet", "convnext", "swint"):
+        block = getattr(backbone_config, section, None)
+        if block is None:
+            continue
+        for name in SLEAP_BACKBONE_OVERRIDES:
+            value = overrides.get(name)
+            if value in (None, 0):
+                continue
+            if not hasattr(block, name):
+                raise ValueError(
+                    f"SLEAP backbone {section!r} has no {name!r}; it applies to "
+                    f"{'UNet' if name.startswith('filter') else 'ConvNeXt/SwinT'} only"
+                )
+            setattr(block, name, value)
 
 
 # SLEAP-NN leaves `pre_trained_weights` at None, so every backbone trains from
@@ -456,8 +493,24 @@ class SLEAPBackend(Pose2dBackend):
         # validates and launches its native training configuration.
         self._pull_canonical_config(self.config_path)
         cfg = OmegaConf.load(self.config_path)
+        # Confidence-map stride is the dominant cost in SLEAP training: the
+        # head produces one map per keypoint at input_size/stride, so halving
+        # the stride quadruples the work. SLEAP-NN defaults it to 1 (full
+        # input resolution), which on Cheese3D's whole-frame views is roughly
+        # 26x the heatmap area DLC computes at its stride of 16 -- measured
+        # 300 s/epoch for SLEAP against 59 s for DLC on the same 3,052 images.
+        # Set it before selecting the backbone, whose decoder is then aligned
+        # to match. sigma needs no adjustment: confidence maps are generated
+        # with `sigma * output_stride` over an input-coordinate grid, so the
+        # Gaussian stays a constant width in output-map pixels at any stride.
+        stride = int(settings.get("output_stride", 1))
+        if stride not in (1, 2, 4, 8, 16):
+            raise ValueError(
+                f"SLEAP output stride must be 1, 2, 4, 8 or 16; got {stride}"
+            )
+        cfg.model_config.head_configs.single_instance.confmaps.output_stride = stride
         backbone = str(settings.get("backbone", "unet_medium_rf"))
-        _set_sleap_backbone(cfg, backbone)
+        _set_sleap_backbone(cfg, backbone, settings)
         cfg.data_config.validation_fraction = float(
             settings.get("validation_fraction_percent", 10)
         ) / 100.0

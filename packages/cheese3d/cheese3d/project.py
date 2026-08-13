@@ -3,6 +3,7 @@ import os
 import io
 import sys
 import toml
+import yaml
 import codecs
 import tempfile
 import tarfile
@@ -427,6 +428,68 @@ class Ch3DProject:
         cfg = ProjectConfig.load(cfg_file, cfg_dir, overrides)
 
         return cls.from_cfg(cfg, path.parent, model_import=model_import)
+
+    @staticmethod
+    def edit_config(project_path: str | Path, **updates) -> dict:
+        """Update ``config.yaml`` in place using dotted setting names.
+
+        Editing the YAML by hand is easy to get subtly wrong -- a
+        misremembered section, or a threshold set outside the range its
+        consumer accepts -- and the result usually surfaces much later as an
+        empty output rather than an error. This validates each path against
+        the file's own structure and rejects unknown names.
+
+            Ch3DProject.edit_config(path, fps=100)
+            Ch3DProject.edit_config(path, **{
+                "triangulation.score_threshold": 0.6,
+                "sync.led_threshold": 0.8,
+            })
+
+        Args:
+            project_path: directory holding ``config.yaml``.
+            updates: dotted paths mapped to their new values. A bare name
+                refers to a top-level key.
+
+        Returns:
+            The settings that changed, as ``{path: (old, new)}``.
+
+        Raises:
+            ValueError: if a path does not exist in the configuration, or
+                names a section rather than a value.
+        """
+        config_path = Path(project_path) / "config.yaml"
+        if not config_path.is_file():
+            raise ValueError(f"No config.yaml under {project_path}")
+        config = yaml.safe_load(config_path.read_text()) or {}
+
+        changed: dict = {}
+        for dotted, value in updates.items():
+            parts = dotted.split(".")
+            section = config
+            for index, part in enumerate(parts[:-1]):
+                if not isinstance(section, dict) or part not in section:
+                    raise ValueError(
+                        f"{dotted!r} is not in this configuration "
+                        f"({'.'.join(parts[:index + 1])!r} not found)"
+                    )
+                section = section[part]
+            leaf = parts[-1]
+            if not isinstance(section, dict) or leaf not in section:
+                known = ", ".join(sorted(section)) if isinstance(section, dict) else ""
+                hint = f"; available here: {known}" if known else ""
+                raise ValueError(f"{dotted!r} is not in this configuration{hint}")
+            if isinstance(section[leaf], dict):
+                raise ValueError(
+                    f"{dotted!r} is a section, not a value; set one of its "
+                    f"keys instead ({', '.join(sorted(section[leaf]))})"
+                )
+            if section[leaf] != value:
+                changed[dotted] = (section[leaf], value)
+                section[leaf] = value
+
+        if changed:
+            config_path.write_text(yaml.safe_dump(config, sort_keys=False))
+        return changed
 
     def summarize(self, pty = None):
         pty = maybe(pty, console.Console())
