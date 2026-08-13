@@ -21,25 +21,27 @@ from cheese3d.config import KeypointConfig
 from cheese3d.utils import maybe, reglob, BoundingBox, VideoFrames, dlc_folder_to_components
 
 
-# DLC3 reports this list through ``pose_estimation_pytorch.available_models()``.
-# Keeping the UI-facing order here avoids importing DLC when the Lightning Pose
-# Pixi environment opens Cheese3D, while train() verifies it against the active
-# DLC installation before creating or replacing a training shuffle.
+# DLC3 reports the full architecture list through
+# ``pose_estimation_pytorch.available_models()``. Keeping the UI-facing subset
+# here avoids importing DLC when the Lightning Pose Pixi environment opens
+# Cheese3D, while train() verifies each name against the active DLC
+# installation before creating or replacing a training shuffle.
+#
+# Bottom-up single-animal architectures only. DLC3 also ships top-down and
+# conditional-top-down networks, which are deliberately excluded: they crop to
+# a detected bounding box (``data.train.top_down_crop``) instead of sampling
+# crops from the full frame (``data.train.crop_sampling``), and the CTD family
+# additionally requires a prior pose as a conditioning input. Cheese3D tracks a
+# single head-fixed animal per camera with no detector stage, so none of them
+# apply here. Sweeping all 34 confirmed the split: every architecture below
+# trains, while the 20 excluded ones fail on the crop or conditioning
+# requirement.
 DLC3_PYTORCH_MODELS = (
-    "animaltokenpose_base",
     "cspnext_m", "cspnext_s", "cspnext_x",
-    "ctd_coam_w32", "ctd_coam_w48", "ctd_coam_w48_human",
-    "ctd_prenet_hrnet_w32", "ctd_prenet_hrnet_w48",
-    "ctd_prenet_rtmpose_m", "ctd_prenet_rtmpose_s",
-    "ctd_prenet_rtmpose_x", "ctd_prenet_rtmpose_x_human",
     "dekr_w18", "dekr_w32", "dekr_w48",
     "dlcrnet_stride16_ms5", "dlcrnet_stride32_ms5",
     "hrnet_w18", "hrnet_w32", "hrnet_w48",
     "resnet_101", "resnet_50",
-    "rtmpose_m", "rtmpose_s", "rtmpose_x",
-    "top_down_cspnext_m", "top_down_cspnext_s", "top_down_cspnext_x",
-    "top_down_hrnet_w18", "top_down_hrnet_w32", "top_down_hrnet_w48",
-    "top_down_resnet_101", "top_down_resnet_50",
 )
 
 
@@ -55,6 +57,29 @@ def _paf_graph_from_skeleton(bodyparts: List[str],
     if not graph:
         raise ValueError("DLCRNet requires a non-empty Cheese3D skeleton/PAF graph")
     return graph
+
+
+# DLCRNet's multi-scale branches are not replicated correctly by the
+# DataParallel wrapper DLC3 uses for multi-GPU training: training dies almost
+# immediately with "Expected all tensors to be on the same device, but got
+# weight is on cuda:0 ... and input is on cuda:1". Confirmed by direct
+# comparison -- both dlcrnet variants fail within ~19 s on two GPUs and train a
+# full epoch on one. Fall back to a single GPU rather than failing, since a
+# slower run is a far better outcome than no run.
+DLC_SINGLE_GPU_ARCHITECTURES = ("dlcrnet",)
+
+
+def _supported_training_gpus(network_architecture: str, gpu_ids: List[int]) -> List[int]:
+    """Restrict architectures that cannot train under DataParallel to one GPU."""
+    if len(gpu_ids) > 1 and str(network_architecture).startswith(
+        DLC_SINGLE_GPU_ARCHITECTURES
+    ):
+        print(
+            f"DLC3 {network_architecture} does not support multi-GPU DataParallel; "
+            f"training on GPU {gpu_ids[0]} only."
+        )
+        return gpu_ids[:1]
+    return gpu_ids
 
 
 def _shuffle_from_created_splits(splits, default: int = 1) -> int:
@@ -221,39 +246,6 @@ def _enforce_dlc3_project_config(config_path: Path,
     config["config_version"] = schema_version
     config_path.write_text(yaml.safe_dump(config, sort_keys=False))
     return removed
-
-
-def _crop_overrides(project_path: Path, width: int, height: int) -> Dict[str, int]:
-    """Return the crop override keys the selected architecture actually defines.
-
-    DLC3 has two different crop settings and an architecture carries exactly
-    one of them: bottom-up networks sample random crops from the full frame via
-    ``data.train.crop_sampling``, while top-down networks crop to a detected
-    bounding box via ``data.train.top_down_crop``. Sending the wrong one is
-    fatal -- DLC raises ``AttributeError: PoseConfig has no
-    'data.train.crop_sampling.width'`` -- and writing ``crop_sampling``
-    unconditionally is what made every ``rtmpose_*`` and ``top_down_*``
-    architecture fail to train (10 of the 34 DLC models, confirmed by sweeping
-    all of them).
-
-    The generated per-shuffle ``pytorch_config.yaml`` is the authority on which
-    key exists, so read it rather than pattern-matching architecture names,
-    which would silently break again whenever DLC adds a family.
-    """
-    train_section: Dict = {}
-    candidates = list(Path(project_path).rglob("pytorch_config.yaml"))
-    if candidates:
-        newest = max(candidates, key=lambda path: path.stat().st_mtime)
-        try:
-            generated = yaml.safe_load(newest.read_text()) or {}
-            train_section = ((generated.get("data") or {}).get("train") or {})
-        except (OSError, yaml.YAMLError):
-            train_section = {}
-    key = "top_down_crop" if "top_down_crop" in train_section else "crop_sampling"
-    return {
-        f"data.train.{key}.width": width,
-        f"data.train.{key}.height": height,
-    }
 
 
 class DLCBackend(Pose2dBackend):
@@ -634,6 +626,7 @@ class DLCBackend(Pose2dBackend):
             created_splits, default=requested_shuffle
         )
         gpu_ids = [int(item.strip()) for item in str(gpu).split(",") if item.strip()]
+        gpu_ids = _supported_training_gpus(network_architecture, gpu_ids)
         if gpu_ids:
             import torch
             # DLC3's DataParallel runner requires the generic ``cuda`` device,
@@ -645,9 +638,11 @@ class DLCBackend(Pose2dBackend):
             "data.train.affine.rotation": settings.get("rotation", 30),
             "data.train.affine.scaling": [settings.get("scale_min", 0.5),
                                           settings.get("scale_max", 1.25)],
-            **_crop_overrides(self.project_path,
-                              settings.get("crop_width", 448),
-                              settings.get("crop_height", 448)),
+            # Every architecture in DLC3_PYTORCH_MODELS is bottom-up and so
+            # samples crops from the full frame. Top-down networks, which take
+            # data.train.top_down_crop instead, are excluded from the registry.
+            "data.train.crop_sampling.width": settings.get("crop_width", 448),
+            "data.train.crop_sampling.height": settings.get("crop_height", 448),
             "data.train.motion_blur": settings.get("motion_blur", True),
             "data.train.gaussian_noise": settings.get("gaussian_noise", 12.75),
             "runner.optimizer.params.lr": settings.get("learning_rate", 5e-4),

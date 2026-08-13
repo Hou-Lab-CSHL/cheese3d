@@ -18,11 +18,14 @@
 #
 set -uo pipefail
 
-REPO="/data/disk2/home/tony/cheese3d"
-TESTSET="/data/disk2/home/tony/cheese3d2_test_set"
+# Paths are derived from this script's own location so the harness runs on any
+# machine; override TESTSET (labelled source project + test videos) and the
+# output root for a different data layout.
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TESTSET="${TESTSET:-$(dirname "$REPO")/cheese3d2_test_set}"
 DLC_SOURCE="$TESTSET/cheese3d_demo_model-houlab-2025-05-28"
 VIDEO_SOURCE="$TESTSET/test_vid/20231031_chew"
-ROOT="${1:-/data/disk2/home/tony/cheese3d_model_sweep}"
+ROOT="${1:-$(dirname "$REPO")/cheese3d_model_sweep}"
 GPU="${GPU:-0,1}"
 ONLY="${ONLY:-}"
 TIMEOUT="${TIMEOUT:-900}"

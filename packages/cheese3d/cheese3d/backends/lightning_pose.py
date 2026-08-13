@@ -58,6 +58,29 @@ def _vit_needs_unused_parameter_ddp(backbone: str, num_gpus: int) -> bool:
     return backbone.startswith("vit") and num_gpus > 1
 
 
+# Training a ViT/DINO backbone across several GPUs succeeds, but the
+# post-training "Predicting train/val/test images..." pass that Lightning Pose
+# runs afterwards never produces a single batch: it builds a second Trainer
+# while the training process group is still up, and rank 0 blocks forever in a
+# collective waiting for a peer that never rejoins. The signature is
+# unmistakable -- one GPU pinned at 100% utilisation holding only ~1.4 GiB,
+# zero prediction batches after 15 minutes, which is an NCCL spin-wait rather
+# than compute or a plain deadlock. Confirmed by direct comparison: the same
+# model on one GPU reached 93 prediction batches in 25 seconds.
+LP_SINGLE_GPU_BACKBONES = ("vit",)
+
+
+def _supported_training_gpus(backbone: str, gpu_ids: List[str]) -> List[str]:
+    """Restrict backbones whose prediction pass hangs under DDP to one GPU."""
+    if len(gpu_ids) > 1 and str(backbone).startswith(LP_SINGLE_GPU_BACKBONES):
+        print(
+            f"Lightning Pose {backbone} hangs in its post-training prediction "
+            f"pass under multi-GPU DDP; training on GPU {gpu_ids[0]} only."
+        )
+        return gpu_ids[:1]
+    return gpu_ids
+
+
 def _serialize_lightning_pose_training_progress() -> None:
     """Protect Lightning Pose's shared DDP status temporary file with a lock.
 
@@ -812,6 +835,7 @@ class LightningPoseBackend(Pose2dBackend):
                 int(cfg.cfg.training.max_epochs),
             )
         gpu_ids = [item.strip() for item in str(gpu).split(",") if item.strip()]
+        gpu_ids = _supported_training_gpus(backbone, gpu_ids)
         cfg.cfg.training.num_gpus = len(gpu_ids)
         cfg.validate()
         # Persist the validated GUI choices so reopening Cheese3D selects the

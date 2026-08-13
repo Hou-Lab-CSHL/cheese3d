@@ -67,7 +67,7 @@ LIGHTNING_POSE_BACKBONES = (
     "resnet50_human_top_res", "resnet50_human_hand",
     "efficientnet_b0", "efficientnet_b1", "efficientnet_b2",
     "vits_dino", "vits_dinov2", "vits_dinov3",
-    "vitb_dino", "vitb_dinov2", "vitb_dinov3", "vitb_imagenet", "vitb_sam",
+    "vitb_dino", "vitb_dinov2", "vitb_dinov3", "vitb_imagenet",
 )
 # Mirror SLEAP-NN 0.1.0 presets without importing its PyTorch stack in the DLC UI.
 SLEAP_BACKBONES = (

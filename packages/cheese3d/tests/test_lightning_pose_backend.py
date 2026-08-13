@@ -236,3 +236,30 @@ def test_lp_imports_labeled_data_from_a_sleap_source(tmp_path):
     assert table.iloc[0][("lightning_pose", "nose", "x")] == 4.0
     destination = backend.project_path / "data" / "labeled-data" / "camera" / "frame.png"
     assert destination.is_file()
+
+
+def test_vit_backbones_fall_back_to_a_single_gpu(capsys):
+    """ViT/DINO training works across GPUs but its prediction pass hangs.
+
+    Lightning Pose builds a second Trainer for the post-training
+    "Predicting train/val/test images..." pass while the training process
+    group is still up, and rank 0 then blocks forever in a collective. The
+    signature is one GPU pinned at 100% holding ~1.4 GiB with zero prediction
+    batches after 15 minutes -- an NCCL spin-wait, not compute. Confirmed by
+    direct comparison: the same model on one GPU reached 93 prediction batches
+    in 25 seconds, so falling back makes these backbones usable rather than
+    leaving them to hang.
+    """
+    from cheese3d.backends.lightning_pose import _supported_training_gpus
+
+    assert _supported_training_gpus("vits_dino", ["0", "1"]) == ["0"]
+    assert _supported_training_gpus("vitb_dinov2", ["1", "0"]) == ["1"]
+    assert "hangs in its post-training prediction" in capsys.readouterr().out
+
+    # Already single-GPU (or CPU) runs pass through untouched.
+    assert _supported_training_gpus("vits_dino", ["1"]) == ["1"]
+    assert _supported_training_gpus("vits_dino", []) == []
+
+    # CNN backbones keep every GPU they were given.
+    assert _supported_training_gpus("resnet50", ["0", "1"]) == ["0", "1"]
+    assert _supported_training_gpus("efficientnet_b0", ["0", "1"]) == ["0", "1"]

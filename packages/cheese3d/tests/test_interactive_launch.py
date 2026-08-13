@@ -270,8 +270,9 @@ def test_lp_gui_exposes_all_supported_backbone_families():
     choices = set(interactive.LIGHTNING_POSE_BACKBONES)
 
     assert {"resnet18", "resnet50_animal_ap10k", "efficientnet_b2",
-            "vits_dinov2", "vitb_sam"} <= choices
+            "vits_dinov2", "vitb_imagenet"} <= choices
     assert len(choices) == len(interactive.LIGHTNING_POSE_BACKBONES)
+    assert "vitb_sam" not in choices
 
 
 def test_training_input_label_is_not_a_focus_dependent_border_title():
