@@ -141,7 +141,18 @@ def create_sleap_training_config(project_path: Path, model_name: str,
             backbone_config=BackboneConfig(unet=UNetMediumRFConfig()),
             head_configs=HeadConfig(single_instance=SingleInstanceConfig(
                 confmaps=SingleInstanceConfMapsConfig(
-                    part_names=keypoint_names, sigma=5.0, output_stride=1,
+                    # SLEAP-NN defaults output_stride to 1 -- confidence maps at
+                    # full input resolution -- which suits the small cropped
+                    # frames SLEAP is usually pointed at. Cheese3D feeds whole
+                    # 640x512 camera views with ~28 keypoints, where the decoder
+                    # upsampling to stride 1 dominates memory: training OOMed on
+                    # 47 GiB GPUs at every batch size tried (64, 32 and 16 per
+                    # GPU), always inside torch's `interpolate`. Stride 2 cuts
+                    # those decoder activations ~4x, which is what makes a
+                    # useful batch size fit at all. Peak positions stay
+                    # sub-pixel because SLEAP refines each peak locally, and
+                    # DLC and Lightning Pose likewise predict strided heatmaps.
+                    part_names=keypoint_names, sigma=5.0, output_stride=2,
                 )
             )),
         ),
@@ -178,7 +189,71 @@ def _set_sleap_backbone(cfg, backbone: str) -> None:
     }
     if backbone not in factories:
         raise ValueError(f"Unsupported SLEAP backbone: {backbone}")
-    cfg.model_config.backbone_config = OmegaConf.structured(factories[backbone]())
+    backbone_config = OmegaConf.structured(factories[backbone]())
+    _apply_sleap_pretrained_weights(backbone_config, backbone)
+    _align_sleap_backbone_output_stride(backbone_config, cfg)
+    cfg.model_config.backbone_config = backbone_config
+
+
+# SLEAP-NN leaves `pre_trained_weights` at None, so every backbone trains from
+# random initialization. UNet cannot be pretrained at all, and Cheese3D-sized
+# datasets are small (a few hundred labeled frames per project), where a
+# from-scratch model reliably collapses to the trivial "predict background
+# everywhere" solution: confirmed by direct reproduction with unet_medium_rf on
+# 860 images, whose loss plateaued from epoch 19 onward and whose inference
+# placed 97.7% of predicted points on the image border with peak scores of
+# ~0.035 -- below SLEAP's own 0.2 detection threshold, so every downstream
+# triangulation input was NaN. ImageNet-pretrained ConvNext/SwinT backbones
+# avoid that the same way DLC's pretrained ResNet does.
+SLEAP_PRETRAINED_WEIGHTS = {
+    "convnext_tiny": "ConvNeXt_Tiny_Weights",
+    "convnext_small": "ConvNeXt_Small_Weights",
+    "convnext_base": "ConvNeXt_Base_Weights",
+    "convnext_large": "ConvNeXt_Large_Weights",
+    "swint_tiny": "Swin_T_Weights",
+    "swint_small": "Swin_S_Weights",
+    "swint_base": "Swin_B_Weights",
+}
+
+
+def _align_sleap_backbone_output_stride(backbone_config, cfg) -> None:
+    """Make the backbone decoder stop upsampling below the head's stride.
+
+    The backbone and the confidence-map head each carry their own
+    ``output_stride``, and selecting a backbone preset resets the backbone's
+    to SLEAP-NN's default of 1. The decoder then upsamples all the way from
+    ``max_stride`` 32 to full input resolution, which is what actually
+    exhausts GPU memory on Cheese3D's whole-frame 640x512 views -- training
+    OOMed inside torch's ``interpolate`` at 64, 32 and 16 samples per GPU
+    alike, and setting only the head's stride did not help because the
+    backbone kept producing full-resolution features regardless.
+    """
+    head_stride = 2
+    try:
+        head_stride = int(
+            cfg.model_config.head_configs.single_instance.confmaps.output_stride
+        )
+    except Exception:
+        pass
+    for section in ("unet", "convnext", "swint"):
+        block = getattr(backbone_config, section, None)
+        if block is not None and hasattr(block, "output_stride"):
+            block.output_stride = head_stride
+
+
+def _apply_sleap_pretrained_weights(backbone_config, backbone: str) -> None:
+    """Request ImageNet weights for backbones that support them.
+
+    UNet variants have no ``pre_trained_weights`` field, so they are skipped
+    and remain randomly initialized -- SLEAP-NN offers no pretrained UNet.
+    """
+    weights = SLEAP_PRETRAINED_WEIGHTS.get(backbone)
+    if weights is None:
+        return
+    for section in ("convnext", "swint"):
+        block = getattr(backbone_config, section, None)
+        if block is not None:
+            block.pre_trained_weights = weights
 
 
 def _sleap_predictions_to_h5(slp_path: Path, h5_path: Path, scorer: str) -> Path:
@@ -402,7 +477,16 @@ class SLEAPBackend(Pose2dBackend):
         trainer.val_data_loader.batch_size = int(settings.get("val_batch_size", 4))
         trainer.optimizer.lr = float(settings.get("learning_rate", 1e-4))
         trainer.optimizer_name = str(settings.get("optimizer", "Adam"))
-        trainer.min_train_steps_per_epoch = int(settings.get("min_steps_per_epoch", 200))
+        # SLEAP-NN computes steps per epoch as
+        #   max(natural batches in dataset, min_train_steps_per_epoch)
+        # with a default minimum of 200. On a Cheese3D-sized project that
+        # silently repeats the dataset many times inside one nominal "epoch"
+        # -- measured here: 860 images at an effective batch of 64 gives ~14
+        # natural batches, so the default 200 inflated every epoch ~15x and
+        # turned a 100-epoch run into 7.5 hours. Default to a single natural
+        # pass so an epoch means the same thing it does for the DLC and
+        # Lightning Pose backends; a caller can still request a floor.
+        trainer.min_train_steps_per_epoch = int(settings.get("min_steps_per_epoch", 0))
         exact_steps = int(settings.get("steps_per_epoch", 0))
         trainer.train_steps_per_epoch = exact_steps or None
         trainer.early_stopping.stop_training_on_plateau = bool(
@@ -418,13 +502,67 @@ class SLEAPBackend(Pose2dBackend):
         trainer.trainer_devices = len(gpu_ids) if gpu_ids else 1
         trainer.trainer_device_indices = gpu_ids or None
         trainer.trainer_strategy = "ddp" if len(gpu_ids) > 1 else "auto"
+        # Preprocessing input scale is the primary memory control for
+        # Cheese3D's whole-frame camera views: activation memory follows image
+        # area, so 0.5 quarters it. SLEAP-NN rescales the labels with the
+        # images and restores original-image coordinates at inference, so
+        # predictions still come back in full-frame pixels.
+        scale = float(settings.get("input_scale", 1.0))
+        if not 0.0 < scale <= 1.0:
+            raise ValueError("SLEAP input scale must be greater than 0 and at most 1")
+        cfg.data_config.preprocessing.scale = scale
         OmegaConf.save(cfg, self.config_path)
         self._push_canonical_config(self.config_path)
-        print(f"SLEAP training backbone: {backbone}")
-        print(f"SLEAP training settings: {settings}")
+        self._print_training_summary(cfg, settings, backbone, gpu_ids, scale)
         command = [sys.executable, "-m", "sleap_nn.cli", "train", str(self.config_path)]
         subprocess.run(command, cwd=self.project_path, check=True)
         self._push_canonical_config(self.config_path)
+
+    def _print_training_summary(self, cfg, settings: dict, backbone: str,
+                                gpu_ids: List[int], scale: float) -> None:
+        """State the settings that actually drive SLEAP memory and runtime.
+
+        Batch size is per GPU under DDP and an "epoch" is a step count rather
+        than a dataset pass, so the numbers a user types are not the numbers
+        that determine whether training fits in memory or how long it runs.
+        Print both forms before launching rather than leaving them implicit.
+        """
+        import sleap_io as sio
+
+        devices = max(len(gpu_ids), 1)
+        per_gpu = int(cfg.trainer_config.train_data_loader.batch_size)
+        effective = per_gpu * devices
+        head_stride = cfg.model_config.head_configs.single_instance.confmaps.output_stride
+
+        try:
+            labels = sio.load_slp(str(self.project_path / "labels.slp"), open_videos=False)
+            total = len(labels)
+            train_count = int(round(total * (1.0 - float(cfg.data_config.validation_fraction))))
+            height, width = labels.videos[0].shape[1:3]
+            source = f"{width}x{height}"
+            scaled = f"{int(width * scale)}x{int(height * scale)}"
+        except Exception:
+            train_count = 0
+            source = scaled = "unknown"
+
+        natural = max(1, train_count // effective) if train_count else 0
+        floor = int(cfg.trainer_config.min_train_steps_per_epoch or 0)
+        steps = max(natural, floor) if natural else floor
+
+        # flush=True: this summary describes a run that is about to start, but
+        # Python block-buffers stdout when it is a file or pipe while the
+        # training subprocess writes to the same descriptor unbuffered. Without
+        # an explicit flush the summary is emitted when the parent exits, i.e.
+        # printed *after* the training output it is supposed to introduce.
+        print(f"SLEAP input: {source} RGB -> {scaled} RGB (scale {scale})", flush=True)
+        print(f"SLEAP batch: {per_gpu}/GPU x {devices} GPU(s) = {effective} effective",
+              flush=True)
+        if natural:
+            note = f"minimum override {floor}" if floor else "no minimum override"
+            print(f"SLEAP epoch: {natural} natural batches, {steps} steps ({note})",
+                  flush=True)
+        print(f"SLEAP model: {backbone}, confidence-map stride {head_stride}", flush=True)
+        print(f"SLEAP training settings: {settings}", flush=True)
 
     def list_checkpoints(self) -> List[dict]:
         """Return SLEAP checkpoints with callback validation metrics when present."""

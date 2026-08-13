@@ -1,4 +1,13 @@
 import cv2
+# Must run before matplotlib is imported below: importing cv2 (line above)
+# repoints Qt's platform-plugin path at cv2's own bundled Qt build, which
+# makes Matplotlib's default `qtagg` backend abort the process (SIGABRT)
+# when it initializes Qt -- even for figures that are only ever saved, as
+# every figure here is outside `plot_debug`. See the helper's docstring.
+from cheese3d.utils import clear_opencv_qt_platform_plugin_override
+
+clear_opencv_qt_platform_plugin_override()
+
 import logging
 import numpy as np
 import pandas as pd

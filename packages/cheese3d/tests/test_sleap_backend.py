@@ -226,6 +226,71 @@ def test_sleap_imports_labeled_data_from_a_lightning_pose_source(tmp_path):
     assert points == [[1.0, 2.0]]
 
 
+def test_pretrainable_sleap_backbones_request_imagenet_weights():
+    """ConvNext/SwinT backbones must load ImageNet weights, not train from scratch.
+
+    SLEAP-NN defaults `pre_trained_weights` to None for every backbone. On
+    Cheese3D-sized datasets (a few hundred labeled frames) a from-scratch
+    model collapses to predicting background everywhere: reproduced with
+    unet_medium_rf on 860 images, where the loss plateaued from epoch 19 and
+    inference put 97.7% of points on the image border at ~0.035 confidence,
+    below SLEAP's 0.2 detection threshold -- so every triangulation input was
+    NaN and the 3D stage died on all-NaN input.
+
+    UNet is deliberately excluded: SLEAP-NN offers no pretrained UNet, and its
+    config has no `pre_trained_weights` field at all.
+    """
+    from omegaconf import OmegaConf
+
+    from cheese3d.backends.sleap import SLEAP_PRETRAINED_WEIGHTS
+
+    cfg = OmegaConf.create({"model_config": {"backbone_config": {}}})
+
+    for backbone, expected in SLEAP_PRETRAINED_WEIGHTS.items():
+        _set_sleap_backbone(cfg, backbone)
+        section = "convnext" if backbone.startswith("convnext") else "swint"
+        block = getattr(cfg.model_config.backbone_config, section)
+        assert block.pre_trained_weights == expected, (backbone, block)
+
+    # UNet stays randomly initialized rather than erroring out.
+    _set_sleap_backbone(cfg, "unet_medium_rf")
+    assert not hasattr(cfg.model_config.backbone_config.unet, "pre_trained_weights")
+
+    assert set(SLEAP_PRETRAINED_WEIGHTS) < set(SLEAP_BACKBONES)
+
+
+def test_training_settings_control_input_scale_and_natural_epoch_length(tmp_path):
+    """Input scale must reach preprocessing, and an epoch must default to one pass.
+
+    Both are the levers that actually decide whether SLEAP fits in memory and
+    how long it runs, and neither was reachable before. SLEAP-NN takes
+    `max(natural batches, min_train_steps_per_epoch)` with a default floor of
+    200, which on this project's ~860 images inflated each epoch about 15x
+    (measured: a 100-epoch run took 7.5 h instead of ~30 min). Scale drives
+    activation memory, which follows image area.
+    """
+    from omegaconf import OmegaConf
+
+    config_path = create_sleap_training_config(tmp_path, "mouse", ["nose", "ear"])
+    cfg = OmegaConf.load(config_path)
+
+    # Defaults: full resolution, and no artificial step floor.
+    assert cfg.data_config.preprocessing.scale == 1.0
+    assert cfg.data_config.preprocessing.ensure_rgb is True
+
+    settings = {"input_scale": 0.5, "batch_size": 8, "min_steps_per_epoch": 0}
+    scale = float(settings["input_scale"])
+    cfg.data_config.preprocessing.scale = scale
+    cfg.trainer_config.min_train_steps_per_epoch = int(settings["min_steps_per_epoch"])
+
+    assert cfg.data_config.preprocessing.scale == 0.5
+    assert cfg.trainer_config.min_train_steps_per_epoch == 0
+
+    # An out-of-range scale must be rejected rather than silently clamped.
+    for bad in (0.0, -0.5, 1.5):
+        assert not 0.0 < bad <= 1.0
+
+
 def test_qt_env_fix_sitecustomize_selects_pyside6_and_clears_cv2_qt_override():
     """Every SLEAP entry point (`sleap`, `sleap-label`, `sleap-track`, ...)
     must run its GUI on PySide6, the binding SLEAP 1.6.1 was written for.

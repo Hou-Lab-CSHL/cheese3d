@@ -220,3 +220,42 @@ def test_compatible_bodyparts_can_use_a_different_column_order(tmp_path):
     }))
 
     assert _include_compatible_labeled_data(config_path)["images"] == 1
+
+
+def test_crop_overrides_match_the_architectures_crop_style(tmp_path):
+    """Top-down and bottom-up DLC networks take different crop settings.
+
+    DLC3 architectures carry exactly one of them: bottom-up networks sample
+    random crops from the full frame (``crop_sampling``), top-down networks
+    crop to a detected box (``top_down_crop``). Sending the wrong key is fatal
+    -- ``AttributeError: PoseConfig has no 'data.train.crop_sampling.width'``
+    -- and writing ``crop_sampling`` unconditionally made all three
+    ``rtmpose_*`` and all seven ``top_down_*`` architectures fail to train,
+    10 of DLC's 34 models, confirmed by sweeping every one of them.
+    """
+    import yaml
+
+    from cheese3d.backends.dlc import _crop_overrides
+
+    def config_with(train_section: dict):
+        root = tmp_path / f"project{len(list(tmp_path.iterdir()))}"
+        (root / "model").mkdir(parents=True)
+        (root / "model" / "pytorch_config.yaml").write_text(
+            yaml.safe_dump({"data": {"train": train_section}})
+        )
+        return root
+
+    top_down = _crop_overrides(config_with({"top_down_crop": {"width": 256}}), 448, 448)
+    assert top_down == {
+        "data.train.top_down_crop.width": 448,
+        "data.train.top_down_crop.height": 448,
+    }
+
+    bottom_up = _crop_overrides(config_with({"crop_sampling": {"width": 448}}), 448, 448)
+    assert bottom_up == {
+        "data.train.crop_sampling.width": 448,
+        "data.train.crop_sampling.height": 448,
+    }
+
+    # No generated config yet: keep the previous behaviour rather than guessing.
+    assert _crop_overrides(tmp_path / "missing", 448, 448) == bottom_up

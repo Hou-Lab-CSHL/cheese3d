@@ -3,6 +3,38 @@ import re
 import pims
 import cv2
 import subprocess
+
+
+def clear_opencv_qt_platform_plugin_override() -> None:
+    """Undo cv2's global Qt platform-plugin-path override.
+
+    Importing ``cv2`` sets ``QT_QPA_PLATFORM_PLUGIN_PATH`` to its own private
+    bundled copy of Qt's plugins (for cv2's ``imshow()`` window). That is a
+    process-global environment variable, so any *other* Qt user in the same
+    process -- Napari's viewer, or simply Matplotlib's default ``qtagg``
+    backend -- then tries to load its ``xcb`` platform plugin from cv2's
+    bundled directory instead of its own. When the two Qt builds' ABIs
+    disagree, the plugin is "found... but could not be loaded" and Qt aborts
+    the whole process with SIGABRT rather than falling back.
+
+    Confirmed by direct reproduction in the ``lp`` environment: ``import
+    cv2`` followed by a plain ``plt.subplots()`` + ``savefig()`` core-dumps,
+    and passes with this override cleared. Note that merely *saving* a
+    figure is enough -- the Qt backend initializes a QApplication when the
+    figure is created, so no ``plt.show()`` is required to trigger it.
+
+    cv2 only sets the variable on its *first* import in a process, so
+    clearing it once here -- at import of this low-level module -- protects
+    every later ``import cv2`` too: Python reuses the already-imported
+    module from ``sys.modules`` without re-running the poisoning side effect.
+    """
+    os.environ.pop("QT_QPA_PLATFORM_PLUGIN_PATH", None)
+    os.environ.pop("QT_PLUGIN_PATH", None)
+
+
+clear_opencv_qt_platform_plugin_override()
+
+
 import platform
 import shutil
 import numpy as np

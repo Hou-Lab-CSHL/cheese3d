@@ -223,6 +223,39 @@ def _enforce_dlc3_project_config(config_path: Path,
     return removed
 
 
+def _crop_overrides(project_path: Path, width: int, height: int) -> Dict[str, int]:
+    """Return the crop override keys the selected architecture actually defines.
+
+    DLC3 has two different crop settings and an architecture carries exactly
+    one of them: bottom-up networks sample random crops from the full frame via
+    ``data.train.crop_sampling``, while top-down networks crop to a detected
+    bounding box via ``data.train.top_down_crop``. Sending the wrong one is
+    fatal -- DLC raises ``AttributeError: PoseConfig has no
+    'data.train.crop_sampling.width'`` -- and writing ``crop_sampling``
+    unconditionally is what made every ``rtmpose_*`` and ``top_down_*``
+    architecture fail to train (10 of the 34 DLC models, confirmed by sweeping
+    all of them).
+
+    The generated per-shuffle ``pytorch_config.yaml`` is the authority on which
+    key exists, so read it rather than pattern-matching architecture names,
+    which would silently break again whenever DLC adds a family.
+    """
+    train_section: Dict = {}
+    candidates = list(Path(project_path).rglob("pytorch_config.yaml"))
+    if candidates:
+        newest = max(candidates, key=lambda path: path.stat().st_mtime)
+        try:
+            generated = yaml.safe_load(newest.read_text()) or {}
+            train_section = ((generated.get("data") or {}).get("train") or {})
+        except (OSError, yaml.YAMLError):
+            train_section = {}
+    key = "top_down_crop" if "top_down_crop" in train_section else "crop_sampling"
+    return {
+        f"data.train.{key}.width": width,
+        f"data.train.{key}.height": height,
+    }
+
+
 class DLCBackend(Pose2dBackend):
     def __init__(self,
                  name: str,
@@ -612,8 +645,9 @@ class DLCBackend(Pose2dBackend):
             "data.train.affine.rotation": settings.get("rotation", 30),
             "data.train.affine.scaling": [settings.get("scale_min", 0.5),
                                           settings.get("scale_max", 1.25)],
-            "data.train.crop_sampling.width": settings.get("crop_width", 448),
-            "data.train.crop_sampling.height": settings.get("crop_height", 448),
+            **_crop_overrides(self.project_path,
+                              settings.get("crop_width", 448),
+                              settings.get("crop_height", 448)),
             "data.train.motion_blur": settings.get("motion_blur", True),
             "data.train.gaussian_noise": settings.get("gaussian_noise", 12.75),
             "runner.optimizer.params.lr": settings.get("learning_rate", 5e-4),
