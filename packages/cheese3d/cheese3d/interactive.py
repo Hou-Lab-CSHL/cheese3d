@@ -84,6 +84,9 @@ LIGHTNING_POSE_BACKBONES = (
     "efficientnet_b0", "efficientnet_b1", "efficientnet_b2",
     "vits_dino", "vits_dinov2", "vits_dinov3",
     "vitb_dino", "vitb_dinov2", "vitb_dinov3", "vitb_imagenet",
+    # Added by cheese3d.lightning_pose_ext; Lightning Pose ships
+    # DINOv3 in Small and Base only.
+    "vitl_dinov3",
 )
 # Mirror SLEAP-NN 0.1.0 presets without importing its PyTorch stack in the DLC UI.
 SLEAP_BACKBONES = (

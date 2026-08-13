@@ -91,6 +91,7 @@ LP_BACKBONES = (
     "efficientnet_b0", "efficientnet_b1", "efficientnet_b2",
     "vits_dino", "vits_dinov2", "vits_dinov3",
     "vitb_dino", "vitb_dinov2", "vitb_dinov3", "vitb_imagenet",
+    "vitl_dinov3",
 )
 
 SLEAP_BACKBONES = (

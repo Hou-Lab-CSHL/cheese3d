@@ -64,38 +64,15 @@ DINOV3_LOCAL_DIRECTORIES = {
 }
 
 
-@contextmanager
-def _local_dinov3_weights(weights_dir: Optional[str]):
-    """Resolve DINOv3 repo names to local directories for the duration of a call."""
-    if not weights_dir:
-        yield None
-        return
-    root = Path(weights_dir)
-    from lightning_pose.models.backbones import vits as vits_module
+def install_local_dinov3_weights(weights_dir: Optional[str] = None):
+    """Install Cheese3D's Lightning Pose additions for this process.
 
-    original = vits_module._load_dinov3_with_auth_check
+    Kept in cheese3d.lightning_pose_ext so the patches stay separable from the
+    backend and could be offered upstream unchanged.
+    """
+    from cheese3d.lightning_pose_ext import install
 
-    def load_from_local(model_name: str, pretrained_patch_size: int):
-        folder = DINOV3_LOCAL_DIRECTORIES.get(model_name)
-        candidate = root / folder if folder else root
-        if candidate.is_dir() and (candidate / "config.json").is_file():
-            print(f"Lightning Pose loading DINOv3 weights from {candidate}")
-            return vits_module.VisionEncoderDino(
-                model_name=str(candidate),
-                pretrained_patch_size=pretrained_patch_size,
-            )
-        raise RuntimeError(
-            f"No local DINOv3 weights for {model_name} under {root}; expected "
-            f"{candidate}/config.json. Download the model from "
-            f"https://huggingface.co/{model_name} or authenticate with "
-            f"Hugging Face."
-        )
-
-    vits_module._load_dinov3_with_auth_check = load_from_local
-    try:
-        yield root
-    finally:
-        vits_module._load_dinov3_with_auth_check = original
+    return install(weights_dir)
 
 
 def _vit_needs_unused_parameter_ddp(backbone: str, num_gpus: int) -> bool:
@@ -105,16 +82,18 @@ def _vit_needs_unused_parameter_ddp(backbone: str, num_gpus: int) -> bool:
     return backbone.startswith("vit") and num_gpus > 1
 
 
-# Training a ViT/DINO backbone across several GPUs succeeds, but the
-# post-training "Predicting train/val/test images..." pass that Lightning Pose
-# runs afterwards never produces a single batch: it builds a second Trainer
-# while the training process group is still up, and rank 0 blocks forever in a
-# collective waiting for a peer that never rejoins. The signature is
-# unmistakable -- one GPU pinned at 100% utilisation holding only ~1.4 GiB,
-# zero prediction batches after 15 minutes, which is an NCCL spin-wait rather
-# than compute or a plain deadlock. Confirmed by direct comparison: the same
-# model on one GPU reached 93 prediction batches in 25 seconds.
-LP_SINGLE_GPU_BACKBONES = ("vit",)
+# Training a ViT/DINO backbone across several GPUs succeeds; what hangs is the
+# post-training "Predicting train/val/test images..." pass Lightning Pose runs
+# afterwards. It builds a second Trainer while the training process group is
+# still up, and rank 0 blocks forever in a collective waiting for a peer that
+# never rejoins -- one GPU pinned at 100% holding ~1.4 GiB with zero prediction
+# batches after 15 minutes, an NCCL spin-wait rather than compute or a plain
+# deadlock. train() therefore passes skip_evaluation for multi-GPU ViT runs and
+# lets Cheese3D's own track step produce the predictions in a fresh process,
+# which keeps the multi-GPU training speedup instead of giving it up.
+# Nothing needs a single-GPU fallback today; the hook stays for the next
+# architecture that does.
+LP_SINGLE_GPU_BACKBONES: tuple = ()
 
 
 def _supported_training_gpus(backbone: str, gpu_ids: List[str]) -> List[str]:
@@ -547,6 +526,11 @@ def _lp_track_gpu_worker(project_path: str, videos: List[tuple[str, str]], outpu
     from lightning_pose.api import Model
     from lightning_pose.api.model import load_model_from_checkpoint
 
+    # Inference rebuilds the backbone, so a DINOv3 model reaches for its gated
+    # Hugging Face repo again here even though training already succeeded from
+    # local weights. This worker is a separate process, so the redirection has
+    # to be re-applied rather than inherited.
+    install_local_dinov3_weights()
     model = Model.from_dir(project_path)
     model.cfg.training.test_batch_size = batch_size
     if checkpoint:
@@ -622,6 +606,9 @@ class LightningPoseBackend(Pose2dBackend):
             )
         self._pull_canonical_config(self.project_path / "config.yaml")
         self._update_config(**cfg_options)
+        # Runs for every command, so a DINOv3 project would otherwise fail at
+        # construction time -- before tracking even starts.
+        install_local_dinov3_weights()
         self.model = Model.from_dir(self.project_path)
 
     @classmethod
@@ -822,7 +809,12 @@ class LightningPoseBackend(Pose2dBackend):
             # the relatively expensive trainer and DDP workers are constructed.
             from typing import get_args
             from lightning_pose.models.backbones import ALLOWED_BACKBONES
-            allowed_backbones = set(get_args(ALLOWED_BACKBONES))
+
+            from cheese3d.lightning_pose_ext import ADDED_BACKBONES
+            # Cheese3D registers a few architectures Lightning Pose does not
+            # ship (see cheese3d.lightning_pose_ext), so they are legitimate
+            # here even though they are absent from its own Literal.
+            allowed_backbones = set(get_args(ALLOWED_BACKBONES)) | set(ADDED_BACKBONES)
             backbone = str(settings["backbone"])
             if backbone not in allowed_backbones:
                 raise ValueError(
@@ -936,12 +928,24 @@ class LightningPoseBackend(Pose2dBackend):
             except (ImportError, AttributeError):
                 pass
         try:
-            with _local_dinov3_weights(dinov3_dir):
-                self.model = train_lightning_pose(
-                    cfg.cfg,
-                    model_dir=self.project_path,
-                    skip_evaluation=False,
+            install_local_dinov3_weights(dinov3_dir)
+            # See LP_SINGLE_GPU_BACKBONES: LP's own post-training prediction
+            # pass deadlocks for ViTs on more than one GPU. Skipping it keeps
+            # multi-GPU training usable; `cheese3d track` still produces the
+            # predictions afterwards, in a separate single-GPU process.
+            skip_evaluation = backbone.startswith("vit") and len(gpu_ids) > 1
+            if skip_evaluation:
+                print(
+                    "Skipping Lightning Pose's built-in evaluation pass: it "
+                    "deadlocks for ViT backbones under multi-GPU DDP. Run "
+                    "`cheese3d track` for predictions.",
+                    flush=True,
                 )
+            self.model = train_lightning_pose(
+                cfg.cfg,
+                model_dir=self.project_path,
+                skip_evaluation=skip_evaluation,
+            )
         finally:
             # Restore LP's process-global Trainer class for later CNN training
             # in the same CLI process, including runs following an exception.
@@ -950,6 +954,7 @@ class LightningPoseBackend(Pose2dBackend):
         # Re-open through the stable inference API so future tracking calls find
         # the checkpoint exactly as they would after restarting Cheese3D.
         self._push_canonical_config(self.project_path / "config.yaml")
+        install_local_dinov3_weights()
         self.model = Model.from_dir(self.project_path)
 
     def list_checkpoints(self) -> List[dict]:

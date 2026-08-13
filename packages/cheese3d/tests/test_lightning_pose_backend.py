@@ -238,28 +238,58 @@ def test_lp_imports_labeled_data_from_a_sleap_source(tmp_path):
     assert destination.is_file()
 
 
-def test_vit_backbones_fall_back_to_a_single_gpu(capsys):
-    """ViT/DINO training works across GPUs but its prediction pass hangs.
+def test_cheese3d_adds_vitl_dinov3_without_touching_lightning_pose():
+    """Lightning Pose ships DINOv3 in Small and Base only.
 
-    Lightning Pose builds a second Trainer for the post-training
-    "Predicting train/val/test images..." pass while the training process
-    group is still up, and rank 0 then blocks forever in a collective. The
-    signature is one GPU pinned at 100% holding ~1.4 GiB with zero prediction
-    batches after 15 minutes -- an NCCL spin-wait, not compute. Confirmed by
-    direct comparison: the same model on one GPU reached 93 prediction batches
-    in 25 seconds, so falling back makes these backbones usable rather than
-    leaving them to hang.
+    ``build_backbone`` raises NotImplementedError for anything else, so ViT-L
+    is added by wrapping that function at runtime rather than editing the
+    installed package -- the patch then survives a reinstall and stays
+    liftable into an upstream pull request.
     """
-    from cheese3d.backends.lightning_pose import _supported_training_gpus
+    from cheese3d.lightning_pose_ext import ADDED_BACKBONES, DINOV3_MODELS
 
-    assert _supported_training_gpus("vits_dino", ["0", "1"]) == ["0"]
-    assert _supported_training_gpus("vitb_dinov2", ["1", "0"]) == ["1"]
-    assert "hangs in its post-training prediction" in capsys.readouterr().out
+    assert "vitl_dinov3" in ADDED_BACKBONES
+    assert DINOV3_MODELS["vitl_dinov3"] == "facebook/dinov3-vitl16-pretrain-lvd1689m"
 
-    # Already single-GPU (or CPU) runs pass through untouched.
-    assert _supported_training_gpus("vits_dino", ["1"]) == ["1"]
-    assert _supported_training_gpus("vits_dino", []) == []
+    # Registered everywhere a user can pick it.
+    from cheese3d.interactive import LIGHTNING_POSE_BACKBONES
+    from cheese3d.settings import TRAINING_SETTINGS
 
-    # CNN backbones keep every GPU they were given.
+    assert "vitl_dinov3" in LIGHTNING_POSE_BACKBONES
+    assert "vitl_dinov3" in TRAINING_SETTINGS["lightning_pose"]["backbone"].choices
+
+
+def test_local_dinov3_directories_cover_every_supported_size(tmp_path):
+    """Every DINOv3 backbone must resolve to a local directory."""
+    from cheese3d.lightning_pose_ext import (
+        DINOV3_LOCAL_DIRECTORIES, DINOV3_MODELS, resolve_local_weights,
+    )
+
+    for backbone, repo in DINOV3_MODELS.items():
+        assert repo in DINOV3_LOCAL_DIRECTORIES, backbone
+
+    # Present only when the directory actually holds a model.
+    repo = DINOV3_MODELS["vitl_dinov3"]
+    assert resolve_local_weights(repo, tmp_path) is None
+    folder = tmp_path / DINOV3_LOCAL_DIRECTORIES[repo]
+    folder.mkdir()
+    (folder / "config.json").write_text("{}")
+    assert resolve_local_weights(repo, tmp_path) == folder
+
+
+def test_vit_multi_gpu_training_skips_lightning_poses_own_evaluation():
+    """ViTs may use every GPU now; only LP's evaluation pass deadlocks.
+
+    That pass builds a second Trainer while the training process group is
+    still alive, and rank 0 blocks forever in an NCCL collective. Skipping it
+    keeps multi-GPU training, and `cheese3d track` produces the predictions
+    afterwards in a fresh single-GPU process.
+    """
+    from cheese3d.backends.lightning_pose import (
+        LP_SINGLE_GPU_BACKBONES, _supported_training_gpus,
+    )
+
+    # No backbone is forced onto one GPU any more.
+    assert LP_SINGLE_GPU_BACKBONES == ()
+    assert _supported_training_gpus("vitl_dinov3", ["0", "1"]) == ["0", "1"]
     assert _supported_training_gpus("resnet50", ["0", "1"]) == ["0", "1"]
-    assert _supported_training_gpus("efficientnet_b0", ["0", "1"]) == ["0", "1"]
