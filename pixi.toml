@@ -102,6 +102,46 @@ args = ["path", { arg = "gpu", default = "0" }]
 cmd = "pixi run -e lp cheese3d --path {{ path }} train demo2 --gpu {{ gpu }}"
 description = "Train demo2's converted DLC labels with Lightning Pose."
 
+# --- architecture test suites -------------------------------------------
+# Each suite drives all three backends, so these tasks run from the default
+# environment and let the suite's own runner switch environments per backend.
+# Running them under `-e dlc` or `-e lp` would nest one Pixi environment
+# inside another.
+#
+# Reports go to <repo>/reports/<suite>/ unless CHEESE3D_REPORT_DIR is set or
+# --report-dir is passed.
+#
+# Extra flags reach the runner either quoted as the single positional argument
+# or after a `--`; both were checked:
+#     pixi run small-models "--epochs 3 --fit-batch"
+#     pixi run small-models -- --epochs 3 --fit-batch
+# Every flag the runner takes still applies -- --gpu, --batch-size, --only,
+# --models, --report-dir, --target-gb.
+
+[tasks.small-models]
+args = [{ arg = "extra", default = "" }]
+cmd = "./scripts/small_models/run.sh {{ extra }}"
+description = "Smoke-test the 12 architectures below ResNet-50, on one GPU."
+
+[tasks.medium-models-1]
+args = [{ arg = "extra", default = "" }]
+cmd = "./scripts/medium_models/run_tier1.sh {{ extra }}"
+description = "Test the 16 architectures of 22-50 M parameters, on one GPU."
+
+[tasks.medium-models-2]
+args = [{ arg = "extra", default = "" }]
+cmd = "./scripts/medium_models/run_tier2.sh {{ extra }}"
+description = "Test the 11 architectures above 50 M parameters, on one GPU."
+
+[tasks.multi-gpu-test]
+args = [{ arg = "extra", default = "" }]
+cmd = "./scripts/multi_gpu/run.sh {{ extra }}"
+description = "Check convnext_large, unet_large_rf and the DINO ViTs on two GPUs."
+
+[tasks.test-all-models]
+depends-on = ["small-models", "medium-models-1", "medium-models-2", "multi-gpu-test"]
+description = "Run every architecture suite in turn: small, both medium tiers, multi-GPU."
+
 [activation.env]
 # Do not prepend `$LD_LIBRARY_PATH` here. Entering `pixi shell -e lp` from the
 # default DLC shell would retain DLC's CUDA/cuDNN libraries and mix them with LP.
