@@ -47,13 +47,32 @@ DLC3_PYTORCH_MODELS = (
 
 def _paf_graph_from_skeleton(bodyparts: List[str],
                              skeleton: List[List[str]]) -> List[List[int]]:
-    """Convert Cheese3D bodypart-name edges to DLC's integer PAF graph."""
+    """Convert Cheese3D bodypart-name edges to DLC's integer PAF graph.
+
+    Every edge comes out in ascending order, which DLC requires even though a
+    PAF edge is undirected. Its graph pruning takes edges back from a NetworkX
+    spanning tree, sorts them, and looks them up in the graph given here::
+
+        root_edges.append(full_graph.index(sorted(edge)))   # prune_paf_graph.py
+
+    A descending edge is therefore unfindable, and evaluation dies with
+    ``ValueError: [0, 2] is not in list`` after training has already
+    succeeded. Cheese3D's keypoint groups are triangles -- ``a-b``, ``b-c``,
+    ``c-a`` -- so the closing edge of each one is descending as written: 8 of
+    the 28 default edges. Sorting also merges an ``a-b``/``b-a`` pair, which
+    is why duplicates are dropped rather than left to become two PAF channels
+    for one connection.
+    """
     indices = {name: index for index, name in enumerate(bodyparts)}
     invalid = [edge for edge in skeleton if len(edge) != 2 or
                edge[0] not in indices or edge[1] not in indices]
     if invalid:
         raise ValueError(f"Cheese3D skeleton contains invalid DLC edges: {invalid}")
-    graph = [[indices[edge[0]], indices[edge[1]]] for edge in skeleton]
+    graph: List[List[int]] = []
+    for edge in skeleton:
+        pair = sorted((indices[edge[0]], indices[edge[1]]))
+        if pair not in graph:
+            graph.append(pair)
     if not graph:
         raise ValueError("DLCRNet requires a non-empty Cheese3D skeleton/PAF graph")
     return graph
