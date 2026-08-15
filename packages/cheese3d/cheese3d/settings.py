@@ -123,6 +123,21 @@ TRAINING_SETTINGS: Dict[str, Dict[str, Setting]] = {
         "gaussian_noise": Setting(
             12.75, "Gaussian noise standard deviation.", float, minimum=0,
         ),
+        "dataloader_workers": Setting(
+            0,
+            "Processes augmenting images in parallel. 0 scales to the machine: "
+            "three quarters of the schedulable cores. A positive number sets "
+            "the count exactly; a negative one forces DLC's own default of "
+            "none, where the training process augments alone and the GPU "
+            "waits on it.",
+            int,
+        ),
+        "pin_memory": Setting(
+            True,
+            "Stage batches in pinned memory so host-to-device copies overlap "
+            "compute. Only pays off alongside dataloader workers.",
+            bool,
+        ),
     },
     "lightning_pose": {
         **_COMMON,

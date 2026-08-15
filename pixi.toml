@@ -138,6 +138,11 @@ args = [{ arg = "extra", default = "" }]
 cmd = "./scripts/multi_gpu/run.sh {{ extra }}"
 description = "Check convnext_large, unet_large_rf and the DINO ViTs on two GPUs."
 
+[tasks.dlc-backbones]
+args = [{ arg = "extra", default = "" }]
+cmd = "./scripts/dlc_backbones/run.sh {{ extra }}"
+description = "Time DLC's HRNet, DEKR, ResNet and DLCRNet backbones, batch 32, one GPU."
+
 [tasks.test-all-models]
 depends-on = ["small-models", "medium-models-1", "medium-models-2", "multi-gpu-test"]
 description = "Run every architecture suite in turn: small, both medium tiers, multi-GPU."

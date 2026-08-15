@@ -88,6 +88,50 @@ def _paf_graph_from_skeleton(bodyparts: List[str],
 DLC_SINGLE_GPU_ARCHITECTURES = ("dlcrnet",)
 
 
+# DLC3 defaults dataloader_workers to 0, which runs every albumentations
+# transform -- rotation, scaling, crop sampling, Gaussian noise -- inside the
+# training process, one core at a time, with the GPU idle for the duration.
+# Three quarters of the cores leaves room for the training process itself and
+# for whatever else shares the machine.
+DLC_WORKER_CORE_FRACTION = 0.75
+
+
+def default_dataloader_workers() -> int:
+    """Worker processes for DLC's training DataLoader.
+
+    Counts schedulable cores rather than physical ones: under SLURM or a
+    container, os.cpu_count() reports the whole machine while the job may be
+    confined to a fraction of it, and oversubscribing that costs more than the
+    workers return. DLC3 trains multi-GPU through DataParallel, which is a
+    single process, so this count is the total rather than per GPU.
+    """
+    import os
+
+    try:
+        cores = len(os.sched_getaffinity(0))
+    except AttributeError:              # not Linux
+        cores = os.cpu_count() or 1
+    return max(1, int(cores * DLC_WORKER_CORE_FRACTION))
+
+
+def resolve_dataloader_workers(settings: dict) -> int:
+    """Worker count for this run: 0 or absent means scale to the machine.
+
+    Zero is DLC's own default and would otherwise be indistinguishable from
+    "the caller wants no workers", so it is read as "decide for me" and a
+    negative value is the way to force the single-process behaviour back --
+    which is worth having when timing what the workers are actually buying.
+    """
+    requested = settings.get("dataloader_workers", 0)
+    try:
+        requested = int(requested)
+    except (TypeError, ValueError):
+        requested = 0
+    if requested > 0:
+        return requested
+    return 0 if requested < 0 else default_dataloader_workers()
+
+
 def _supported_training_gpus(network_architecture: str, gpu_ids: List[int]) -> List[int]:
     """Restrict architectures that cannot train under DataParallel to one GPU."""
     if len(gpu_ids) > 1 and str(network_architecture).startswith(
@@ -218,6 +262,126 @@ def _include_compatible_labeled_data(config_path: Path) -> dict:
         "folders": len(configured_stems), "images": included_rows,
         "skipped": skipped,
     }
+
+
+def evaluation_split_indices(config_path, split_file) -> tuple:
+    """Row indices for a train/test split named by a file of image paths.
+
+    ``split_file`` lists one ``session/image.png`` per line -- the frames to
+    evaluate on. Everything else in the project trains. DLC identifies frames
+    by their position in the merged annotation table, so the names are
+    resolved against that table rather than against the folder listing, which
+    is ordered differently.
+
+    Raises if any listed frame is absent: a silently smaller evaluation set
+    would still train and still report metrics, just not the ones asked for.
+    """
+    import pathlib
+
+    from deeplabcut.generate_training_dataset.trainingsetmanipulation import (
+        merge_annotateddatasets,
+    )
+    from deeplabcut.utils import auxiliaryfunctions
+
+    cfg = auxiliaryfunctions.read_config(str(config_path))
+    folder = pathlib.Path(cfg["project_path"]) / auxiliaryfunctions.get_training_set_folder(cfg)
+    # merge_annotateddatasets writes the merged table into this folder as a
+    # side effect of returning it, and create_training_dataset -- which
+    # normally creates the folder -- has not run yet at this point.
+    folder.mkdir(parents=True, exist_ok=True)
+    table = merge_annotateddatasets(cfg, folder)
+
+    rows = {f"{session}/{name}": position
+            for position, (_, session, name) in enumerate(table.index)}
+    wanted = [line.strip() for line in
+              pathlib.Path(split_file).read_text().splitlines() if line.strip()]
+    if not wanted:
+        raise ValueError(f"{split_file} names no frames to evaluate on")
+    missing = [name for name in wanted if name not in rows]
+    if missing:
+        raise ValueError(
+            f"{len(missing)} of {len(wanted)} frames in {split_file} are not in "
+            f"this project's labelled data, e.g. {missing[:3]}"
+        )
+
+    test = sorted(rows[name] for name in wanted)
+    held = set(test)
+    train = [position for position in range(len(table)) if position not in held]
+    return train, test
+
+
+@contextmanager
+def _fixed_evaluation_split(config_path, split_file):
+    """Make create_training_dataset use one named set of frames for evaluation.
+
+    DLC takes explicit trainIndices/testIndices, but Cheese3D's training path
+    asks for a fraction and lets DLC sample at random. Wrapping the call keeps
+    that path intact while pinning the split, so the same frames are held out
+    for every architecture and the resulting metrics are comparable.
+    """
+    import deeplabcut as dlc
+
+    if not split_file:
+        yield None
+        return
+
+    train, test = evaluation_split_indices(config_path, split_file)
+    original = dlc.create_training_dataset
+
+    def create_with_split(*args, **kwargs):
+        shuffles = kwargs.get("Shuffles") or [1]
+        kwargs["trainIndices"] = [list(train) for _ in shuffles]
+        kwargs["testIndices"] = [list(test) for _ in shuffles]
+        # A fraction is what DLC would otherwise sample by; with explicit
+        # indices it only labels the output folder, so keep it consistent
+        # with the split actually used.
+        return original(*args, **kwargs)
+
+    dlc.create_training_dataset = create_with_split
+    try:
+        yield (train, test)
+    finally:
+        dlc.create_training_dataset = original
+
+
+@contextmanager
+def _persistent_dataloader_workers(enabled: bool = True):
+    """Keep DLC's augmentation workers alive between epochs.
+
+    DLC3 builds its training DataLoader without ``persistent_workers``, so
+    every worker is torn down at the end of an epoch and respawned at the
+    start of the next. Measured on hrnet_w18 over 3052 frames, that cost is
+    what makes 48 workers slower than 8 -- 138 s per epoch against 127 s --
+    and it grows with the count, because each respawn forks a process and
+    rebuilds its copy of the dataset state.
+
+    DLC exposes no setting for this: only num_workers and pin_memory reach the
+    DataLoader. Rather than edit the installed package, the module-level name
+    is wrapped for the duration of the call and restored afterwards. Only the
+    training loader is affected, since the validation one is built with the
+    default of no workers and is left alone.
+    """
+    if not enabled:
+        yield False
+        return
+
+    from deeplabcut.pose_estimation_pytorch.apis import training as dlc_training
+
+    original = dlc_training.DataLoader
+
+    def build_loader(*args, **kwargs):
+        if kwargs.get("num_workers", 0) > 0:
+            kwargs.setdefault("persistent_workers", True)
+            # With workers kept alive, a deeper queue costs nothing per epoch
+            # and covers a slow batch without stalling the GPU.
+            kwargs.setdefault("prefetch_factor", 4)
+        return original(*args, **kwargs)
+
+    dlc_training.DataLoader = build_loader
+    try:
+        yield True
+    finally:
+        dlc_training.DataLoader = original
 
 
 @contextmanager
@@ -636,6 +800,18 @@ class DLCBackend(Pose2dBackend):
         train_fraction_percent = float(settings.get("train_fraction_percent", 95))
         if not 1 <= train_fraction_percent <= 99:
             raise ValueError("DLC training percentage must be between 1 and 99")
+        split_file = settings.get("evaluation_split_file")
+        if split_file:
+            # With an explicit split the requested percentage is fiction, and
+            # DLC names the dataset after the fraction it actually got. Unless
+            # the project config carries that same value, training cannot find
+            # the shuffle it just created.
+            held_train, held_test = evaluation_split_indices(
+                self.config_path, split_file
+            )
+            train_fraction_percent = round(
+                100 * len(held_train) / (len(held_train) + len(held_test))
+            )
         train_fraction = train_fraction_percent / 100.0
         requested_shuffle = int(settings.get("training_shuffle", 1))
         if requested_shuffle <= 0:
@@ -661,26 +837,30 @@ class DLCBackend(Pose2dBackend):
                 f"DLC3 training fraction changed from {previous_fractions or 'unset'} "
                 f"to {[train_fraction]}; creating a new training-set shuffle."
             )
-        if network_architecture.startswith("dlcrnet"):
-            with _single_animal_dlcrnet_paf(
-                [keypoint.label for keypoint in self.keypoints], self.skeleton
-            ) as paf_graph:
-                print(f"DLC3 DLCRNet PAF graph: {len(paf_graph)} Cheese3D skeleton edges")
+        with _fixed_evaluation_split(self.config_path, split_file) as split:
+            if split:
+                print(f"DLC3 fixed split from {split_file}: "
+                      f"{len(split[0])} train / {len(split[1])} evaluation frames")
+            if network_architecture.startswith("dlcrnet"):
+                with _single_animal_dlcrnet_paf(
+                    [keypoint.label for keypoint in self.keypoints], self.skeleton
+                ) as paf_graph:
+                    print(f"DLC3 DLCRNet PAF graph: {len(paf_graph)} Cheese3D skeleton edges")
+                    created_splits = dlc.create_training_dataset(
+                        config=self.config_path, userfeedback=False,
+                        net_type=network_architecture, augmenter_type="imgaug",
+                        Shuffles=[requested_shuffle],
+                    )
+            else:
                 created_splits = dlc.create_training_dataset(
-                    config=self.config_path, userfeedback=False,
-                    net_type=network_architecture, augmenter_type="imgaug",
+                    config=self.config_path,
+                    userfeedback=False,
+                    # Formerly this was fixed to resnet_50; the Training tab now
+                    # selects any installed DLC3 model and may create shuffle 2+.
+                    net_type=network_architecture,
+                    augmenter_type="imgaug",
                     Shuffles=[requested_shuffle],
                 )
-        else:
-            created_splits = dlc.create_training_dataset(
-                config=self.config_path,
-                userfeedback=False,
-                # Formerly this was fixed to resnet_50; the Training tab now
-                # selects any installed DLC3 model and may create shuffle 2+.
-                net_type=network_architecture,
-                augmenter_type="imgaug",
-                Shuffles=[requested_shuffle],
-            )
         created_shuffle = _shuffle_from_created_splits(
             created_splits, default=requested_shuffle
         )
@@ -709,6 +889,13 @@ class DLCBackend(Pose2dBackend):
             ),
             "runner.gpus": gpu_ids,
             "runner.eval_interval": settings.get("validate_every_n_epochs", 10),
+            # Augmentation is CPU work done between batches; without workers
+            # it blocks the GPU. Pinning only pays off once the copies can
+            # overlap compute, so the two belong together.
+            "train_settings.dataloader_workers": resolve_dataloader_workers(settings),
+            "train_settings.dataloader_pin_memory": settings.get(
+                "pin_memory", True
+            ),
         }
         print(f"DLC3 training model: {network_architecture}")
         print(f"DLC3 training shuffle: {created_shuffle}")
@@ -717,21 +904,25 @@ class DLCBackend(Pose2dBackend):
             f"{100 - train_fraction_percent:g}% test"
         )
         print(f"DLC3 training settings: {settings}")
-        dlc.train_network(config=self.config_path,
-                          # DLC may create shuffle 2+ when a fraction changes;
-                          # omitting this formerly made train_network look for 1.
-                          shuffle=created_shuffle,
-                          max_snapshots_to_keep=settings.get(
-                              "max_snapshots_to_keep", 5
-                          ),
-                          # Passing None formerly resolved to cuda:0 while
-                          # DataParallel scattered inputs to cuda:1. DLC's own
-                          # runner documentation requires exactly "cuda" here.
-                          device="cuda" if gpu_ids else "cpu",
-                          epochs=settings.get("epochs"),
-                          batch_size=settings.get("batch_size"),
-                          save_epochs=settings.get("save_every_n_epochs"),
-                          pytorch_cfg_updates=augmentation)
+        persistent = bool(settings.get("persistent_workers", True))
+        with _persistent_dataloader_workers(persistent) as patched:
+            if patched:
+                print("DLC3 dataloader workers kept alive between epochs")
+            dlc.train_network(
+                config=self.config_path,
+                # DLC may create shuffle 2+ when a fraction changes;
+                # omitting this formerly made train_network look for 1.
+                shuffle=created_shuffle,
+                max_snapshots_to_keep=settings.get("max_snapshots_to_keep", 5),
+                # Passing None formerly resolved to cuda:0 while DataParallel
+                # scattered inputs to cuda:1. DLC's own runner documentation
+                # requires exactly "cuda" here.
+                device="cuda" if gpu_ids else "cpu",
+                epochs=settings.get("epochs"),
+                batch_size=settings.get("batch_size"),
+                save_epochs=settings.get("save_every_n_epochs"),
+                pytorch_cfg_updates=augmentation,
+            )
         dlc.evaluate_network(config=self.config_path,
                              # Evaluation formerly fell back to shuffle 1 even
                              # when create_training_dataset returned shuffle 3+,

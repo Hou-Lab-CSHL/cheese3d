@@ -38,6 +38,9 @@ class Result:
     overhead_seconds: float = 0.0           # setup + final evaluation
     per_sample_mib: Optional[float] = None  # activation cost of one sample
     fixed_mib: Optional[float] = None       # weights, optimizer, CUDA context
+    total_mib: int = 0                      # summed across every GPU in use
+    gpus_used: int = 0
+    utilization: Optional[int] = None       # mean GPU busy percentage
 
 
 def add_common_arguments(parser: argparse.ArgumentParser) -> None:
@@ -53,6 +56,9 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--project-epochs", type=int, default=300,
                         help="epoch count the report projects run time to "
                              "(default 300)")
+    parser.add_argument("--flag-hours", type=float, default=20.0,
+                        help="mark any model whose projected run exceeds this "
+                             "many hours on one GPU (default 20)")
     parser.add_argument("--target-gb", type=int, default=90,
                         help="card size the report extrapolates batch sizes to "
                              "(default 90, an H100 NVL)")
@@ -238,6 +244,9 @@ def run_models(models: List[str], settings_for: Callable[[str], Dict],
         outcome = classify(log, returncode, args.timeout)
         outcome.model, outcome.seconds = model, elapsed
         outcome.peak_mib = watcher.peak
+        outcome.total_mib = watcher.total_peak
+        outcome.gpus_used = len(watcher.gpus_used)
+        outcome.utilization = watcher.mean_utilization
         outcome.batch_size = batch
         outcome.epoch_seconds = watcher.epoch_seconds
         if outcome.epoch_seconds:
@@ -307,6 +316,32 @@ def _gpu_index_by_uuid() -> Dict[str, str]:
     return mapping
 
 
+def _sample_utilization() -> Dict[str, int]:
+    """Current utilization percentage per GPU index.
+
+    Utilization is a device-level counter -- NVML reports no per-process
+    share -- so this is only meaningful because the harness runs one model at
+    a time. It is read for the cards the run actually holds memory on, and a
+    low figure there means the GPU is waiting on data loading or augmentation
+    rather than computing.
+    """
+    try:
+        out = subprocess.run(
+            ["nvidia-smi", "--query-gpu=index,utilization.gpu",
+             "--format=csv,noheader,nounits"],
+            capture_output=True, text=True, timeout=20, check=True).stdout
+    except (OSError, subprocess.SubprocessError):
+        return {}
+    busy = {}
+    for line in out.strip().splitlines():
+        index, _, percent = line.partition(",")
+        try:
+            busy[index.strip()] = int(percent)
+        except ValueError:
+            continue
+    return busy
+
+
 def _sample_group_memory(pgid: int, by_uuid: Dict[str, str]) -> Dict[str, int]:
     """Return MiB in use per GPU by the processes of one process group.
 
@@ -369,13 +404,24 @@ class _RunWatcher:
         self.peak_per_gpu: Dict[str, int] = {}
         self.epoch_seen: Dict[int, float] = {}   # epoch index -> time first seen
         self.reported_epoch_seconds: Optional[float] = None
+        self.gpus_used: set = set()
+        self._utilization: List[int] = []
 
     def _loop(self) -> None:
         by_uuid = _gpu_index_by_uuid()
         while not self._done.is_set():
-            for index, mib in _sample_group_memory(self._pgid, by_uuid).items():
+            held = _sample_group_memory(self._pgid, by_uuid)
+            for index, mib in held.items():
                 if mib > self.peak_per_gpu.get(index, 0):
                     self.peak_per_gpu[index] = mib
+            if held:
+                self.gpus_used.update(held)
+                busy = _sample_utilization()
+                # Average across the cards in use, so a multi-GPU run reports
+                # one number rather than whichever card was sampled first.
+                share = [busy[i] for i in held if i in busy]
+                if share:
+                    self._utilization.append(sum(share) // len(share))
             self._read_log()
             self._done.wait(self._interval)
         self._read_log()      # catch whatever landed after the final sample
@@ -416,6 +462,18 @@ class _RunWatcher:
     def peak(self) -> int:
         """Highest MiB held on any one GPU -- the number that sets the ceiling."""
         return max(self.peak_per_gpu.values(), default=0)
+
+    @property
+    def total_peak(self) -> int:
+        """MiB held across every GPU at once, for sizing a whole node."""
+        return sum(self.peak_per_gpu.values())
+
+    @property
+    def mean_utilization(self) -> Optional[int]:
+        """Average GPU busy percentage while the run held memory."""
+        if not self._utilization:
+            return None
+        return sum(self._utilization) // len(self._utilization)
 
     @property
     def epoch_seconds(self) -> Optional[float]:
@@ -460,22 +518,38 @@ def report(backend: str, results: List[Result], args) -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
     projection = getattr(args, "project_epochs", 300)
     lines = [f"\n## {backend} ({args.epochs} epoch(s), batch {batch}, GPU {args.gpu})\n",
-             "| model | result | time | peak GPU | s/epoch | "
-             f"est. {projection} epochs | est. batch @ {target} GB | detail |",
-             "|---|---|---:|---:|---:|---:|---:|---|"]
+             "| model | result | time | s/epoch | peak GPU/card | all cards | "
+             f"GPU busy | est. {projection} epochs | max batch @ {target} GB | detail |",
+             "|---|---|---:|---:|---:|---:|---:|---:|---:|---|"]
     total = 0.0
+    limit = getattr(args, "flag_hours", 20.0) * 3600
+    slow = []
     for r in results:
         memory = f"{r.peak_mib / 1024:.1f} GiB" if r.peak_mib else "–"
+        across = (f"{r.total_mib / 1024:.1f} GiB ({r.gpus_used})"
+                  if r.total_mib and r.gpus_used > 1 else "–")
+        busy = f"{r.utilization}%" if r.utilization is not None else "–"
         per_epoch = f"{r.epoch_seconds:.0f}s" if r.epoch_seconds else "–"
         full = _projected_seconds(r, projection)
         total += full or 0.0
-        lines.append(f"| `{r.model}` | {r.status} | {r.seconds:.0f}s | {memory} | "
-                     f"{per_epoch} | {_format_duration(full)} | "
+        marker = ""
+        if full and full > limit:
+            marker = " **⚠**"
+            slow.append((r.model, full))
+        lines.append(f"| `{r.model}` | {r.status} | {r.seconds:.0f}s | {per_epoch} | "
+                     f"{memory} | {across} | {busy} | "
+                     f"{_format_duration(full)}{marker} | "
                      f"{_estimated_batch(r, target)} | {r.detail or '–'} |")
     if total:
         lines.append(f"\n**{backend} total, {projection} epochs, GPU "
                      f"{args.gpu}, run back to back: "
                      f"{_format_duration(total)}**")
+    if slow:
+        hours = getattr(args, "flag_hours", 20.0)
+        lines.append(f"\n### ⚠ Longer than {hours:g} h on one GPU\n")
+        for model, seconds in sorted(slow, key=lambda pair: -pair[1]):
+            lines.append(f"- `{model}` — {_format_duration(seconds)}")
+        lines.append(f"\n{_SLOW_NOTE.format(gpu=_gpu_name(), hours=f'{hours:g}')}")
     lines += ["", _PROJECTION_NOTE.format(epochs=projection),
               "", _EXTRAPOLATION_NOTE.format(target=target)]
     name = getattr(args, "report_name", "") or "SMALL_MODEL_RESULTS.md"
@@ -483,6 +557,31 @@ def report(backend: str, results: List[Result], args) -> int:
     print(f"report: {out_dir / name}")
     return 0 if len(ok) == len(results) else 1
 
+
+def _gpu_name() -> str:
+    """Name of the card these timings were measured on, for the slow-model note."""
+    try:
+        out = subprocess.run(["nvidia-smi", "--query-gpu=name",
+                              "--format=csv,noheader"],
+                             capture_output=True, text=True, timeout=20,
+                             check=True).stdout
+    except (OSError, subprocess.SubprocessError):
+        return "this GPU"
+    first = out.strip().splitlines()
+    return first[0].strip() if first else "this GPU"
+
+
+_SLOW_NOTE = """\
+These were measured on a {gpu}, one model per GPU. Read the flag as "check
+this before committing to a single card", not as a verdict: a newer card is
+materially faster per epoch, so a model over {hours} h here may well come in
+under it elsewhere. What does not change with the hardware is the ranking --
+the models flagged here are the expensive ones wherever they run.
+
+If a flagged model has to fit a single card, the levers are fewer epochs, a
+larger batch if the memory column allows it, or a smaller backbone in the same
+family.\
+"""
 
 _PROJECTION_NOTE = """\
 The {epochs}-epoch estimate is startup plus per-epoch cost times {epochs}, not
@@ -500,8 +599,17 @@ schedules; it does not model early stopping or a changing batch size.\
 """
 
 _EXTRAPOLATION_NOTE = """\
-Peak GPU is the highest memory the run held on a single card, sampled from
-`nvidia-smi` and attributed to the run's own process group.
+Peak GPU/card is the highest memory the run held on a single card, sampled
+from `nvidia-smi` and attributed to the run's own process group; that per-card
+figure is what a batch size has to fit inside. "All cards" sums it across
+every GPU in use, for sizing a whole node, and is shown only for multi-GPU
+runs.
+
+GPU busy is the mean utilization while the run held memory. Utilization is a
+device-level counter with no per-process share, so it is only meaningful
+because one model runs at a time. A low figure alongside a long epoch means
+the card is waiting on data loading or augmentation, not computing -- raising
+the batch size will not help there.
 
 Batch estimates come in two forms, and the prefix says which:
 
