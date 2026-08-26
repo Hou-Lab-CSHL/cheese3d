@@ -9,7 +9,8 @@ from pathlib import Path
 
 def _select_jax_backend(gpu: int, allow_cpu_fallback: bool) -> str:
     """Select one physical CUDA GPU before importing JAX or Aniposelib."""
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu)
+    if os.environ.get("CUDA_VISIBLE_DEVICES") != "":
+        os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu)
     import jax
 
     try:

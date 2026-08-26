@@ -300,6 +300,15 @@ class _MosaicPreviewReader:
             return self._frame(int(key))
         if isinstance(key, slice):
             return np.stack([self._frame(index) for index in range(*key.indices(len(self)))])
+        # Napari also asks for a range of frames with the spatial axes spelled
+        # out -- (slice(0, 1), slice(None), slice(None)) when it samples the
+        # start of the stack for contrast limits and the layer thumbnail.
+        # Without this branch that request raised, and the failure took the
+        # mosaic cache builder's thread pool down with it.
+        if isinstance(key, tuple) and key and isinstance(key[0], slice):
+            frames = np.stack([self._frame(index)
+                               for index in range(*key[0].indices(len(self)))])
+            return frames[(slice(None),) + key[1:]] if len(key) > 1 else frames
         raise TypeError(f"Unsupported mosaic video index: {key!r}")
 
 

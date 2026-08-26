@@ -889,6 +889,14 @@ class DLCBackend(Pose2dBackend):
             ),
             "runner.gpus": gpu_ids,
             "runner.eval_interval": settings.get("validate_every_n_epochs", 10),
+            # Which metric decides the best snapshot. DLC defaults to test.mAP,
+            # which saturates near 99 on this data and then picks the luckiest
+            # evaluation; test.rmse keeps resolving after that, so it is worth
+            # being able to select on it. Ascending is False for an error.
+            "runner.key_metric": settings.get("key_metric", "test.mAP"),
+            "runner.key_metric_asc": settings.get(
+                "key_metric_asc", not str(settings.get("key_metric", "")).endswith("rmse")
+            ),
             # Augmentation is CPU work done between batches; without workers
             # it blocks the GPU. Pinning only pays off once the copies can
             # overlap compute, so the two belong together.
@@ -904,6 +912,16 @@ class DLCBackend(Pose2dBackend):
             f"{100 - train_fraction_percent:g}% test"
         )
         print(f"DLC3 training settings: {settings}")
+        # Continuing a run: DLC restores model weights only -- no optimizer
+        # state, no schedule position, no epoch counter -- so this is a warm
+        # start rather than a seamless continuation, and the requested epoch
+        # count is trained in full from a fresh schedule.
+        resume = settings.get("resume_from")
+        if resume:
+            augmentation["resume_training_from"] = str(resume)
+            print(f"DLC3 resuming from {resume}")
+            print("DLC3 note: optimizer state and LR schedule restart; weights "
+                  "carry over")
         persistent = bool(settings.get("persistent_workers", True))
         with _persistent_dataloader_workers(persistent) as patched:
             if patched:

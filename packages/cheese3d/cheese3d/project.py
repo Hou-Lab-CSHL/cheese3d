@@ -678,7 +678,22 @@ class Ch3DProject:
                 cal_key = RecordingKey(recording.session, recording.name)
                 matches = [k for k in self.calibrations.keys() if cal_key.matches(k)]
                 if len(matches) == 0:
-                    raise RuntimeError(f"No calibration found for {recording} when setting up triangulation")
+                    # A calibration.toml already in place is a complete
+                    # calibration: anipose reads it and never looks at the
+                    # videos it came from. Datasets that ship one -- a rig
+                    # calibrated once and reused, or recordings received
+                    # without their calibration footage -- are otherwise
+                    # untriangulatable here despite having everything needed.
+                    if (calibration_path / "calibration.toml").is_file():
+                        rprint(f"[yellow]Using the calibration.toml already in "
+                               f"{calibration_path} for {recording.name}; no "
+                               f"calibration videos were found.[/yellow]")
+                    else:
+                        raise RuntimeError(
+                            f"No calibration found for {recording} when setting up "
+                            f"triangulation. Provide calibration videos, or place a "
+                            f"pre-computed calibration.toml in {calibration_path}."
+                        )
                 for match in matches:
                     for video in self.calibrations[match].values():
                         src = Path(video).resolve()
